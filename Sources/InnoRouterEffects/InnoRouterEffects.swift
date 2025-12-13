@@ -1,5 +1,5 @@
-// MARK: - InnoRouterInnoFlowAdapter.swift
-// InnoRouterInnoFlowAdapter - Effect Integration
+// MARK: - InnoRouterEffects.swift
+// InnoRouterEffects - Effect Integration
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 @_exported import InnoRouterCore
@@ -7,7 +7,7 @@
 
 // MARK: - Module Overview
 //
-// InnoRouterInnoFlowAdapter provides integration points between InnoRouterCore and effect-driven architectures.
+// InnoRouterEffects provides integration points between InnoRouterCore and effect-driven architectures.
 //
 // ## Key Types
 // - `NavigationEffectHandler`: Execute NavCommand as Effects
@@ -15,7 +15,7 @@
 // - `NavigationEffect`: Protocol for Effects containing NavCommand
 // - `DeepLinkEffect`: Protocol for Effects containing deep links
 //
-// ## Usage with InnoFlow
+// ## Usage with InnoFlow (example)
 //
 // ```swift
 // @InnoFlow
@@ -53,11 +53,11 @@
 // }
 // ```
 //
-// ## Comparison: Standalone vs InnoFlow
+// ## Comparison: Standalone vs Effect-driven
 //
-// | Feature | InnoRouter (Standalone) | InnoRouterInnoFlow |
+// | Feature | InnoRouter (Standalone) | InnoRouterEffects |
 // |---------|-------------------------|-------------------|
-// | Import | `import InnoRouter` | `import InnoRouterInnoFlow` |
+// | Import | `import InnoRouter` | `import InnoRouterEffects` |
 // | Navigation | `router.push()` | `store.send(.navigate(.push()))` |
 // | State | Direct Router | InnoFlow State |
 // | DeepLink | DeepLinkHandler | DeepLinkEffectHandler |

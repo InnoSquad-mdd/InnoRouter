@@ -1,5 +1,5 @@
 // MARK: - DeepLinkEffectHandler.swift
-// InnoRouterInnoFlow - DeepLink Effect Handler
+// InnoRouterEffects - DeepLink Effect Handler
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 import Foundation

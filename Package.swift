@@ -38,8 +38,8 @@ let package = Package(
         
         // MARK: - InnoFlow Adapter
         .library(
-            name: "InnoRouterInnoFlowAdapter",
-            targets: ["InnoRouterInnoFlowAdapter"]
+            name: "InnoRouterEffects",
+            targets: ["InnoRouterEffects"]
         ),
         
         // MARK: - Macros
@@ -81,18 +81,18 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         
-        // MARK: - InnoFlow Adapter Target
+        // MARK: - Effects Target
         .target(
-            name: "InnoRouterInnoFlowAdapter",
+            name: "InnoRouterEffects",
             dependencies: [
                 "InnoRouterCore",
                 "InnoRouterDeepLink",
                 // .product(name: "InnoFlow", package: "InnoFlow")
             ],
-            path: "Sources/InnoRouterInnoFlowAdapter",
+            path: "Sources/InnoRouterEffects",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
-        
+
         // MARK: - Macro Declarations (Public API)
         .target(
             name: "InnoRouterMacros",

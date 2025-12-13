@@ -7,7 +7,7 @@ This project is a Swift Package with modular products:
 - `InnoRouterDeepLink`: deep link parsing/matching/pipeline
 - `InnoRouter`: umbrella re-export (Core + SwiftUI + DeepLink)
 - `InnoRouterMacros`: optional macros (`@Routable`, `@CasePathable`)
-- `InnoRouterInnoFlowAdapter`: optional effect adapter
+- `InnoRouterEffects`: optional effect helpers
 
 ## Checklist
 

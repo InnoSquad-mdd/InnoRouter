@@ -1,5 +1,5 @@
 // MARK: - NavigationEffectHandler.swift
-// InnoRouterInnoFlow - Navigation Effect Handler
+// InnoRouterEffects - Navigation Effect Handler
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 import Foundation
