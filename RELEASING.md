@@ -38,4 +38,3 @@ This project is a Swift Package with modular products:
 ### Tag & Publish
 - Create a git tag `vX.Y.Z`.
 - Publish release notes (GitHub Releases or equivalent).
-

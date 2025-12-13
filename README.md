@@ -27,7 +27,8 @@ dependencies: [
 - `InnoRouterSwiftUI`: SwiftUI integration (`NavStore`, hosts, `@UseNavigator`)
 - `InnoRouterDeepLink`: parsing/matching/pipeline (`DeepLinkMatcher`, `DeepLinkPipeline`)
 - `InnoRouterMacros` (optional): `@Routable`, `@CasePathable`
-- `InnoRouterInnoFlowAdapter` (optional): effect-style adapters
+- `InnoRouterEffects` (optional): effect-style helpers (works with any architecture)
+- InnoFlow state-driven integration (separate package): `InnoRouterFlowBridge` — https://github.com/InnoSquad-mdd/InnoRouterFlowBridge
 
 ## Quick Start (SwiftUI)
 
@@ -238,4 +239,3 @@ See `Examples/StandaloneExample.swift`, `Examples/CoordinatorExample.swift`, `Ex
 
 - Run tests: `swift test`
 - Release checklist: `RELEASING.md`
-
