@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 import CompilerPluginSupport
@@ -50,10 +50,7 @@ let package = Package(
     ],
     dependencies: [
         // Swift Syntax for Macros
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0"),
-        
-        // InnoFlow (uncomment when available)
-        // .package(url: "https://github.com/aspect-build/InnoFlow.git", from: "1.0.0")
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0"),
     ],
     targets: [
         // MARK: - Core Runtime Target

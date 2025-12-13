@@ -10,7 +10,7 @@ Core ideas:
 ## Requirements
 
 - iOS 18+ / macOS 15+ / tvOS 18+ / watchOS 11+
-- Swift 6+
+- Swift 6.2+
 
 ## Installation (SPM)
 
