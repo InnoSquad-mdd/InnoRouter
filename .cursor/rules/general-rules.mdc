@@ -1,0 +1,37 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# InnoRouter Framework Development Assistant
+
+Before proceeding with any development work, always read these rule files to understand the project context and guidelines:
+
+- `developer-guidelines.mdc` - Developer default guidelines (language policy, root cause approach, quality standards)
+- `innoflow-framework.mdc` - InnoRouter framework architecture and patterns
+- `swift-package.mdc` - Swift package development guidelines
+- `swift-concurrency.mdc` - Swift 6 strict concurrency guidelines
+- `swift-testing.mdc` - Swift Testing framework patterns
+
+Use the relevant rule files based on the development task at hand to ensure consistency with project standards.
+
+## Project Overview
+
+InnoRouter is a SwiftUI-native navigation framework built around **state**, **unidirectional execution**, and **dependency inversion**. Navigation is expressed as data (`NavStack`, `NavCommand`) and rendered by SwiftUI. Features/Coordinators depend on `Navigator` (interface), not a concrete router/store. Deep links are handled as **plans** (`DeepLinkPipeline → DeepLinkDecision → NavPlan`) instead of ad-hoc `if/switch` chains.
+
+## Core Concepts
+
+- **State-driven navigation**: Navigation state is represented as `NavStack<Route>` containing a path of routes
+- **Command-based execution**: Navigation actions are expressed as `NavCommand` (push, pop, replace, etc.)
+- **Middleware support**: Cross-cutting concerns (auth guard, logging, analytics) via `NavMiddleware`
+- **Coordinator pattern**: Centralized navigation policy with `Coordinator` protocol
+- **Deep link pipeline**: Structured deep link handling with `DeepLinkPipeline` and `DeepLinkMatcher`
+- **Dependency inversion**: Features depend on `Navigator` protocol, not concrete implementations
+
+## Development Commands
+
+- `swift build` - Build the package
+- `swift test` - Run all tests
+- `swift test --enable-code-coverage --parallel` - Run tests with code coverage
+- `swift test --filter InnoRouterTests.NavStoreTests.testPush` - Run a single test
