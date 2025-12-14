@@ -1,0 +1,281 @@
+---
+description: "InnoRouter 프레임워크의 아키텍처, 네비게이션 흐름, 매크로 확장, Coordinator 패턴, DeepLink 처리에 대한 종합 가이드. 프레임워크 코드 작업, 새로운 기능 추가, 또는 아키텍처 이해가 필요할 때 적용."
+globs: ["Sources/**/*.swift"]
+alwaysApply: false
+---
+
+# InnoRouter Framework Architecture
+
+## 프로젝트 개요
+
+InnoRouter는 SwiftUI 네이티브 네비게이션 프레임워크로, **상태 기반**, **단방향 실행**, **의존성 역전** 원칙을 중심으로 설계되었습니다. 네비게이션은 데이터(`NavStack`, `NavCommand`)로 표현되고 SwiftUI에 의해 렌더링됩니다. Feature/Coordinator는 구체적인 router/store가 아닌 `Navigator` (인터페이스)에 의존합니다.
+
+## 모듈 구조
+
+```
+InnoRouter/
+├── Sources/
+│   ├── InnoRouterCore/        # 핵심 런타임
+│   │   ├── Route.swift        # Route 프로토콜
+│   │   ├── NavStack.swift     # 네비게이션 상태
+│   │   ├── NavCommand.swift   # 네비게이션 명령
+│   │   ├── NavEngine.swift    # 명령 실행 엔진
+│   │   ├── NavResult.swift    # 실행 결과
+│   │   ├── Navigator.swift    # Navigator 프로토콜
+│   │   ├── AnyNavigator.swift # 타입 지우기 래퍼
+│   │   └── NavMiddleware.swift # 미들웨어
+│   ├── InnoRouterSwiftUI/     # SwiftUI 통합
+│   │   ├── NavStore.swift     # @Observable 네비게이션 스토어
+│   │   ├── NavigationHost.swift # NavigationStack 통합
+│   │   ├── Coordinator.swift  # Coordinator 프로토콜
+│   │   ├── FlowCoordinator.swift # 다단계 플로우
+│   │   ├── TabCoordinator.swift # 탭 네비게이션
+│   │   └── NavigatorEnvironment.swift # Environment 통합
+│   ├── InnoRouterDeepLink/    # 딥링크 처리
+│   │   ├── DeepLink.swift     # URL 파싱 및 매칭
+│   │   └── DeepLinkPipeline.swift # 딥링크 파이프라인
+│   ├── InnoRouterMacros/      # 매크로 선언
+│   │   ├── Macros.swift       # @Routable, @CasePathable
+│   │   └── CasePath.swift     # CasePath 타입
+│   ├── InnoRouterMacrosPlugin/ # 매크로 구현
+│   │   ├── RoutableMacro.swift
+│   │   └── CasePathableMacro.swift
+│   ├── InnoRouterEffects/     # Effect 스타일 헬퍼 (선택)
+│   └── InnoRouterUmbrella/    # 통합 모듈
+└── Tests/
+    ├── InnoRouterTests/       # 핵심 프레임워크 테스트
+    └── InnoRouterMacrosTests/ # 매크로 테스트
+```
+
+## 네비게이션 흐름
+
+1. **Route 정의**: `Route` 프로토콜을 준수하는 enum 정의
+2. **NavStore 생성**: `NavStore<Route>`로 네비게이션 상태 관리
+3. **Command 실행**: `store.execute(.push(route))` 등으로 네비게이션 명령 실행
+4. **Middleware 처리**: 각 명령은 등록된 middleware를 거쳐 실행
+5. **State 업데이트**: `NavEngine`이 명령을 상태에 적용
+6. **View 갱신**: `@Observable`을 통해 SwiftUI 뷰 자동 갱신
+
+## 핵심 타입
+
+### Route
+```swift
+public protocol Route: Hashable, Sendable {}
+```
+- 네비게이션 대상을 나타내는 타입
+- `Hashable`과 `Sendable` 준수 필수
+- 일반적으로 enum으로 구현
+
+### NavStack
+```swift
+public struct NavStack<R: Route>: Sendable, Equatable {
+    public var path: [R]
+}
+```
+- 현재 네비게이션 경로를 나타내는 상태
+- `path`는 스택 형태의 route 배열
+
+### NavCommand
+```swift
+public indirect enum NavCommand<R: Route>: Sendable, Equatable {
+    case push(R)
+    case pushAll([R])
+    case pop
+    case popCount(Int)
+    case popToRoot
+    case popTo(R)
+    case replace([R])
+    case conditional(@Sendable () -> Bool, NavCommand<R>)
+    case sequence([NavCommand<R>])
+}
+```
+- 네비게이션 액션을 표현하는 명령 타입
+- `conditional`과 `sequence`로 복잡한 흐름 구성 가능
+
+### NavStore
+```swift
+@Observable
+@MainActor
+public final class NavStore<R: Route>: Navigator {
+    public var state: NavStack<R>
+    public func execute(_ command: NavCommand<R>) -> NavResult<R>
+}
+```
+- 네비게이션 상태를 관리하는 `@Observable` 클래스
+- `@MainActor`로 격리되어 UI 업데이트 보장
+- Middleware 지원
+
+## Coordinator 패턴
+
+### 기본 Coordinator
+```swift
+@MainActor
+public protocol Coordinator: AnyObject, Observable {
+    associatedtype RouteType: Route
+    associatedtype Destination: View
+    
+    var store: NavStore<RouteType> { get }
+    func handle(_ intent: NavIntent<RouteType>)
+    @ViewBuilder
+    func destination(for route: RouteType) -> Destination
+}
+```
+
+### Coordinator 사용 예시
+```swift
+@Observable
+@MainActor
+final class HomeCoordinator: Coordinator {
+    typealias RouteType = HomeRoute
+    typealias Destination = AnyView
+    
+    let store = NavStore<HomeRoute>()
+    
+    func handle(_ intent: NavIntent<HomeRoute>) {
+        switch intent {
+        case .go(let route):
+            _ = store.execute(.push(route))
+        case .back:
+            _ = store.execute(.pop)
+        case .resetTo(let routes):
+            _ = store.execute(.replace(routes))
+        case .deepLink(let url):
+            // Deep link 처리
+            break
+        }
+    }
+    
+    @ViewBuilder
+    func destination(for route: HomeRoute) -> AnyView {
+        switch route {
+        case .detail(let id):
+            AnyView(DetailView(id: id))
+        default:
+            AnyView(EmptyView())
+        }
+    }
+}
+```
+
+## Deep Link 처리
+
+### DeepLinkMatcher
+```swift
+let matcher = DeepLinkMatcher<HomeRoute> {
+    DeepLinkMapping("/home") { _ in .list }
+    DeepLinkMapping("/product/:id") { params in
+        params["id"].map { .detail(id: $0) }
+    }
+}
+```
+
+### DeepLinkPipeline
+```swift
+let pipeline = DeepLinkPipeline<HomeRoute>(
+    allowedSchemes: ["myapp", "https"],
+    allowedHosts: ["myapp.com"],
+    resolve: { matcher.match($0) },
+    requiresAuthentication: { route in
+        if case .settings = route { return true }
+        return false
+    },
+    isAuthenticated: { authManager.isLoggedIn },
+    plan: { route in NavPlan(commands: [.push(route)]) }
+)
+```
+
+### DeepLinkDecision
+```swift
+public enum DeepLinkDecision<R: Route>: Sendable, Equatable {
+    case rejected      // 스킴/호스트 불일치
+    case unhandled     // 매칭되는 route 없음
+    case pending(PendingNav<R>)  // 인증 필요
+    case plan(NavPlan<R>)        // 실행 가능한 계획
+}
+```
+
+## Middleware
+
+### Middleware 구현
+```swift
+store.addMiddleware(
+    AnyNavMiddleware(
+        willExecute: { command, state in
+            // 예: 중복 연속 push 방지
+            if case .push(let next) = command, state.path.last == next {
+                return nil  // 취소
+            }
+            return command
+        },
+        didExecute: { command, result, state in
+            // 실행 후 로깅, 분석 등
+            analytics.logNavigation(command, result: result)
+        }
+    )
+)
+```
+
+**중요**: Middleware는 `sequence`의 각 단계마다 실행됩니다.
+
+## 매크로 확장
+
+### @Routable
+```swift
+@Routable
+enum HomeRoute {
+    case list
+    case detail(id: String)
+    case settings
+}
+```
+
+생성되는 것:
+- `Cases` enum: 각 case에 대한 `CasePath`
+- `is(_:)` 메서드: case 체크
+- `subscript[case:]`: associated value 추출
+- `Route` conformance 자동 추가
+
+### @CasePathable
+```swift
+@CasePathable
+enum Destination {
+    case home
+    case profile(userId: String)
+}
+```
+
+`@Routable`의 경량 버전. Route 프로토콜 없이 일반 enum에도 사용 가능.
+
+## Navigator Environment
+
+### @UseNavigator
+```swift
+struct HomeView: View {
+    @UseNavigator(HomeRoute.self) private var navigator
+    
+    var body: some View {
+        Button("Detail") {
+            navigator?.push(.detail(id: "123"))
+        }
+    }
+}
+```
+
+`NavigationHost` 또는 `CoordinatorHost`가 자동으로 environment에 주입합니다.
+
+## 네이밍 규칙
+
+- **Route**: 명확한 목적지 이름 (예: `HomeRoute`, `ProductRoute`)
+- **Coordinator**: `*Coordinator` 접미사 (예: `HomeCoordinator`)
+- **NavStore**: Coordinator 내부에서 `store`로 명명
+- **DeepLink**: `DeepLinkMatcher`, `DeepLinkPipeline` 사용
+
+## 플랫폼 요구사항
+
+- iOS 18.0+ / macOS 15.0+ / tvOS 18.0+ / watchOS 11.0+
+- Swift 6.2+
+- Xcode 16.0+
+
+## 의존성
+
+- `swift-syntax` 602.0.0+ (매크로 구현용)
