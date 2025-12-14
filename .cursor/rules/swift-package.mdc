@@ -1,0 +1,157 @@
+---
+description: "Swift Package Manager 개발 가이드라인, 모듈 구조, 빌드 설정, 의존성 관리. Package.swift 수정, 새 타겟 추가, 또는 패키지 구조 작업 시 적용."
+globs: ["Package.swift", "Sources/**/*.swift"]
+alwaysApply: false
+---
+
+# Swift Package Development Guidelines
+
+## 패키지 구조
+
+InnoRouter는 Swift Package Manager를 사용하는 멀티 타겟 패키지입니다:
+
+- **InnoRouter** (umbrella): `InnoRouterCore` + `InnoRouterSwiftUI` + `InnoRouterDeepLink` 재내보내기
+- **InnoRouterCore**: 핵심 런타임 (`NavStack`, `NavCommand`, `NavEngine`, `Navigator`, `NavMiddleware`)
+- **InnoRouterSwiftUI**: SwiftUI 통합 (`NavStore`, `NavigationHost`, `Coordinator`, `@UseNavigator`)
+- **InnoRouterDeepLink**: 딥링크 처리 (`DeepLinkMatcher`, `DeepLinkPipeline`)
+- **InnoRouterMacros** (optional): 매크로 선언 (`@Routable`, `@CasePathable`)
+- **InnoRouterMacrosPlugin**: 매크로 구현 (swift-syntax 사용)
+- **InnoRouterEffects** (optional): Effect 스타일 헬퍼 (어떤 아키텍처와도 작동)
+
+## 타겟 구조
+
+### Core Runtime (InnoRouterCore)
+- `Sources/InnoRouterCore/`에 위치
+- 의존성 없음 (순수 Swift)
+- 공개 API: `Route`, `NavStack`, `NavCommand`, `NavEngine`, `NavResult`, `Navigator`, `AnyNavigator`, `NavMiddleware`
+
+### SwiftUI Integration (InnoRouterSwiftUI)
+- `Sources/InnoRouterSwiftUI/`에 위치
+- `InnoRouterCore`에 의존
+- 공개 API: `NavStore`, `NavigationHost`, `Coordinator`, `FlowCoordinator`, `TabCoordinator`, `@UseNavigator`
+
+### DeepLink (InnoRouterDeepLink)
+- `Sources/InnoRouterDeepLink/`에 위치
+- `InnoRouterCore`에 의존
+- 공개 API: `DeepLinkParser`, `DeepLinkPattern`, `DeepLinkMatcher`, `DeepLinkPipeline`, `DeepLinkDecision`
+
+### Macro Declarations (InnoRouterMacros)
+- `Sources/InnoRouterMacros/`에 위치
+- `InnoRouterCore`, `InnoRouterMacrosPlugin`에 의존
+- 공개 API: `@Routable`, `@CasePathable` 매크로, `CasePath` 타입
+
+### Macro Implementation (InnoRouterMacrosPlugin)
+- `Sources/InnoRouterMacrosPlugin/`에 위치
+- `swift-syntax` 패키지에 의존
+- `.macro` 타겟으로 컴파일러 플러그인
+- `RoutableMacro`, `CasePathableMacro` 구현
+
+### Effects (InnoRouterEffects)
+- `Sources/InnoRouterEffects/`에 위치
+- `InnoRouterCore`, `InnoRouterDeepLink`에 의존
+- Effect 스타일 헬퍼 (선택적 모듈)
+
+### Umbrella (InnoRouter)
+- `Sources/InnoRouterUmbrella/`에 위치
+- `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`에 의존
+- 모든 모듈을 재내보내는 통합 모듈
+
+## 빌드 및 테스트
+
+### 빌드
+```bash
+swift build
+```
+
+### 테스트
+```bash
+# 모든 테스트 실행
+swift test
+
+# 코드 커버리지와 함께 테스트 실행
+swift test --enable-code-coverage --parallel
+
+# 특정 테스트 실행
+swift test --filter InnoRouterTests.NavStoreTests.testPush
+```
+
+### 문서 생성
+```bash
+swift package generate-documentation --target InnoRouter
+```
+
+## 코딩 스타일
+
+- Swift API Design Guidelines 준수
+- 4칸 들여쓰기 사용
+- 공개 API는 `///`로 문서화
+- 값 타입 선호, 명시적 타입 사용
+- Coordinator와 Route는 작고 집중적으로 유지
+
+## 모듈 간 의존성
+
+```
+InnoRouterCore (의존성 없음)
+    ↑
+    ├── InnoRouterSwiftUI
+    ├── InnoRouterDeepLink
+    └── InnoRouterMacrosPlugin
+         ↑
+         └── InnoRouterMacros
+              ↑
+              └── InnoRouter (umbrella)
+```
+
+- `InnoRouterSwiftUI` → `InnoRouterCore`
+- `InnoRouterDeepLink` → `InnoRouterCore`
+- `InnoRouterMacros` → `InnoRouterCore`, `InnoRouterMacrosPlugin`
+- `InnoRouterEffects` → `InnoRouterCore`, `InnoRouterDeepLink`
+- `InnoRouter` (umbrella) → `InnoRouterCore`, `InnoRouterSwiftUI`, `InnoRouterDeepLink`
+- 테스트 타겟은 해당 타겟에 의존
+
+## 공개 API 설계
+
+- 최소한의 공개 API 노출
+- 내부 구현 세부사항은 `internal` 또는 `private` 유지
+- 매크로는 공개 API의 일부이지만 구현은 내부에 유지
+- `Navigator` 프로토콜을 통한 의존성 역전
+
+## Swift 6 설정
+
+모든 타겟은 Swift 6.2 엄격한 동시성 모드를 사용합니다:
+
+```swift
+swiftSettings: [.swiftLanguageMode(.v6)]
+```
+
+## 버전 관리
+
+- Semantic Versioning 준수
+- Breaking changes는 Major 버전 증가
+- 새로운 기능은 Minor 버전 증가
+- 버그 수정은 Patch 버전 증가
+
+## 플랫폼 지원
+
+패키지는 다음 플랫폼을 지원합니다:
+- iOS 18.0+
+- macOS 15.0+
+- tvOS 18.0+
+- watchOS 11.0+
+
+## 의존성 관리
+
+- `swift-syntax` 602.0.0+ (매크로 구현용)
+- 최소 버전 요구사항 명시
+- 가능한 한 최신 버전 사용
+- 보안 업데이트 정기적으로 확인
+
+## Products
+
+패키지는 다음 products를 제공합니다:
+- `InnoRouter` (권장): 모든 모듈 통합
+- `InnoRouterCore`: 핵심 런타임만
+- `InnoRouterSwiftUI`: SwiftUI 통합
+- `InnoRouterDeepLink`: 딥링크 처리
+- `InnoRouterMacros`: 매크로 (선택)
+- `InnoRouterEffects`: Effect 헬퍼 (선택)
