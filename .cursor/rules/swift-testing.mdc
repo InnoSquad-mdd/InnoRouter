@@ -1,0 +1,403 @@
+---
+description: "Swift Testing 패턴, @Test 매크로, #expect/#require 어설션, 비동기 테스트, 매개변수화된 테스트. 테스트 작성 또는 수정, 테스트 스위트 설정 시 적용."
+globs: ["Tests/**/*.swift", "**/*Tests.swift", "**/*Test.swift"]
+alwaysApply: false
+---
+
+# Swift Testing Guidelines for InnoRouter
+
+## Modern Testing with @Test Macros
+
+모든 테스트는 **Swift Testing** 프레임워크를 사용합니다 (XCTest 아님). 테스트는 `Tests/` 디렉토리에 위치합니다.
+
+### Basic Test Structure
+
+```swift
+import Testing
+import InnoRouter
+
+@Test("Push adds route to path")
+@MainActor
+func testPush() {
+    let store = NavStore<TestRoute>()
+    
+    _ = store.execute(.push(.home))
+    #expect(store.state.path.count == 1)
+    #expect(store.state.path.last == .home)
+}
+```
+
+## NavStore 테스트
+
+### 기본 사용법
+
+```swift
+@Suite("NavStore Tests")
+struct NavStoreTests {
+    
+    @Test("Push adds route to path")
+    @MainActor
+    func testPush() {
+        let store = NavStore<TestRoute>()
+        
+        _ = store.execute(.push(.home))
+        #expect(store.state.path.count == 1)
+        #expect(store.state.path.last == .home)
+    }
+    
+    @Test("Pop removes last route")
+    @MainActor
+    func testPop() {
+        let store = NavStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
+        
+        let result = store.execute(.pop)
+        #expect(result == .success)
+        #expect(store.state.path.count == 1)
+        #expect(store.state.path.last == .home)
+    }
+}
+```
+
+### NavResult 검증
+
+```swift
+@Test("Pop returns nil when empty")
+@MainActor
+func testPopEmpty() {
+    let store = NavStore<TestRoute>()
+    
+    let result = store.execute(.pop)
+    #expect(result == .stackEmpty)
+    #expect(store.state.path.isEmpty)
+}
+```
+
+### onChange 콜백 테스트
+
+```swift
+@Test("onChange callback is called")
+@MainActor
+func testOnChange() {
+    var changeCount = 0
+    let store = NavStore<TestRoute>(onChange: { _, _ in
+        changeCount += 1
+    })
+    
+    _ = store.execute(.push(.home))
+    _ = store.execute(.push(.detail(id: "123")))
+    _ = store.execute(.pop)
+    
+    #expect(changeCount == 3)
+}
+```
+
+## NavCommand 테스트
+
+### Sequence 테스트
+
+```swift
+@Test("Execute sequence of commands")
+@MainActor
+func testExecuteSequence() {
+    let store = NavStore<TestRoute>()
+    
+    let result = store.execute(.sequence([
+        .push(.home),
+        .push(.detail(id: "123")),
+        .push(.settings)
+    ]))
+    
+    if case .multiple(let results) = result {
+        #expect(results.count == 3)
+        #expect(results.allSatisfy { $0 == .success })
+    } else {
+        Issue.record("Expected multiple result")
+    }
+    
+    #expect(store.state.path.count == 3)
+}
+```
+
+### Conditional 테스트
+
+```swift
+@Test("Execute conditional when true")
+@MainActor
+func testExecuteConditionalTrue() {
+    let store = NavStore<TestRoute>()
+    
+    let result = store.execute(.conditional({ true }, .push(.home)))
+    
+    #expect(result == .success)
+    #expect(store.state.path.last == .home)
+}
+
+@Test("Execute conditional when false")
+@MainActor
+func testExecuteConditionalFalse() {
+    let store = NavStore<TestRoute>()
+    
+    let result = store.execute(.conditional({ false }, .push(.home)))
+    
+    #expect(result == .conditionNotMet)
+    #expect(store.state.path.isEmpty)
+}
+```
+
+## Middleware 테스트
+
+```swift
+@Test("Middleware runs per-step for sequence")
+@MainActor
+func testSequenceRunsMiddlewarePerStep() {
+    let store = NavStore<TestRoute>()
+    var willCount = 0
+    var didCount = 0
+
+    store.addMiddleware(
+        AnyNavMiddleware(
+            willExecute: { command, _ in
+                willCount += 1
+                return command
+            },
+            didExecute: { _, _, _ in
+                didCount += 1
+            }
+        )
+    )
+
+    _ = store.execute(.sequence([.push(.home), .push(.settings)]))
+
+    #expect(willCount == 2)
+    #expect(didCount == 2)
+    #expect(store.state.path == [.home, .settings])
+}
+```
+
+## DeepLink 테스트
+
+### DeepLinkParser 테스트
+
+```swift
+@Test("DeepLinkParser parses URL correctly")
+func testParser() {
+    let parsed = DeepLinkParser.parse("myapp://example.com/products/123?category=electronics")!
+    
+    #expect(parsed.scheme == "myapp")
+    #expect(parsed.host == "example.com")
+    #expect(parsed.path == ["products", "123"])
+    #expect(parsed.queryItems["category"] == "electronics")
+}
+```
+
+### DeepLinkPattern 테스트
+
+```swift
+@Test("DeepLinkPattern matches parameter")
+func testPatternParameter() {
+    let pattern = DeepLinkPattern("/products/:id")
+    
+    let result = pattern.match("/products/123")
+    #expect(result != nil)
+    #expect(result?.params["id"] == "123")
+}
+```
+
+### DeepLinkMatcher 테스트
+
+```swift
+@Test("DeepLinkMatcher finds matching route")
+func testMatcher() {
+    let matcher = DeepLinkMatcher<TestRoute> {
+        DeepLinkMapping("/home") { _ in .home }
+        DeepLinkMapping("/detail/:id") { params in
+            guard let id = params["id"] else { return nil }
+            return .detail(id: id)
+        }
+    }
+    
+    let url1 = URL(string: "myapp://app/home")!
+    #expect(matcher.match(url1) == .home)
+    
+    let url2 = URL(string: "myapp://app/detail/456")!
+    #expect(matcher.match(url2) == .detail(id: "456"))
+}
+```
+
+## Coordinator 테스트
+
+```swift
+@Observable
+@MainActor
+final class TestCoordinator: Coordinator {
+    typealias RouteType = TestRoute
+    typealias Destination = EmptyView
+    
+    let store = NavStore<TestRoute>()
+    var handleCount = 0
+    
+    func handle(_ intent: NavIntent<TestRoute>) {
+        handleCount += 1
+        switch intent {
+        case .go(let route):
+            _ = store.execute(.push(route))
+        default:
+            break
+        }
+    }
+    
+    @ViewBuilder
+    func destination(for route: TestRoute) -> EmptyView {
+        EmptyView()
+    }
+}
+
+@Test("Coordinator navigates via handle")
+@MainActor
+func testNavigate() {
+    let coordinator = TestCoordinator()
+    
+    coordinator.navigate(to: .home)
+    coordinator.navigate(to: .detail(id: "123"))
+    
+    #expect(coordinator.handleCount == 2)
+    #expect(coordinator.store.state.path.count == 2)
+}
+```
+
+## DeepLink Coordinator 테스트
+
+```swift
+@Observable
+@MainActor
+final class DeepLinkCoordinator: DeepLinkCoordinating {
+    typealias RouteType = TestRoute
+    typealias Destination = EmptyView
+
+    let store = NavStore<TestRoute>()
+    var pendingDeepLink: PendingNav<TestRoute>?
+    let deepLinkPipeline: DeepLinkPipeline<TestRoute>
+
+    init(deepLinkPipeline: DeepLinkPipeline<TestRoute>) {
+        self.deepLinkPipeline = deepLinkPipeline
+    }
+
+    @ViewBuilder
+    func destination(for route: TestRoute) -> EmptyView {
+        EmptyView()
+    }
+}
+
+@Test("DeepLink plan executes into store")
+@MainActor
+func testDeepLinkPlanExecutes() {
+    let pipeline = DeepLinkPipeline<TestRoute>(
+        resolve: { _ in .settings }
+    )
+    let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
+
+    coordinator.handle(.deepLink(URL(string: "myapp://myapp.com/anything")!))
+
+    #expect(coordinator.store.state.path.last == .settings)
+    #expect(coordinator.pendingDeepLink == nil)
+}
+```
+
+## 필수 패턴
+
+1. **@Test 매크로 사용** - XCTest의 test prefix 대신
+2. **#expect 및 #require 사용** - XCTAssert 대신
+3. **@MainActor** - NavStore와 Coordinator 테스트는 `@MainActor` 필요
+4. **설명적인 테스트 이름** - 문자열 매개변수로 포함
+5. **#require 사용** - 실패 시 테스트 중단이 필요한 경우
+
+### 주요 Swift Testing 기능
+
+- **@Test**: 테스트 함수 표시 (XCTest의 test prefix 대체)
+- **@Suite**: 관련 테스트 그룹화
+- **#expect**: 조건 검증 (XCTest의 XCTAssert 대체)
+- **#require**: #expect와 유사하지만 실패 시 테스트 실행 중단
+- **매개변수화된 테스트**: 데이터 기반 테스트를 위한 @Test와 arguments
+- **async/await**: 비동기 코드 테스트 완전 지원
+- **Traits**: `.bug()`, `.feature()` 또는 사용자 정의 태그와 같은 메타데이터 추가
+
+## 테스트 구성
+
+### Test Suites
+
+```swift
+@Suite("NavStore Tests")
+struct NavStoreTests {
+    @Test("Push adds route to path")
+    @MainActor
+    func testPush() {
+        // ...
+    }
+    
+    @Test("Pop removes last route")
+    @MainActor
+    func testPop() {
+        // ...
+    }
+}
+```
+
+## 모범 사례
+
+### 테스트 구성
+- **소스 파일당 하나의 테스트 파일** (가능한 경우)
+- **Happy path와 edge case 모두 테스트**
+- **검증하는 내용을 설명하는 설명적인 테스트 이름** 사용
+- **테스트 분류를 위한 @Tag 추가** (예: `.unit`, `.integration`)
+- **@MainActor 사용** - NavStore와 Coordinator 테스트는 필수
+
+### 테스트 품질
+- **단위 테스트를 위해 외부 의존성 모킹**
+- **`#expect(throws:)`로 에러 조건 테스트**
+- **중요한 전제 조건에 #require 사용**
+- **테스트를 단일 동작에 집중**
+- **버그 수정에 대한 테스트 추가**하여 회귀 방지
+- **NavResult 검증** - 모든 명령 실행 결과 검증
+
+## 매크로 테스트
+
+매크로 확장을 테스트하려면 `SwiftSyntaxMacrosTestSupport`를 사용합니다:
+
+```swift
+import SwiftSyntaxMacros
+import SwiftSyntaxMacrosTestSupport
+
+@Test("Routable macro expands correctly")
+func routableMacroExpansion() {
+    assertMacroExpansion(
+        """
+        @Routable
+        enum HomeRoute {
+            case list
+            case detail(id: String)
+        }
+        """,
+        expandedSource: """
+        // 확장된 코드...
+        """,
+        macros: testMacros
+    )
+}
+```
+
+## 테스트 실행
+
+테스트는 다음 명령으로 실행할 수 있습니다:
+
+```bash
+# 모든 테스트 실행
+swift test
+
+# 코드 커버리지와 함께 실행
+swift test --enable-code-coverage --parallel
+
+# 특정 테스트 실행
+swift test --filter InnoRouterTests.NavStoreTests.testPush
+```
+
+모든 테스트는 이러한 현대적인 Swift Testing 패턴을 따라야 하며 적절한 테스트 타겟 내에 위치해야 합니다.
