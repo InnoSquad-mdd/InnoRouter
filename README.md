@@ -156,7 +156,7 @@ final class HomeCoordinator: Coordinator {
     switch intent {
     case .go(let route):
       if route == .settings {
-        _ = store.execute(.replace([.settings]))
+        _ = store.execute(.push(.settings))
       } else {
         store.send(intent)
       }
@@ -207,6 +207,10 @@ let matcher = DeepLinkMatcher<HomeRoute> {
   }
 }
 ```
+
+If a path parameter and query parameter share the same key, `DeepLinkPattern.match(_:)`
+uses merge behavior (`merge(_:with:)`) that keeps path values first and appends query values.
+`DeepLinkParameters.firstValue(forName:)` therefore resolves to the path value in collisions.
 
 ### Pipeline (URL -> Decision)
 

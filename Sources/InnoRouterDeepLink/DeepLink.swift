@@ -38,8 +38,7 @@ public struct DeepLinkParser: Sendable {
 
             var parsedQueryItems: [String: [String]] = [:]
             for item in components?.queryItems ?? [] {
-                guard let value = item.value else { continue }
-                parsedQueryItems[item.name, default: []].append(value)
+                parsedQueryItems[item.name, default: []].append(item.value ?? "")
             }
             self.queryItems = parsedQueryItems
 

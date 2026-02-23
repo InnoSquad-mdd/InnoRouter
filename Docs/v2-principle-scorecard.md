@@ -6,18 +6,18 @@ This scorecard maps v2 implementation decisions to SwiftUI philosophy, SOLID pri
 
 | Axis | Rule | Implementation Evidence | Status |
 |---|---|---|---|
-| SwiftUI | `swiftui-navigation` | `@EnvironmentNavigationIntent` + intent-first dispatch in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterSwiftUI/NavigatorEnvironment.swift` and host injection in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterSwiftUI/NavigationHost.swift` | Enforced |
-| SwiftUI | `swiftui-state-management` | `NavigationStore.state` as source of truth in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterSwiftUI/NavigationStore.swift` | Enforced |
-| SwiftUI | `swiftui-view-composition` | Views emit intent only in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Examples/StandaloneExample.swift` and `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Examples/CoordinatorExample.swift` | Enforced |
-| SOLID | `arch-single-responsibility` | Coordinator public surface focused on `send(_:)` / `handle(_:)` in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterSwiftUI/Coordinator.swift` | Enforced |
-| SOLID | `arch-protocol-oriented` | `Navigator` protocol boundary in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterCore/Navigator.swift` | Enforced |
-| SOLID | `arch-dependency-injection` | Effect handlers depend on generic `Navigator` init in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterEffects/NavigationEffectHandler.swift` and `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterEffects/DeepLinkEffectHandler.swift` | Enforced |
-| SOLID | `arch-error-handling` | Typed deep-link effect outcomes (`invalidURL`, `missingDeepLinkURL`, `noPendingDeepLink`) in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterEffects/DeepLinkEffectHandler.swift` | Enforced |
+| SwiftUI | `swiftui-navigation` | `@EnvironmentNavigationIntent` + intent-first dispatch in `Sources/InnoRouterSwiftUI/NavigatorEnvironment.swift` and host injection in `Sources/InnoRouterSwiftUI/NavigationHost.swift` | Enforced |
+| SwiftUI | `swiftui-state-management` | `NavigationStore.state` as source of truth in `Sources/InnoRouterSwiftUI/NavigationStore.swift` | Enforced |
+| SwiftUI | `swiftui-view-composition` | Views emit intent only in `Examples/StandaloneExample.swift` and `Examples/CoordinatorExample.swift` | Enforced |
+| SOLID | `arch-single-responsibility` | Coordinator public surface focused on `send(_:)` / `handle(_:)` in `Sources/InnoRouterSwiftUI/Coordinator.swift` | Enforced |
+| SOLID | `arch-protocol-oriented` | `Navigator` protocol boundary in `Sources/InnoRouterCore/Navigator.swift` | Enforced |
+| SOLID | `arch-dependency-injection` | Effect handlers depend on generic `Navigator` init in `Sources/InnoRouterEffects/NavigationEffectHandler.swift` and `Sources/InnoRouterEffects/DeepLinkEffectHandler.swift` | Enforced |
+| SOLID | `arch-error-handling` | Typed deep-link effect outcomes (`invalidURL`, `missingDeepLinkURL`, `noPendingDeepLink`) in `Sources/InnoRouterEffects/DeepLinkEffectHandler.swift` | Enforced |
 | Concurrency | `concurrency-main-actor` | UI integration and handlers annotated with `@MainActor` across SwiftUI/effects modules | Enforced |
-| Concurrency | `concurrency-sendable` | Deep-link decisions, plans, and parameters are `Sendable` in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterDeepLink` | Enforced |
-| Testing | `test-methodology` | Scenario coverage in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Tests/InnoRouterTests/InnoRouterTests.swift` | Enforced |
+| Concurrency | `concurrency-sendable` | Deep-link decisions, plans, and parameters are `Sendable` in `Sources/InnoRouterDeepLink` | Enforced |
+| Testing | `test-methodology` | Scenario coverage in `Tests/InnoRouterTests/InnoRouterTests.swift` | Enforced |
 | InnoSquad | `innosquad-innorouter` | Route stack/command engine/store/coordinator/deeplink pipeline integration preserved across Core/SwiftUI/DeepLink modules | Enforced |
-| InnoSquad | `innosquad-integration` | Effect integration remains layered in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterEffects` and umbrella glue in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Sources/InnoRouterUmbrella` | Enforced |
+| InnoSquad | `innosquad-integration` | Effect integration remains layered in `Sources/InnoRouterEffects` and umbrella glue in `Sources/InnoRouterUmbrella` | Enforced |
 
 ## Swift API Design Guide Checklist
 
@@ -37,7 +37,7 @@ This scorecard maps v2 implementation decisions to SwiftUI philosophy, SOLID pri
 
 ## Quality Gates
 
-Run `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/scripts/principle-gates.sh` to validate:
+Run `./scripts/principle-gates.sh` from the repository root to validate:
 - tests
 - naming/deprecation gates
 - SwiftUI surface purity gates

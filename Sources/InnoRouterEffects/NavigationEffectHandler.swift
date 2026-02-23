@@ -80,6 +80,13 @@ public final class NavigationEffectHandler<R: Route> {
     /// - Parameter command: 실행할 Navigation 명령
     /// - Returns: 실행 결과
     @discardableResult
+    public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
+        let result = executeCommand(command)
+        lastResult = result
+        return result
+    }
+
+    @discardableResult
     public func execute(_ command: NavigationCommand<R>) async -> NavigationResult<R> {
         let result = executeCommand(command)
         lastResult = result

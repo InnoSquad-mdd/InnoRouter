@@ -50,7 +50,7 @@ if rg -n "@unchecked Sendable" Sources Tests; then
 fi
 
 echo "[principle-gates] Checking README SwiftUI philosophy section uniqueness"
-SWIFTUI_ALIGNMENT_SECTION_COUNT="$(rg -n "^### SwiftUI Philosophy Alignment$" README.md | wc -l | tr -d ' ')"
+SWIFTUI_ALIGNMENT_SECTION_COUNT="$(rg -n "^### SwiftUI Philosophy Alignment$" README.md | wc -l | tr -d ' ' || true)"
 if [[ "$SWIFTUI_ALIGNMENT_SECTION_COUNT" != "1" ]]; then
   echo "[principle-gates] Failed: expected 1 SwiftUI Philosophy Alignment section, got $SWIFTUI_ALIGNMENT_SECTION_COUNT"
   exit 1
@@ -84,7 +84,7 @@ PUBLIC_BOOL_NAMES="$(rg -n --no-heading "public (var|let) [A-Za-z_][A-Za-z0-9_]*
   | sed -E 's/.*public (var|let) ([A-Za-z_][A-Za-z0-9_]*) *: Bool.*/\2/' || true)"
 
 if [[ -n "$PUBLIC_BOOL_NAMES" ]]; then
-  INVALID_BOOL_NAMES="$(printf '%s\n' "$PUBLIC_BOOL_NAMES" | rg -n -v '^(is|has|can|should)[A-Z].*' || true)"
+  INVALID_BOOL_NAMES="$(printf '%s\n' "$PUBLIC_BOOL_NAMES" | rg -v '^(is|has|can|should)[A-Z].*' || true)"
   if [[ -n "$INVALID_BOOL_NAMES" ]]; then
     echo "[principle-gates] Failed: public Bool names must start with is/has/can/should"
     echo "$INVALID_BOOL_NAMES"

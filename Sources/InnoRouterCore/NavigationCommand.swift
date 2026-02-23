@@ -1,4 +1,4 @@
-public indirect enum NavigationCommand<R: Route>: Sendable, Equatable {
+public enum NavigationCommand<R: Route>: Sendable, Equatable {
     case push(R)
     case pushAll([R])
     case pop
@@ -6,7 +6,7 @@ public indirect enum NavigationCommand<R: Route>: Sendable, Equatable {
     case popToRoot
     case popTo(R)
     case replace([R])
-    case sequence([NavigationCommand<R>])
+    indirect case sequence([NavigationCommand<R>])
 
     public static func == (lhs: NavigationCommand<R>, rhs: NavigationCommand<R>) -> Bool {
         switch (lhs, rhs) {

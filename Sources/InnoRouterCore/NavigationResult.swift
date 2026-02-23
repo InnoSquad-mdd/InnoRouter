@@ -8,7 +8,7 @@ public enum NavigationResult<R: Route>: Sendable, Equatable {
     public var isSuccess: Bool {
         switch self {
         case .success: true
-        case .multiple(let results): results.allSatisfy(\.isSuccess)
+        case .multiple(let results): !results.isEmpty && results.allSatisfy(\.isSuccess)
         default: false
         }
     }

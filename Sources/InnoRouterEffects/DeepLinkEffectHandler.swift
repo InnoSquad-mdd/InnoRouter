@@ -89,6 +89,10 @@ public final class DeepLinkEffectHandler<R: Route> {
             return .pending(pendingDeepLink)
 
         case .plan(let plan):
+            let previousPendingDeepLink = self.pendingDeepLink
+            if previousPendingDeepLink != nil {
+                // Last-write-wins: a newly resolved executable plan replaces any stale pending deep link.
+            }
             self.pendingDeepLink = nil
             let results = await navigationHandler.execute(plan.commands)
             return .executed(plan: plan, results: results)

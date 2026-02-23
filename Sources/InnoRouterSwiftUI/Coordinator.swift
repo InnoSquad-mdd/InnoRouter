@@ -26,38 +26,6 @@ public protocol Coordinator: AnyObject, Observable {
     func destination(for route: RouteType) -> Destination
 }
 
-public extension NavigationStore {
-    func send(_ intent: NavigationIntent<R>) {
-        switch intent {
-        case .go(let route):
-            _ = execute(.push(route))
-
-        case .goMany(let routes):
-            guard !routes.isEmpty else { return }
-            let commands = routes.map { NavigationCommand<R>.push($0) }
-            _ = execute(.sequence(commands))
-
-        case .back:
-            _ = execute(.pop)
-
-        case .backBy(let count):
-            _ = execute(.popCount(count))
-
-        case .backTo(let route):
-            _ = execute(.popTo(route))
-
-        case .backToRoot:
-            _ = execute(.popToRoot)
-
-        case .resetTo(let routes):
-            _ = execute(.replace(routes))
-
-        case .deepLink:
-            break
-        }
-    }
-}
-
 public extension Coordinator {
     func handle(_ intent: NavigationIntent<RouteType>) {
         store.send(intent)

@@ -35,9 +35,10 @@ extension View {
     func navigationIntentDispatcher<R: Route>(_ dispatcher: AnyNavigationIntentDispatcher<R>) -> some View {
         transformEnvironment(\.navigationEnvironmentStorage) { storage in
             guard let storage else {
-                preconditionFailure(
+                assertionFailure(
                     "NavigationEnvironmentStorage is missing. Attach this view inside NavigationHost or CoordinatorHost."
                 )
+                return
             }
             storage[R.self] = dispatcher
         }

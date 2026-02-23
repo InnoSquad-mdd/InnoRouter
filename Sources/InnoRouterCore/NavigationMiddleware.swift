@@ -1,5 +1,5 @@
 @MainActor
-public protocol NavigationMiddleware: Sendable {
+public protocol NavigationMiddleware {
     associatedtype RouteType: Route
 
     func willExecute(_ command: NavigationCommand<RouteType>, state: RouteStack<RouteType>) -> NavigationCommand<RouteType>?
@@ -7,7 +7,7 @@ public protocol NavigationMiddleware: Sendable {
 }
 
 @MainActor
-public struct AnyNavigationMiddleware<R: Route>: NavigationMiddleware, Sendable {
+public struct AnyNavigationMiddleware<R: Route>: NavigationMiddleware {
     public typealias RouteType = R
 
     private let _willExecute: @MainActor @Sendable (NavigationCommand<R>, RouteStack<R>) -> NavigationCommand<R>?

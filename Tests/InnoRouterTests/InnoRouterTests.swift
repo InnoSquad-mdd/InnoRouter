@@ -205,6 +205,12 @@ struct NavigationCommandTests {
         #expect(result == .cancelled)
         #expect(store.state.path.isEmpty)
     }
+
+    @Test("NavigationResult multiple with empty results is failure")
+    func testNavigationResultMultipleEmptyIsFailure() {
+        let result = NavigationResult<TestRoute>.multiple([])
+        #expect(result.isSuccess == false)
+    }
 }
 
 // MARK: - NavigationIntent Tests
@@ -281,11 +287,35 @@ struct DeepLinkTests {
         #expect(parsed.firstQueryItems["tag"] == "a")
     }
 
+    @Test("DeepLinkParser keeps flag-style query items as empty strings")
+    func testParserFlagQueryItem() {
+        let parsed = DeepLinkParser.parse("myapp://example.com/products/123?debug&tag=a")!
+        #expect(parsed.queryItems["debug"] == [""])
+        #expect(parsed.firstQueryItems["debug"] == "")
+        #expect(parsed.queryItems["tag"] == ["a"])
+    }
+
     @Test("DeepLinkParameters preserves duplicate query value order")
     func testDeepLinkParametersValueOrder() {
         let parameters = DeepLinkParameters(valuesByName: ["tag": ["a", "b", "c"]])
         #expect(parameters.values(forName: "tag") == ["a", "b", "c"])
         #expect(parameters.firstValue(forName: "tag") == "a")
+    }
+
+    @Test("Path parameters take precedence when query uses same key")
+    func testPatternMergeCollisionOrder() {
+        let pattern = DeepLinkPattern("/products/:id")
+        let parsed = DeepLinkParser.parse("myapp://example.com/products/123?id=override&id=final")!
+
+        guard let result = pattern.match(parsed) else {
+            Issue.record("Expected pattern match")
+            return
+        }
+
+        #expect(result.parameters["id"] == ["123", "override", "final"])
+
+        let parameters = DeepLinkParameters(valuesByName: result.parameters)
+        #expect(parameters.firstValue(forName: "id") == "123")
     }
     
     @Test("DeepLinkPattern matches literal path")

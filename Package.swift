@@ -93,6 +93,7 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
+        // MARK: - Executable Target
         .executableTarget(
             name: "NavigationEnvironmentFailFastProbe",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],

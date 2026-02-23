@@ -49,6 +49,7 @@ public extension DeepLinkCoordinating {
             }
         }
 
+        // Safe to clear first: we iterate on the local `pendingDeepLink` constant, not the stored property.
         self.pendingDeepLink = nil
         for command in pendingDeepLink.plan.commands {
             _ = store.execute(command)
