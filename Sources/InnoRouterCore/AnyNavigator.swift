@@ -1,11 +1,11 @@
 @MainActor
-public final class AnyNavigator<R: Route>: Navigator, @unchecked Sendable {
+public final class AnyNavigator<R: Route>: Navigator {
     public typealias RouteType = R
 
-    private let _getState: @MainActor () -> NavStack<R>
-    private let _execute: @MainActor (NavCommand<R>) -> NavResult<R>
+    private let _getState: @MainActor () -> RouteStack<R>
+    private let _execute: @MainActor (NavigationCommand<R>) -> NavigationResult<R>
 
-    public var state: NavStack<R> { _getState() }
+    public var state: RouteStack<R> { _getState() }
 
     public init<N: Navigator>(_ navigator: N) where N.RouteType == R {
         self._getState = { navigator.state }
@@ -13,7 +13,7 @@ public final class AnyNavigator<R: Route>: Navigator, @unchecked Sendable {
     }
 
     @discardableResult
-    public func execute(_ command: NavCommand<R>) -> NavResult<R> {
+    public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
         _execute(command)
     }
 }
@@ -24,7 +24,7 @@ public extension AnyNavigator {
     }
 
     @discardableResult
-    func pop() -> NavResult<R> {
+    func pop() -> NavigationResult<R> {
         execute(.pop)
     }
 

@@ -11,14 +11,14 @@ enum ProductRoute {
 }
 
 struct DeepLinkExampleView: View {
-    @State private var store = NavStore<ProductRoute>()
+    @State private var store = NavigationStore<ProductRoute>()
     @State private var isAuthenticated = false
 
     var pipeline: DeepLinkPipeline<ProductRoute> {
         let matcher = DeepLinkMatcher<ProductRoute> {
             DeepLinkMapping("/products") { _ in .list }
             DeepLinkMapping("/products/:id") { params in
-                params["id"].map { .detail(id: $0) }
+                params.firstValue(forName: "id").map { .detail(id: $0) }
             }
         }
 
@@ -26,12 +26,14 @@ struct DeepLinkExampleView: View {
             allowedSchemes: ["myapp", "https"],
             allowedHosts: ["myapp.com"],
             resolve: { matcher.match($0) },
-            requiresAuthentication: { route in
-                if case .detail = route { return true }
-                return false
-            },
-            isAuthenticated: { isAuthenticated },
-            plan: { route in NavPlan(commands: [.push(route)]) }
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { route in
+                    if case .detail = route { return true }
+                    return false
+                },
+                isAuthenticated: { isAuthenticated }
+            ),
+            plan: { route in NavigationPlan(commands: [.push(route)]) }
         )
     }
 
@@ -69,7 +71,7 @@ struct DeepLinkExampleView: View {
             }
         case .pending:
             _ = store.execute(.push(.login))
-        case .rejected, .unhandled:
+        case .rejected(_), .unhandled(_):
             break
         }
     }

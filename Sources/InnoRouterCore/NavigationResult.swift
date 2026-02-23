@@ -1,17 +1,15 @@
-public enum NavResult<R: Route>: Sendable, Equatable {
+public enum NavigationResult<R: Route>: Sendable, Equatable {
     case success
     case cancelled
     case routeNotFound(R)
-    case conditionNotMet
     case stackEmpty
-    case multiple([NavResult<R>])
+    case multiple([NavigationResult<R>])
 
     public var isSuccess: Bool {
         switch self {
         case .success: true
-        case .multiple(let results): results.allSatisfy(\.isSuccess)
+        case .multiple(let results): !results.isEmpty && results.allSatisfy(\.isSuccess)
         default: false
         }
     }
 }
-

@@ -1,57 +1,94 @@
+import Foundation
 import SwiftUI
 
 import InnoRouterCore
 
-struct NavigatorKey: EnvironmentKey {
-    static let defaultValue: NavigatorStorage = NavigatorStorage()
+struct NavigationEnvironmentStorageKey: EnvironmentKey {
+    static let defaultValue: NavigationEnvironmentStorage? = nil
 }
 
-final class NavigatorStorage: @unchecked Sendable {
-    private var navigators: [ObjectIdentifier: Any] = [:]
-    private let lock = NSLock()
+@MainActor
+final class NavigationEnvironmentStorage {
+    private var intentDispatchers: [ObjectIdentifier: Any] = [:]
 
     init() {}
 
-    subscript<R: Route>(routeType: R.Type) -> AnyNavigator<R>? {
+    subscript<R: Route>(routeType: R.Type) -> AnyNavigationIntentDispatcher<R>? {
         get {
-            lock.lock()
-            defer { lock.unlock() }
-            return navigators[ObjectIdentifier(routeType)] as? AnyNavigator<R>
+            return intentDispatchers[ObjectIdentifier(routeType)] as? AnyNavigationIntentDispatcher<R>
         }
         set {
-            lock.lock()
-            defer { lock.unlock() }
-            navigators[ObjectIdentifier(routeType)] = newValue
+            intentDispatchers[ObjectIdentifier(routeType)] = newValue
         }
     }
 }
 
 extension EnvironmentValues {
-    var navigatorStorage: NavigatorStorage {
-        get { self[NavigatorKey.self] }
-        set { self[NavigatorKey.self] = newValue }
+    var navigationEnvironmentStorage: NavigationEnvironmentStorage? {
+        get { self[NavigationEnvironmentStorageKey.self] }
+        set { self[NavigationEnvironmentStorageKey.self] = newValue }
     }
 }
 
-public extension View {
-    func navigator<R: Route>(_ navigator: AnyNavigator<R>) -> some View {
-        transformEnvironment(\.navigatorStorage) { storage in
-            storage[R.self] = navigator
+extension View {
+    @MainActor
+    func navigationIntentDispatcher<R: Route>(_ dispatcher: AnyNavigationIntentDispatcher<R>) -> some View {
+        transformEnvironment(\.navigationEnvironmentStorage) { storage in
+            guard let storage else {
+                assertionFailure(
+                    "NavigationEnvironmentStorage is missing. Attach this view inside NavigationHost or CoordinatorHost."
+                )
+                return
+            }
+            storage[R.self] = dispatcher
         }
     }
+}
 
-    func navigator<R: Route>(_ store: NavStore<R>) -> some View {
-        navigator(AnyNavigator(store))
+@MainActor
+public protocol NavigationIntentDispatching: AnyObject {
+    associatedtype RouteType: Route
+    func send(_ intent: NavigationIntent<RouteType>)
+}
+
+@MainActor
+public final class AnyNavigationIntentDispatcher<R: Route>: NavigationIntentDispatching {
+    public typealias RouteType = R
+
+    private let sendIntent: @MainActor (NavigationIntent<R>) -> Void
+
+    public init(send: @escaping @MainActor (NavigationIntent<R>) -> Void) {
+        self.sendIntent = send
+    }
+
+    public func send(_ intent: NavigationIntent<R>) {
+        sendIntent(intent)
     }
 }
 
+@MainActor
 @propertyWrapper
-public struct UseNavigator<R: Route>: DynamicProperty {
-    @Environment(\.navigatorStorage) private var navigatorStorage
+public struct EnvironmentNavigationIntent<R: Route>: DynamicProperty {
+    @Environment(\.navigationEnvironmentStorage) private var navigationEnvironmentStorage
+    private let routeType: R.Type
 
-    public init(_ routeType: R.Type) {}
+    public init(_ routeType: R.Type) {
+        self.routeType = routeType
+    }
 
-    public var wrappedValue: AnyNavigator<R>? {
-        navigatorStorage[R.self]
+    public var wrappedValue: AnyNavigationIntentDispatcher<R> {
+        guard let navigationEnvironmentStorage else {
+            preconditionFailure(
+                "NavigationEnvironmentStorage is missing for \(String(describing: routeType)). " +
+                "Attach this view inside NavigationHost or CoordinatorHost."
+            )
+        }
+        guard let dispatcher = navigationEnvironmentStorage[R.self] else {
+            preconditionFailure(
+                "AnyNavigationIntentDispatcher is missing for \(String(describing: routeType)). " +
+                "Ensure the matching NavigationHost or CoordinatorHost is in the environment hierarchy."
+            )
+        }
+        return dispatcher
     }
 }

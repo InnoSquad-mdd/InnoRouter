@@ -5,8 +5,11 @@
 import Testing
 import Foundation
 import Observation
+import Synchronization
 import SwiftUI
 import InnoRouter
+import InnoRouterEffects
+@testable import InnoRouterSwiftUI
 
 // MARK: - Test Route
 
@@ -17,15 +20,15 @@ enum TestRoute: Route {
     case profile(userId: String, tab: Int)
 }
 
-// MARK: - NavStore Tests
+// MARK: - NavigationStore Tests
 
-@Suite("NavStore Tests")
-struct NavStoreTests {
+@Suite("NavigationStore Tests")
+struct NavigationStoreTests {
     
     @Test("Push adds route to path")
     @MainActor
     func testPush() {
-        let store = NavStore<TestRoute>()
+        let store = NavigationStore<TestRoute>()
         
         _ = store.execute(.push(.home))
         #expect(store.state.path.count == 1)
@@ -39,7 +42,7 @@ struct NavStoreTests {
     @Test("Pop removes last route")
     @MainActor
     func testPop() {
-        let store = NavStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
+        let store = NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
         
         let result = store.execute(.pop)
         #expect(result == .success)
@@ -50,7 +53,7 @@ struct NavStoreTests {
     @Test("Pop returns nil when empty")
     @MainActor
     func testPopEmpty() {
-        let store = NavStore<TestRoute>()
+        let store = NavigationStore<TestRoute>()
         
         let result = store.execute(.pop)
         #expect(result == .stackEmpty)
@@ -60,7 +63,7 @@ struct NavStoreTests {
     @Test("PopToRoot clears all routes")
     @MainActor
     func testPopToRoot() {
-        let store = NavStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
+        let store = NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
         
         _ = store.execute(.popToRoot)
         #expect(store.state.path.isEmpty)
@@ -69,7 +72,7 @@ struct NavStoreTests {
     @Test("Replace replaces entire stack")
     @MainActor
     func testReplace() {
-        let store = NavStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
+        let store = NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
         
         _ = store.execute(.replace([.settings]))
         #expect(store.state.path.count == 1)
@@ -79,7 +82,7 @@ struct NavStoreTests {
     @Test("Pop to specific route")
     @MainActor
     func testPopTo() {
-        let store = NavStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
+        let store = NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
         
         let result = store.execute(.popTo(.detail(id: "123")))
         #expect(result == .success)
@@ -91,7 +94,7 @@ struct NavStoreTests {
     @MainActor
     func testOnChange() {
         var changeCount = 0
-        let store = NavStore<TestRoute>(onChange: { _, _ in
+        let store = NavigationStore<TestRoute>(onChange: { _, _ in
             changeCount += 1
         })
         
@@ -103,15 +106,15 @@ struct NavStoreTests {
     }
 }
 
-// MARK: - NavCommand Tests
+// MARK: - NavigationCommand Tests
 
-@Suite("NavCommand Tests")
-struct NavCommandTests {
+@Suite("NavigationCommand Tests")
+struct NavigationCommandTests {
     
     @Test("Execute push command")
     @MainActor
     func testExecutePush() {
-        let store = NavStore<TestRoute>()
+        let store = NavigationStore<TestRoute>()
         
         let result = store.execute(.push(.home))
         
@@ -122,7 +125,7 @@ struct NavCommandTests {
     @Test("Execute pop command")
     @MainActor
     func testExecutePop() {
-        let store = NavStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
+        let store = NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
         
         let result = store.execute(.pop)
         
@@ -133,39 +136,17 @@ struct NavCommandTests {
     @Test("Execute pop on empty returns stackEmpty")
     @MainActor
     func testExecutePopEmpty() {
-        let store = NavStore<TestRoute>()
+        let store = NavigationStore<TestRoute>()
         
         let result = store.execute(.pop)
         
         #expect(result == .stackEmpty)
     }
     
-    @Test("Execute conditional when true")
-    @MainActor
-    func testExecuteConditionalTrue() {
-        let store = NavStore<TestRoute>()
-        
-        let result = store.execute(.conditional({ true }, .push(.home)))
-        
-        #expect(result == .success)
-        #expect(store.state.path.last == .home)
-    }
-    
-    @Test("Execute conditional when false")
-    @MainActor
-    func testExecuteConditionalFalse() {
-        let store = NavStore<TestRoute>()
-        
-        let result = store.execute(.conditional({ false }, .push(.home)))
-        
-        #expect(result == .conditionNotMet)
-        #expect(store.state.path.isEmpty)
-    }
-    
     @Test("Execute sequence of commands")
     @MainActor
     func testExecuteSequence() {
-        let store = NavStore<TestRoute>()
+        let store = NavigationStore<TestRoute>()
         
         let result = store.execute(.sequence([
             .push(.home),
@@ -186,12 +167,12 @@ struct NavCommandTests {
     @Test("Middleware runs per-step for sequence")
     @MainActor
     func testSequenceRunsMiddlewarePerStep() {
-        let store = NavStore<TestRoute>()
+        let store = NavigationStore<TestRoute>()
         var willCount = 0
         var didCount = 0
 
         store.addMiddleware(
-            AnyNavMiddleware(
+            AnyNavigationMiddleware(
                 willExecute: { command, _ in
                     willCount += 1
                     return command
@@ -208,6 +189,79 @@ struct NavCommandTests {
         #expect(didCount == 2)
         #expect(store.state.path == [.home, .settings])
     }
+
+    @Test("Middleware can cancel command")
+    @MainActor
+    func testMiddlewareCanCancelCommand() {
+        let store = NavigationStore<TestRoute>()
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { _, _ in nil }
+            )
+        )
+
+        let result = store.execute(.push(.home))
+
+        #expect(result == .cancelled)
+        #expect(store.state.path.isEmpty)
+    }
+
+    @Test("NavigationResult multiple with empty results is failure")
+    func testNavigationResultMultipleEmptyIsFailure() {
+        let result = NavigationResult<TestRoute>.multiple([])
+        #expect(result.isSuccess == false)
+    }
+}
+
+// MARK: - NavigationIntent Tests
+
+@Suite("NavigationIntent Tests")
+struct NavigationIntentTests {
+    @Test("NavigationStore send goMany pushes routes in order")
+    @MainActor
+    func testSendGoMany() {
+        let store = NavigationStore<TestRoute>()
+
+        store.send(.goMany([.home, .detail(id: "123"), .settings]))
+
+        #expect(store.state.path == [.home, .detail(id: "123"), .settings])
+    }
+
+    @Test("NavigationStore send backBy pops expected count")
+    @MainActor
+    func testSendBackBy() {
+        let store = NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "123"), .settings]
+        )
+
+        store.send(.backBy(2))
+
+        #expect(store.state.path == [.home])
+    }
+
+    @Test("NavigationStore send backTo pops to matching route")
+    @MainActor
+    func testSendBackTo() {
+        let store = NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "123"), .settings]
+        )
+
+        store.send(.backTo(.detail(id: "123")))
+
+        #expect(store.state.path == [.home, .detail(id: "123")])
+    }
+
+    @Test("NavigationStore send backToRoot clears stack")
+    @MainActor
+    func testSendBackToRoot() {
+        let store = NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "123"), .settings]
+        )
+
+        store.send(.backToRoot)
+
+        #expect(store.state.path.isEmpty)
+    }
 }
 
 // MARK: - DeepLink Tests
@@ -222,7 +276,46 @@ struct DeepLinkTests {
         #expect(parsed.scheme == "myapp")
         #expect(parsed.host == "example.com")
         #expect(parsed.path == ["products", "123"])
-        #expect(parsed.queryItems["category"] == "electronics")
+        #expect(parsed.queryItems["category"] == ["electronics"])
+        #expect(parsed.firstQueryItems["category"] == "electronics")
+    }
+
+    @Test("DeepLinkParser keeps duplicate query values without crashing")
+    func testParserDuplicateQueries() {
+        let parsed = DeepLinkParser.parse("myapp://example.com/products/123?tag=a&tag=b&tag=c")!
+        #expect(parsed.queryItems["tag"] == ["a", "b", "c"])
+        #expect(parsed.firstQueryItems["tag"] == "a")
+    }
+
+    @Test("DeepLinkParser keeps flag-style query items as empty strings")
+    func testParserFlagQueryItem() {
+        let parsed = DeepLinkParser.parse("myapp://example.com/products/123?debug&tag=a")!
+        #expect(parsed.queryItems["debug"] == [""])
+        #expect(parsed.firstQueryItems["debug"] == "")
+        #expect(parsed.queryItems["tag"] == ["a"])
+    }
+
+    @Test("DeepLinkParameters preserves duplicate query value order")
+    func testDeepLinkParametersValueOrder() {
+        let parameters = DeepLinkParameters(valuesByName: ["tag": ["a", "b", "c"]])
+        #expect(parameters.values(forName: "tag") == ["a", "b", "c"])
+        #expect(parameters.firstValue(forName: "tag") == "a")
+    }
+
+    @Test("Path parameters take precedence when query uses same key")
+    func testPatternMergeCollisionOrder() {
+        let pattern = DeepLinkPattern("/products/:id")
+        let parsed = DeepLinkParser.parse("myapp://example.com/products/123?id=override&id=final")!
+
+        guard let result = pattern.match(parsed) else {
+            Issue.record("Expected pattern match")
+            return
+        }
+
+        #expect(result.parameters["id"] == ["123", "override", "final"])
+
+        let parameters = DeepLinkParameters(valuesByName: result.parameters)
+        #expect(parameters.firstValue(forName: "id") == "123")
     }
     
     @Test("DeepLinkPattern matches literal path")
@@ -231,7 +324,7 @@ struct DeepLinkTests {
         
         let result = pattern.match("/home")
         #expect(result != nil)
-        #expect(result?.params.isEmpty == true)
+        #expect(result?.parameters.isEmpty == true)
         
         let noMatch = pattern.match("/settings")
         #expect(noMatch == nil)
@@ -243,7 +336,7 @@ struct DeepLinkTests {
         
         let result = pattern.match("/products/123")
         #expect(result != nil)
-        #expect(result?.params["id"] == "123")
+        #expect(result?.parameters["id"] == ["123"])
     }
     
     @Test("DeepLinkPattern matches wildcard")
@@ -259,7 +352,7 @@ struct DeepLinkTests {
         let matcher = DeepLinkMatcher<TestRoute> {
             DeepLinkMapping("/home") { _ in .home }
             DeepLinkMapping("/detail/:id") { params in
-                guard let id = params["id"] else { return nil }
+                guard let id = params.firstValue(forName: "id") else { return nil }
                 return .detail(id: id)
             }
             DeepLinkMapping("/settings") { _ in .settings }
@@ -274,6 +367,67 @@ struct DeepLinkTests {
         let url3 = URL(string: "myapp://app/unknown")!
         #expect(matcher.match(url3) == nil)
     }
+
+    @Test("DeepLinkPipeline rejected reason is schemeNotAllowed")
+    func testPipelineRejectsSchemeWithReason() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            allowedSchemes: ["myapp"],
+            resolve: { _ in .home }
+        )
+        let url = URL(string: "https://myapp.com/home")!
+
+        let decision = pipeline.decide(for: url)
+        guard case .rejected(let reason) = decision else {
+            Issue.record("Expected rejected decision")
+            return
+        }
+        #expect(reason == .schemeNotAllowed(actualScheme: "https"))
+    }
+
+    @Test("DeepLinkPipeline rejected reason is hostNotAllowed")
+    func testPipelineRejectsHostWithReason() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            allowedHosts: ["myapp.com"],
+            resolve: { _ in .home }
+        )
+        let url = URL(string: "myapp://other.com/home")!
+
+        let decision = pipeline.decide(for: url)
+        guard case .rejected(let reason) = decision else {
+            Issue.record("Expected rejected decision")
+            return
+        }
+        #expect(reason == .hostNotAllowed(actualHost: "other.com"))
+    }
+
+    @Test("DeepLinkPipeline keeps URL in unhandled decision")
+    func testPipelineUnhandledKeepsURL() {
+        let pipeline = DeepLinkPipeline<TestRoute>(resolve: { _ in nil })
+        let url = URL(string: "myapp://myapp.com/missing")!
+
+        let decision = pipeline.decide(for: url)
+        guard case .unhandled(let unhandledURL) = decision else {
+            Issue.record("Expected unhandled decision")
+            return
+        }
+        #expect(unhandledURL == url)
+    }
+
+    @Test("DeepLinkPipeline notRequired policy returns plan")
+    func testPipelineNotRequiredPolicyReturnsPlan() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .settings },
+            authenticationPolicy: .notRequired
+        )
+        let url = URL(string: "myapp://myapp.com/settings")!
+
+        let decision = pipeline.decide(for: url)
+        guard case .plan(let plan) = decision else {
+            Issue.record("Expected plan decision")
+            return
+        }
+        #expect(plan.commands == [.push(.settings)])
+    }
 }
 
 // MARK: - Coordinator Tests
@@ -287,10 +441,10 @@ struct CoordinatorTests {
         typealias RouteType = TestRoute
         typealias Destination = EmptyView
         
-        let store = NavStore<TestRoute>()
+        let store = NavigationStore<TestRoute>()
         var handleCount = 0
         
-        func handle(_ intent: NavIntent<TestRoute>) {
+        func handle(_ intent: NavigationIntent<TestRoute>) {
             handleCount += 1
             switch intent {
             case .go(let route):
@@ -305,40 +459,83 @@ struct CoordinatorTests {
             EmptyView()
         }
     }
+
+    @Observable
+    @MainActor
+    final class DefaultBehaviorCoordinator: Coordinator {
+        typealias RouteType = TestRoute
+        typealias Destination = EmptyView
+
+        let store = NavigationStore<TestRoute>()
+
+        @ViewBuilder
+        func destination(for route: TestRoute) -> EmptyView {
+            EmptyView()
+        }
+    }
     
-    @Test("Coordinator navigates via handle")
+    @Test("Coordinator routes via send intent")
     @MainActor
     func testNavigate() {
         let coordinator = TestCoordinator()
         
-        coordinator.navigate(to: .home)
-        coordinator.navigate(to: .detail(id: "123"))
+        coordinator.send(.go(.home))
+        coordinator.send(.go(.detail(id: "123")))
         
         #expect(coordinator.handleCount == 2)
         #expect(coordinator.store.state.path.count == 2)
     }
     
-    @Test("Coordinator goBack pops")
+    @Test("Coordinator send back pops")
     @MainActor
     func testGoBack() {
-        let coordinator = TestCoordinator()
+        let coordinator = DefaultBehaviorCoordinator()
         _ = coordinator.store.execute(.push(.home))
         _ = coordinator.store.execute(.push(.detail(id: "123")))
         
-        coordinator.goBack()
+        coordinator.send(.back)
         
         #expect(coordinator.store.state.path.last == .home)
     }
     
-    @Test("Coordinator goToRoot clears stack")
+    @Test("Coordinator send backToRoot clears stack")
     @MainActor
     func testGoToRoot() {
-        let coordinator = TestCoordinator()
+        let coordinator = DefaultBehaviorCoordinator()
         _ = coordinator.store.execute(.push(.home))
         _ = coordinator.store.execute(.push(.detail(id: "123")))
         
-        coordinator.goToRoot()
+        coordinator.send(.backToRoot)
         
+        #expect(coordinator.store.state.path.isEmpty)
+    }
+
+    @Test("Coordinator dispatcher sends intent to handle")
+    @MainActor
+    func testNavigationIntentDispatcher() {
+        let coordinator = TestCoordinator()
+
+        coordinator.navigationIntentDispatcher.send(.go(.home))
+
+        #expect(coordinator.handleCount == 1)
+        #expect(coordinator.store.state.path == [.home])
+    }
+
+    @Test("Default coordinator supports goMany/backBy/backTo/backToRoot")
+    @MainActor
+    func testDefaultCoordinatorIntentSet() {
+        let coordinator = DefaultBehaviorCoordinator()
+
+        coordinator.send(.goMany([.home, .detail(id: "123"), .settings]))
+        #expect(coordinator.store.state.path == [.home, .detail(id: "123"), .settings])
+
+        coordinator.send(.backBy(1))
+        #expect(coordinator.store.state.path == [.home, .detail(id: "123")])
+
+        coordinator.send(.backTo(.home))
+        #expect(coordinator.store.state.path == [.home])
+
+        coordinator.send(.backToRoot)
         #expect(coordinator.store.state.path.isEmpty)
     }
 }
@@ -353,9 +550,9 @@ struct CoordinatorDeepLinkTests {
         typealias RouteType = TestRoute
         typealias Destination = EmptyView
 
-        let store = NavStore<TestRoute>()
+        let store = NavigationStore<TestRoute>()
 
-        var pendingDeepLink: PendingNav<TestRoute>?
+        var pendingDeepLink: PendingDeepLink<TestRoute>?
         let deepLinkPipeline: DeepLinkPipeline<TestRoute>
 
         init(deepLinkPipeline: DeepLinkPipeline<TestRoute>) {
@@ -389,8 +586,10 @@ struct CoordinatorDeepLinkTests {
             allowedSchemes: ["myapp"],
             allowedHosts: ["myapp.com"],
             resolve: { _ in .settings },
-            requiresAuthentication: { _ in true },
-            isAuthenticated: { false }
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { false }
+            )
         )
         let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
 
@@ -398,6 +597,284 @@ struct CoordinatorDeepLinkTests {
 
         #expect(coordinator.store.state.path.isEmpty)
         #expect(coordinator.pendingDeepLink?.route == .settings)
+        #expect(coordinator.pendingDeepLink?.plan.commands == [.push(.settings)])
+    }
+
+    @Test("Pending deep link preserves planned commands")
+    @MainActor
+    func testPendingDeepLinkPreservesPlan() {
+        let planCommands: [NavigationCommand<TestRoute>] = [
+            .replace([.home, .settings]),
+            .push(.detail(id: "123"))
+        ]
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .settings },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { false }
+            ),
+            plan: { _ in NavigationPlan(commands: planCommands) }
+        )
+        let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
+
+        coordinator.handle(.deepLink(URL(string: "myapp://myapp.com/secure")!))
+
+        #expect(coordinator.pendingDeepLink?.plan.commands == planCommands)
+    }
+}
+
+// MARK: - DeepLinkEffectHandler Tests
+
+@Suite("DeepLinkEffectHandler Tests")
+struct DeepLinkEffectHandlerTests {
+    struct MockDeepLinkEffect: DeepLinkEffect {
+        var deepLinkURL: URL?
+
+        static func deepLink(_ url: URL) -> MockDeepLinkEffect {
+            MockDeepLinkEffect(deepLinkURL: url)
+        }
+    }
+
+    @Test("Execute plan result is returned even when last command is not push")
+    @MainActor
+    func testPlanExecutionResult() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/settings") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyNavigator(store),
+            matcher: matcher,
+            plan: { _ in NavigationPlan(commands: [.replace([.home, .settings])]) }
+        )
+
+        let result = await handler.handle(URL(string: "myapp://myapp.com/settings")!)
+
+        guard case .executed(let plan, let results) = result else {
+            Issue.record("Expected executed result")
+            return
+        }
+        #expect(plan.commands == [.replace([.home, .settings])])
+        #expect(results == [.success])
+        #expect(store.state.path == [.home, .settings])
+    }
+
+    @Test("Resume pending deep link replays preserved plan")
+    @MainActor
+    func testResumePendingDeepLink() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/settings") { _ in .settings }
+        }
+        let authState = Mutex(false)
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyNavigator(store),
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { authState.withLock { $0 } }
+            ),
+            plan: { _ in NavigationPlan(commands: [.replace([.home, .settings])]) }
+        )
+
+        let pendingResult = await handler.handle(URL(string: "myapp://myapp.com/settings")!)
+        guard case .pending = pendingResult else {
+            Issue.record("Expected pending result")
+            return
+        }
+        #expect(handler.hasPendingDeepLink)
+
+        authState.withLock { $0 = true }
+        let resumeResult = await handler.resumePendingDeepLink()
+        guard case .executed(let plan, _) = resumeResult else {
+            Issue.record("Expected executed result after resume")
+            return
+        }
+        #expect(plan.commands == [.replace([.home, .settings])])
+        #expect(store.state.path == [.home, .settings])
+        #expect(!handler.hasPendingDeepLink)
+    }
+
+    @Test("Rejected decision preserves rejection reason")
+    @MainActor
+    func testRejectedReasonIsPreserved() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/settings") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyNavigator(store),
+            matcher: matcher,
+            allowedSchemes: ["myapp"]
+        )
+
+        let result = await handler.handle(URL(string: "https://myapp.com/settings")!)
+        guard case .rejected(let reason) = result else {
+            Issue.record("Expected rejected result")
+            return
+        }
+        #expect(reason == .schemeNotAllowed(actualScheme: "https"))
+    }
+
+    @Test("Unhandled decision preserves original URL")
+    @MainActor
+    func testUnhandledURLIsPreserved() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/known") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyNavigator(store),
+            matcher: matcher
+        )
+        let url = URL(string: "myapp://myapp.com/unknown")!
+
+        let result = await handler.handle(url)
+        guard case .unhandled(let unhandledURL) = result else {
+            Issue.record("Expected unhandled result")
+            return
+        }
+        #expect(unhandledURL == url)
+    }
+
+    @Test("Invalid URL string returns invalidURL result")
+    @MainActor
+    func testInvalidURLStringReturnsTypedResult() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/known") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyNavigator(store),
+            matcher: matcher
+        )
+
+        let result = await handler.handle("://invalid url")
+
+        #expect(result == .invalidURL(input: "://invalid url"))
+    }
+
+    @Test("Missing effect URL returns missingDeepLinkURL result")
+    @MainActor
+    func testMissingEffectURLReturnsTypedResult() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/known") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyNavigator(store),
+            matcher: matcher
+        )
+
+        let result = await handler.handle(MockDeepLinkEffect(deepLinkURL: nil))
+
+        #expect(result == .missingDeepLinkURL)
+    }
+
+    @Test("No pending deep link returns noPendingDeepLink result")
+    @MainActor
+    func testNoPendingDeepLinkReturnsTypedResult() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/known") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyNavigator(store),
+            matcher: matcher
+        )
+
+        let result = await handler.resumePendingDeepLink()
+
+        #expect(result == .noPendingDeepLink)
+    }
+}
+
+// MARK: - NavigationEffectHandler Tests
+
+@Suite("NavigationEffectHandler Tests")
+struct NavigationEffectHandlerTests {
+    @Test("execute(_:stopOnFailure:) stops at first failure and preserves middleware order")
+    @MainActor
+    func testExecuteStopOnFailure() async {
+        let store = NavigationStore<TestRoute>()
+        var willExecuteCount = 0
+        var didExecuteCount = 0
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    willExecuteCount += 1
+                    return command
+                },
+                didExecute: { _, _, _ in
+                    didExecuteCount += 1
+                }
+            )
+        )
+
+        let handler = NavigationEffectHandler(navigator: AnyNavigator(store))
+        let results = await handler.execute(
+            [
+                .push(.home),
+                .popCount(5),
+                .push(.settings)
+            ],
+            stopOnFailure: true
+        )
+
+        #expect(results.count == 2)
+        #expect(results[0] == .success)
+        #expect(results[1] == .stackEmpty)
+        #expect(store.state.path == [.home])
+        #expect(willExecuteCount == 2)
+        #expect(didExecuteCount == 2)
+    }
+}
+
+// MARK: - NavigationEnvironmentStorage Tests
+
+@Suite("NavigationEnvironmentStorage Tests")
+struct NavigationEnvironmentStorageTests {
+    @Test("Multiple host storages keep intent dispatch isolated")
+    @MainActor
+    func testNavigationEnvironmentStorageIsolationBetweenHosts() {
+        let firstStore = NavigationStore<TestRoute>()
+        let secondStore = NavigationStore<TestRoute>()
+        let firstStorage = NavigationEnvironmentStorage()
+        let secondStorage = NavigationEnvironmentStorage()
+
+        firstStorage[TestRoute.self] = AnyNavigationIntentDispatcher { intent in
+            firstStore.send(intent)
+        }
+        secondStorage[TestRoute.self] = AnyNavigationIntentDispatcher { intent in
+            secondStore.send(intent)
+        }
+
+        guard let firstDispatcher = firstStorage[TestRoute.self] else {
+            Issue.record("Expected first dispatcher")
+            return
+        }
+        firstDispatcher.send(.go(.home))
+
+        #expect(firstStore.state.path == [.home])
+        #expect(secondStore.state.path.isEmpty)
+    }
+
+    @Test("NavigationHost-style dispatcher pushes route through send")
+    @MainActor
+    func testNavigationHostStyleDispatcher() {
+        let store = NavigationStore<TestRoute>()
+        let storage = NavigationEnvironmentStorage()
+        storage[TestRoute.self] = AnyNavigationIntentDispatcher { intent in
+            store.send(intent)
+        }
+
+        guard let dispatcher = storage[TestRoute.self] else {
+            Issue.record("Expected dispatcher")
+            return
+        }
+        dispatcher.send(.go(.detail(id: "123")))
+
+        #expect(store.state.path == [.detail(id: "123")])
     }
 }
 

@@ -9,148 +9,140 @@ import InnoRouterDeepLink
 // MARK: - DeepLinkEffectHandler
 
 /// InnoFlow Effect에서 DeepLink를 처리하는 핸들러입니다.
-///
-/// ## Usage with InnoFlow
-/// ```swift
-/// @InnoFlow
-/// struct AppFeature {
-///     // Dependencies
-///     let deepLinkHandler: DeepLinkEffectHandler<AppRoute>
-///
-///     // Effect
-///     enum Effect: Sendable {
-///         case handleDeepLink(URL)
-///         case navigate(Navigation<AppRoute>)
-///     }
-///
-///     // Reduce
-///     func reduce(state: inout State, action: Action) -> Effect? {
-///         switch action {
-///         case .deepLinkReceived(let url):
-///             return .handleDeepLink(url)
-///         }
-///     }
-///
-///     // Handle Effect
-///     func handle(effect: Effect) async -> EffectOutput<Action> {
-///         switch effect {
-///         case .handleDeepLink(let url):
-///             let result = await deepLinkHandler.handle(url)
-///             switch result {
-///             case .handled(let route):
-///                 return .send(.navigatedToRoute(route))
-///             case .authRequired(let route):
-///                 return .send(.authRequiredForRoute(route))
-///             case .unhandled:
-///                 return .send(.deepLinkFailed)
-///             }
-///
-///         case .navigate(let command):
-///             await deepLinkHandler.navigationHandler.execute(command)
-///             return .none
-///         }
-///     }
-/// }
-/// ```
 @MainActor
-public final class DeepLinkEffectHandler<R: Route>: Sendable {
-    
+public final class DeepLinkEffectHandler<R: Route> {
+
     // MARK: - Result Type
-    
+
     /// DeepLink 처리 결과
-    public enum Result: Sendable {
-        /// 성공적으로 처리되어 Route로 네비게이션함
-        case handled(R)
-        
-        /// 인증이 필요하여 pending 상태
-        case authRequired(PendingNav<R>)
-        
-        /// 처리되지 않음 (매칭 실패 또는 필터 거부)
-        case unhandled
+    public enum Result: Sendable, Equatable {
+        /// DeepLink를 NavigationPlan으로 실행했습니다.
+        case executed(plan: NavigationPlan<R>, results: [NavigationResult<R>])
+
+        /// 인증이 필요해 pending 상태로 보류했습니다.
+        case pending(PendingDeepLink<R>)
+
+        /// 스킴/호스트 등의 정책에 의해 거부되었습니다.
+        case rejected(reason: DeepLinkRejectionReason)
+
+        /// 매칭에 실패하거나 처리할 작업이 없습니다.
+        case unhandled(url: URL)
+
+        /// URL 문자열이 유효한 URL로 파싱되지 않았습니다.
+        case invalidURL(input: String)
+
+        /// Effect에 DeepLink URL이 없습니다.
+        case missingDeepLinkURL
+
+        /// 재개할 pending deep link가 없습니다.
+        case noPendingDeepLink
     }
-    
+
     // MARK: - Properties
-    
-    private let navigator: AnyNavigator<R>
+
     private let pipeline: DeepLinkPipeline<R>
-    
-    /// Pending route (인증 필요 시 저장)
-    public private(set) var pending: PendingNav<R>?
-    
+
+    /// 인증 완료 후 재개할 pending deep link입니다.
+    public private(set) var pendingDeepLink: PendingDeepLink<R>?
+
     /// 내부 NavigationEffectHandler에 접근
     public let navigationHandler: NavigationEffectHandler<R>
-    
+
     // MARK: - Initialization
-    
-    public init(
-        navigator: AnyNavigator<R>,
+
+    public init<N: Navigator>(
+        navigator: N,
         matcher: DeepLinkMatcher<R>,
         allowedSchemes: Set<String>? = nil,
         allowedHosts: Set<String>? = nil,
-        authGuard: (@Sendable (R) -> Bool)? = nil,
-        isAuthenticated: (@Sendable () -> Bool)? = nil
-    ) {
-        self.navigator = navigator
+        authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
+        plan: @escaping DeepLinkPipeline<R>.Planner = { route in
+            NavigationPlan(commands: [.push(route)])
+        }
+    ) where N.RouteType == R {
         self.pipeline = DeepLinkPipeline(
             allowedSchemes: allowedSchemes,
             allowedHosts: allowedHosts,
             resolve: { url in matcher.match(url) },
-            requiresAuthentication: authGuard,
-            isAuthenticated: isAuthenticated
+            authenticationPolicy: authenticationPolicy,
+            plan: plan
         )
         self.navigationHandler = NavigationEffectHandler(navigator: navigator)
     }
-    
+
     // MARK: - Handle
-    
+
     /// DeepLink URL을 처리합니다.
     ///
     /// - Parameter url: 처리할 URL
     /// - Returns: 처리 결과
     public func handle(_ url: URL) async -> Result {
         switch pipeline.decide(for: url) {
-        case .rejected, .unhandled:
-            return .unhandled
+        case .rejected(let reason):
+            return .rejected(reason: reason)
 
-        case .pending(let pending):
-            self.pending = pending
-            return .authRequired(pending)
+        case .unhandled(let unhandledURL):
+            return .unhandled(url: unhandledURL)
+
+        case .pending(let pendingDeepLink):
+            self.pendingDeepLink = pendingDeepLink
+            return .pending(pendingDeepLink)
 
         case .plan(let plan):
-            for command in plan.commands {
-                _ = navigator.execute(command)
+            let previousPendingDeepLink = self.pendingDeepLink
+            if previousPendingDeepLink != nil {
+                // Last-write-wins: a newly resolved executable plan replaces any stale pending deep link.
             }
-            if let last = plan.commands.last,
-               case .push(let route) = last {
-                return .handled(route)
-            }
-            return .unhandled
+            self.pendingDeepLink = nil
+            let results = await navigationHandler.execute(plan.commands)
+            return .executed(plan: plan, results: results)
         }
     }
-    
+
     /// URL 문자열을 처리합니다.
     public func handle(_ urlString: String) async -> Result {
-        guard let url = URL(string: urlString) else { return .unhandled }
+        guard let url = URL(string: urlString) else {
+            return .invalidURL(input: urlString)
+        }
         return await handle(url)
     }
-    
-    /// Pending route를 처리합니다 (인증 후 호출).
-    @discardableResult
-    public func handlePendingRoute() async -> R? {
-        guard let pending else { return nil }
-        self.pending = nil
-        _ = navigator.execute(.push(pending.route))
-        return pending.route
+
+    /// 인증 완료 후 pending deep link를 재개합니다.
+    public func resumePendingDeepLink() async -> Result {
+        guard let pendingDeepLink else {
+            return .noPendingDeepLink
+        }
+
+        if !canResume(pendingDeepLink) {
+            return .pending(pendingDeepLink)
+        }
+
+        self.pendingDeepLink = nil
+        let results = await navigationHandler.execute(pendingDeepLink.plan.commands)
+        return .executed(plan: pendingDeepLink.plan, results: results)
     }
-    
-    /// Pending route가 있는지 확인합니다.
-    public var hasPendingRoute: Bool {
-        pending != nil
+
+    /// Pending deep link가 있는지 확인합니다.
+    public var hasPendingDeepLink: Bool {
+        pendingDeepLink != nil
     }
-    
-    /// Pending route를 취소합니다.
-    public func clearPendingRoute() {
-        pending = nil
+
+    /// Pending deep link를 취소합니다.
+    public func clearPendingDeepLink() {
+        pendingDeepLink = nil
+    }
+
+    private func canResume(_ pendingDeepLink: PendingDeepLink<R>) -> Bool {
+        switch pipeline.authenticationPolicy {
+        case .notRequired:
+            return true
+
+        case .required(let shouldRequireAuthentication, let isAuthenticated):
+            if !shouldRequireAuthentication(pendingDeepLink.route) {
+                return true
+            }
+            return isAuthenticated()
+        }
     }
 }
 
@@ -160,7 +152,7 @@ public final class DeepLinkEffectHandler<R: Route>: Sendable {
 public protocol DeepLinkEffect {
     /// Effect에서 DeepLink URL을 추출합니다.
     var deepLinkURL: URL? { get }
-    
+
     /// DeepLink URL을 Effect로 변환합니다.
     static func deepLink(_ url: URL) -> Self
 }
@@ -172,15 +164,12 @@ public protocol RouterEffect: NavigationEffect, DeepLinkEffect {}
 
 // MARK: - Effect Handler Extension
 
-extension DeepLinkEffectHandler {
-    
+public extension DeepLinkEffectHandler {
     /// DeepLinkEffect에서 URL을 추출하여 처리합니다.
-    public func handle<E: DeepLinkEffect>(_ effect: E) async -> Result {
-        guard let url = effect.deepLinkURL else { return .unhandled }
+    func handle<E: DeepLinkEffect>(_ effect: E) async -> Result {
+        guard let url = effect.deepLinkURL else {
+            return .missingDeepLinkURL
+        }
         return await handle(url)
     }
 }
-
-// MARK: - Coordinator DeepLink Effect Handler
-
-// NOTE: Coordinator integration intentionally removed from the adapter target.
