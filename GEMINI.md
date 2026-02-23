@@ -47,4 +47,4 @@ swift test
 - `rg -n "navigationIntent\\?\\.send" Sources Examples README.md` => 0
 - `rg -n "about:blank|schemeNotAllowed\\(actualScheme: nil\\)" Sources/InnoRouterEffects` => 0
 
-Release checklist lives in `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/RELEASING.md`.
+Release checklist lives in `RELEASING.md`.

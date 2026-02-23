@@ -105,4 +105,4 @@ swift build --target InnoRouterCore
 
 ## Release Process
 
-See `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/RELEASING.md`.
+See `RELEASING.md`.

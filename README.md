@@ -287,7 +287,7 @@ InnoRouter v2 decisions were benchmarked against four external frameworks:
 
 ## Examples
 
-See `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Examples/StandaloneExample.swift`, `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Examples/CoordinatorExample.swift`, `/Users/changwoo.son/Developer/InnoSquad/InnoRouter/Examples/DeepLinkExample.swift`.
+See `Examples/StandaloneExample.swift`, `Examples/CoordinatorExample.swift`, `Examples/DeepLinkExample.swift`.
 
 ## Development
 
