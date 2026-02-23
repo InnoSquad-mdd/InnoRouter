@@ -10,9 +10,9 @@
 // InnoRouterEffects provides integration points between InnoRouterCore and effect-driven architectures.
 //
 // ## Key Types
-// - `NavigationEffectHandler`: Execute NavCommand as Effects
+// - `NavigationEffectHandler`: Execute NavigationCommand as Effects
 // - `DeepLinkEffectHandler`: Handle deep links as Effects
-// - `NavigationEffect`: Protocol for Effects containing NavCommand
+// - `NavigationEffect`: Protocol for Effects containing NavigationCommand
 // - `DeepLinkEffect`: Protocol for Effects containing deep links
 //
 // ## Usage with InnoFlow (example)

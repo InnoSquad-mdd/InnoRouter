@@ -5,25 +5,25 @@ import InnoRouterCore
 
 @Observable
 @MainActor
-public final class NavStore<R: Route>: Navigator, @unchecked Sendable {
+public final class NavigationStore<R: Route>: Navigator {
     public typealias RouteType = R
 
-    public var state: NavStack<R>
+    public var state: RouteStack<R>
 
     @ObservationIgnored
-    private let engine: NavEngine<R>
+    private let engine: NavigationEngine<R>
 
     @ObservationIgnored
-    private var middlewares: [AnyNavMiddleware<R>]
+    private var middlewares: [AnyNavigationMiddleware<R>]
 
     @ObservationIgnored
-    private var onChange: (@MainActor (_ old: NavStack<R>, _ new: NavStack<R>) -> Void)?
+    private var onChange: (@MainActor (_ old: RouteStack<R>, _ new: RouteStack<R>) -> Void)?
 
     public init(
-        initial: NavStack<R> = .init(),
-        engine: NavEngine<R> = .init(),
-        middlewares: [AnyNavMiddleware<R>] = [],
-        onChange: (@MainActor (_ old: NavStack<R>, _ new: NavStack<R>) -> Void)? = nil
+        initial: RouteStack<R> = .init(),
+        engine: NavigationEngine<R> = .init(),
+        middlewares: [AnyNavigationMiddleware<R>] = [],
+        onChange: (@MainActor (_ old: RouteStack<R>, _ new: RouteStack<R>) -> Void)? = nil
     ) {
         self.state = initial
         self.engine = engine
@@ -33,32 +33,28 @@ public final class NavStore<R: Route>: Navigator, @unchecked Sendable {
 
     public convenience init(
         initialPath: [R],
-        onChange: (@MainActor (_ old: NavStack<R>, _ new: NavStack<R>) -> Void)? = nil
+        onChange: (@MainActor (_ old: RouteStack<R>, _ new: RouteStack<R>) -> Void)? = nil
     ) {
-        self.init(initial: NavStack(path: initialPath), onChange: onChange)
+        self.init(initial: RouteStack(path: initialPath), onChange: onChange)
     }
 
-    public func addMiddleware(_ middleware: AnyNavMiddleware<R>) {
+    public func addMiddleware(_ middleware: AnyNavigationMiddleware<R>) {
         middlewares.append(middleware)
     }
 
     @discardableResult
-    public func execute(_ command: NavCommand<R>) -> NavResult<R> {
+    public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
         switch command {
         case .sequence(let commands):
             return .multiple(commands.map { execute($0) })
-
-        case .conditional(let condition, let nested):
-            guard condition() else { return .conditionNotMet }
-            return execute(nested)
 
         default:
             break
         }
 
         let stateBefore = state
-        var effectiveCommand: NavCommand<R>? = command
-        var executedMiddlewares: [AnyNavMiddleware<R>] = []
+        var effectiveCommand: NavigationCommand<R>? = command
+        var executedMiddlewares: [AnyNavigationMiddleware<R>] = []
 
         for middleware in middlewares {
             guard let current = effectiveCommand else { break }
@@ -89,7 +85,7 @@ public final class NavStore<R: Route>: Navigator, @unchecked Sendable {
     }
 }
 
-public extension NavStore {
+public extension NavigationStore {
     var pathBinding: Binding<[R]> {
         Binding(
             get: { self.state.path },

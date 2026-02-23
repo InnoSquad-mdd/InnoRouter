@@ -19,12 +19,12 @@ enum HomeRoute {
 @MainActor
 final class AppCoordinator: Coordinator {
     typealias RouteType = AppRoute
-    typealias Destination = AnyView
+    typealias Destination = AppDestinationView
 
-    let store = NavStore<AppRoute>()
+    let store = NavigationStore<AppRoute>()
     var isAuthenticated = false
 
-    func handle(_ intent: NavIntent<AppRoute>) {
+    func handle(_ intent: NavigationIntent<AppRoute>) {
         switch intent {
         case .go(let route):
             switch route {
@@ -34,18 +34,13 @@ final class AppCoordinator: Coordinator {
                 _ = store.execute(.replace([.auth]))
             }
         default:
-            break
+            store.send(intent)
         }
     }
 
     @ViewBuilder
-    func destination(for route: AppRoute) -> AnyView {
-        switch route {
-        case .home:
-            AnyView(Text("Home Root"))
-        case .auth:
-            AnyView(Text("Auth Root"))
-        }
+    func destination(for route: AppRoute) -> AppDestinationView {
+        AppDestinationView(route: route)
     }
 }
 
@@ -54,11 +49,35 @@ struct CoordinatorExampleView: View {
 
     var body: some View {
         CoordinatorHost(coordinator: coordinator) {
-            VStack(spacing: 12) {
-                Button("Go Auth") { coordinator.navigate(to: .auth) }
-                Button("Go Home") { coordinator.navigate(to: .home) }
-            }
-            .padding()
+            CoordinatorRootView()
         }
+    }
+}
+
+private struct AppDestinationView: View {
+    let route: AppRoute
+
+    var body: some View {
+        switch route {
+        case .home:
+            Text("Home Root")
+        case .auth:
+            Text("Auth Root")
+        }
+    }
+}
+
+private struct CoordinatorRootView: View {
+    @EnvironmentNavigationIntent(AppRoute.self) private var navigationIntent
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Button("Go Auth") { navigationIntent.send(.go(.auth)) }
+            Button("Go Home") { navigationIntent.send(.go(.home)) }
+            Button("Go Home (Many)") {
+                navigationIntent.send(.goMany([.home]))
+            }
+        }
+        .padding()
     }
 }

@@ -11,7 +11,7 @@ enum HomeRoute {
 }
 
 struct StandaloneExampleView: View {
-    @State private var store = NavStore<HomeRoute>()
+    @State private var store = NavigationStore<HomeRoute>()
 
     var body: some View {
         NavigationHost(store: store) { route in
@@ -30,15 +30,15 @@ struct StandaloneExampleView: View {
 }
 
 private struct HomeListView: View {
-    @UseNavigator(HomeRoute.self) private var navigator
+    @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
 
     var body: some View {
         List {
             Button("Go Detail") {
-                navigator?.push(.detail(id: "123"))
+                navigationIntent.send(.go(.detail(id: "123")))
             }
             Button("Go Settings") {
-                navigator?.push(.settings)
+                navigationIntent.send(.go(.settings))
             }
         }
         .navigationTitle("Home")

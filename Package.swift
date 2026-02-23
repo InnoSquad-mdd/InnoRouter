@@ -93,6 +93,13 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
+        .executableTarget(
+            name: "NavigationEnvironmentFailFastProbe",
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
+            path: "Sources/NavigationEnvironmentFailFastProbe",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
         // MARK: - Macro Declarations (Public API)
         .target(
             name: "InnoRouterMacros",
@@ -116,7 +123,7 @@ let package = Package(
         // MARK: - Tests
         .testTarget(
             name: "InnoRouterTests",
-            dependencies: ["InnoRouter"]
+            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSwiftUI"]
         ),
         .testTarget(
             name: "InnoRouterMacrosTests",

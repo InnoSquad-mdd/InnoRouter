@@ -2,12 +2,32 @@ import Foundation
 
 import InnoRouterCore
 
+public struct DeepLinkParameters: Sendable, Equatable {
+    public let valuesByName: [String: [String]]
+
+    public init(valuesByName: [String: [String]] = [:]) {
+        self.valuesByName = valuesByName
+    }
+
+    public var firstValuesByName: [String: String] {
+        valuesByName.compactMapValues { $0.first }
+    }
+
+    public func firstValue(forName name: String) -> String? {
+        valuesByName[name]?.first
+    }
+
+    public func values(forName name: String) -> [String] {
+        valuesByName[name] ?? []
+    }
+}
+
 public struct DeepLinkParser: Sendable {
     public struct ParsedURL: Sendable, Equatable {
         public let scheme: String?
         public let host: String?
         public let path: [String]
-        public let queryItems: [String: String]
+        public let queryItems: [String: [String]]
         public let fragment: String?
 
         public init(url: URL) {
@@ -15,17 +35,23 @@ public struct DeepLinkParser: Sendable {
             self.scheme = components?.scheme
             self.host = components?.host
             self.path = url.pathComponents.filter { $0 != "/" }
-            self.queryItems = Dictionary(
-                uniqueKeysWithValues: (components?.queryItems ?? [])
-                    .compactMap { item in
-                        item.value.map { (item.name, $0) }
-                    }
-            )
+
+            var parsedQueryItems: [String: [String]] = [:]
+            for item in components?.queryItems ?? [] {
+                guard let value = item.value else { continue }
+                parsedQueryItems[item.name, default: []].append(value)
+            }
+            self.queryItems = parsedQueryItems
+
             self.fragment = components?.fragment
         }
 
         public var pathString: String {
             "/" + path.joined(separator: "/")
+        }
+
+        public var firstQueryItems: [String: String] {
+            queryItems.compactMapValues { $0.first }
         }
     }
 
@@ -41,15 +67,15 @@ public struct DeepLinkParser: Sendable {
 
 public struct DeepLinkPattern: Sendable {
     public struct MatchResult: Sendable {
-        public let params: [String: String]
-        public let matched: Bool
+        public let parameters: [String: [String]]
+        public let isMatched: Bool
 
-        public init(params: [String: String] = [:], matched: Bool = true) {
-            self.params = params
-            self.matched = matched
+        public init(parameters: [String: [String]] = [:], isMatched: Bool = true) {
+            self.parameters = parameters
+            self.isMatched = isMatched
         }
 
-        public static let noMatch = MatchResult(matched: false)
+        public static let noMatch = MatchResult(isMatched: false)
     }
 
     private let patternParts: [PatternPart]
@@ -64,13 +90,13 @@ public struct DeepLinkPattern: Sendable {
         self.patternParts = pattern
             .split(separator: "/")
             .map { part -> PatternPart in
-                let str = String(part)
-                if str.hasPrefix(":") {
-                    return .parameter(String(str.dropFirst()))
-                } else if str == "*" {
+                let stringPart = String(part)
+                if stringPart.hasPrefix(":") {
+                    return .parameter(String(stringPart.dropFirst()))
+                } else if stringPart == "*" {
                     return .wildcard
                 } else {
-                    return .literal(str)
+                    return .literal(stringPart)
                 }
             }
     }
@@ -86,7 +112,7 @@ public struct DeepLinkPattern: Sendable {
             return nil
         }
 
-        var params: [String: String] = [:]
+        var parameters: [String: [String]] = [:]
 
         for (index, patternPart) in patternParts.enumerated() {
             switch patternPart {
@@ -95,25 +121,31 @@ public struct DeepLinkPattern: Sendable {
 
             case .parameter(let name):
                 guard index < pathParts.count else { return nil }
-                params[name] = pathParts[index]
+                parameters[name] = [pathParts[index]]
 
             case .wildcard:
-                return MatchResult(params: params)
+                return MatchResult(parameters: parameters)
             }
         }
 
-        return MatchResult(params: params)
+        return MatchResult(parameters: parameters)
     }
 
     public func match(_ parsed: DeepLinkParser.ParsedURL) -> MatchResult? {
         guard let result = match(parsed.pathString) else { return nil }
+        let mergedParameters = Self.merge(result.parameters, with: parsed.queryItems)
+        return MatchResult(parameters: mergedParameters)
+    }
 
-        var params = result.params
-        for (key, value) in parsed.queryItems {
-            params[key] = value
+    private static func merge(
+        _ first: [String: [String]],
+        with second: [String: [String]]
+    ) -> [String: [String]] {
+        var merged = first
+        for (key, values) in second {
+            merged[key, default: []].append(contentsOf: values)
         }
-
-        return MatchResult(params: params)
+        return merged
     }
 }
 
@@ -142,11 +174,11 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
 
 public struct DeepLinkMapping<R: Route>: Sendable {
     private let pattern: DeepLinkPattern
-    private let handler: @Sendable ([String: String]) -> R?
+    private let handler: @Sendable (DeepLinkParameters) -> R?
 
     public init(
         _ pattern: String,
-        handler: @escaping @Sendable ([String: String]) -> R?
+        handler: @escaping @Sendable (DeepLinkParameters) -> R?
     ) {
         self.pattern = DeepLinkPattern(pattern)
         self.handler = handler
@@ -154,7 +186,7 @@ public struct DeepLinkMapping<R: Route>: Sendable {
 
     func match(_ parsed: DeepLinkParser.ParsedURL) -> R? {
         guard let result = pattern.match(parsed) else { return nil }
-        return handler(result.params)
+        return handler(DeepLinkParameters(valuesByName: result.parameters))
     }
 }
 

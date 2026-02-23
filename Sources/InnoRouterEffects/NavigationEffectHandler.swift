@@ -56,19 +56,21 @@ import InnoRouterCore
 /// }
 /// ```
 @MainActor
-public final class NavigationEffectHandler<R: Route>: Sendable {
+public final class NavigationEffectHandler<R: Route> {
     
     // MARK: - Properties
     
-    private let navigator: AnyNavigator<R>
+    private let executeCommand: @MainActor (NavigationCommand<R>) -> NavigationResult<R>
     
     /// 마지막 실행 결과
-    public private(set) var lastResult: NavResult<R>?
+    public private(set) var lastResult: NavigationResult<R>?
     
     // MARK: - Initialization
     
-    public init(navigator: AnyNavigator<R>) {
-        self.navigator = navigator
+    public init<N: Navigator>(navigator: N) where N.RouteType == R {
+        self.executeCommand = { command in
+            navigator.execute(command)
+        }
     }
     
     // MARK: - Execute
@@ -78,8 +80,8 @@ public final class NavigationEffectHandler<R: Route>: Sendable {
     /// - Parameter command: 실행할 Navigation 명령
     /// - Returns: 실행 결과
     @discardableResult
-    public func execute(_ command: NavCommand<R>) async -> NavResult<R> {
-        let result = navigator.execute(command)
+    public func execute(_ command: NavigationCommand<R>) async -> NavigationResult<R> {
+        let result = executeCommand(command)
         lastResult = result
         return result
     }
@@ -89,11 +91,28 @@ public final class NavigationEffectHandler<R: Route>: Sendable {
     /// - Parameter commands: 실행할 Navigation 명령들
     /// - Returns: 모든 실행 결과
     @discardableResult
-    public func execute(_ commands: [NavCommand<R>]) async -> [NavResult<R>] {
-        var results: [NavResult<R>] = []
+    public func execute(_ commands: [NavigationCommand<R>]) async -> [NavigationResult<R>] {
+        await execute(commands, stopOnFailure: false)
+    }
+
+    /// 여러 Navigation 명령을 순차적으로 실행합니다.
+    ///
+    /// - Parameters:
+    ///   - commands: 실행할 Navigation 명령들
+    ///   - stopOnFailure: `true`이면 실패 결과(`isSuccess == false`)에서 즉시 중단합니다.
+    /// - Returns: 실행된 명령들의 결과
+    @discardableResult
+    public func execute(
+        _ commands: [NavigationCommand<R>],
+        stopOnFailure: Bool
+    ) async -> [NavigationResult<R>] {
+        var results: [NavigationResult<R>] = []
         for command in commands {
-            let result = navigator.execute(command)
+            let result = executeCommand(command)
             results.append(result)
+            if stopOnFailure, !result.isSuccess {
+                break
+            }
         }
         lastResult = results.last
         return results
@@ -121,12 +140,13 @@ public final class NavigationEffectHandler<R: Route>: Sendable {
         await execute(.replace(routes))
     }
     
-    /// 조건부 네비게이션을 실행합니다.
+    /// 조건이 참일 때만 네비게이션을 실행합니다.
     public func executeIf(
-        _ condition: @escaping @Sendable () -> Bool,
-        then command: NavCommand<R>
-    ) async -> NavResult<R> {
-        await execute(.conditional(condition, command))
+        _ shouldExecute: @escaping @Sendable () -> Bool,
+        command: NavigationCommand<R>
+    ) async -> NavigationResult<R> {
+        guard shouldExecute() else { return .cancelled }
+        return await execute(command)
     }
 }
 
@@ -140,10 +160,10 @@ public protocol NavigationEffect {
     associatedtype RouteType: Route
     
     /// Effect에서 Navigation을 추출합니다.
-    var navigationCommand: NavCommand<RouteType>? { get }
+    var navigationCommand: NavigationCommand<RouteType>? { get }
     
     /// Navigation을 Effect로 변환합니다.
-    static func navigation(_ command: NavCommand<RouteType>) -> Self
+    static func navigation(_ command: NavigationCommand<RouteType>) -> Self
 }
 
 // MARK: - Effect Handler Extension
@@ -152,7 +172,7 @@ public extension NavigationEffectHandler {
     
     /// NavigationEffect에서 Navigation을 추출하여 실행합니다.
     @discardableResult
-    func handle<E: NavigationEffect>(_ effect: E) async -> NavResult<R>? where E.RouteType == R {
+    func handle<E: NavigationEffect>(_ effect: E) async -> NavigationResult<R>? where E.RouteType == R {
         guard let command = effect.navigationCommand else { return nil }
         return await execute(command)
     }

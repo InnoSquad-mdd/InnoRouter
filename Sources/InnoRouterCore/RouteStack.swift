@@ -1,4 +1,4 @@
-public struct NavStack<R: Route>: Sendable, Equatable {
+public struct RouteStack<R: Route>: Sendable, Equatable {
     public var path: [R]
 
     public init(path: [R] = []) {

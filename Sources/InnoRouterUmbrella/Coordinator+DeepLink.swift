@@ -6,29 +6,23 @@ import InnoRouterSwiftUI
 @MainActor
 public protocol DeepLinkCoordinating: Coordinator {
     var deepLinkPipeline: DeepLinkPipeline<RouteType> { get }
-    var pendingDeepLink: PendingNav<RouteType>? { get set }
+    var pendingDeepLink: PendingDeepLink<RouteType>? { get set }
 }
 
 public extension DeepLinkCoordinating {
-    func handle(_ intent: NavIntent<RouteType>) {
+    func handle(_ intent: NavigationIntent<RouteType>) {
         switch intent {
-        case .go(let route):
-            _ = store.execute(.push(route))
-
-        case .back:
-            _ = store.execute(.pop)
-
-        case .resetTo(let routes):
-            _ = store.execute(.replace(routes))
-
         case .deepLink(let url):
             handleDeepLink(url)
+
+        default:
+            store.send(intent)
         }
     }
 
     func handleDeepLink(_ url: URL) {
         switch deepLinkPipeline.decide(for: url) {
-        case .rejected, .unhandled:
+        case .rejected(_), .unhandled(_):
             break
 
         case .pending(let pending):
@@ -43,16 +37,22 @@ public extension DeepLinkCoordinating {
     }
 
     @discardableResult
-    func handlePendingDeepLinkIfPossible() -> Bool {
+    func resumePendingDeepLinkIfPossible() -> Bool {
         guard let pendingDeepLink else { return false }
-        guard let isAuthenticated = deepLinkPipeline.isAuthenticated, isAuthenticated() else { return false }
+        switch deepLinkPipeline.authenticationPolicy {
+        case .notRequired:
+            break
 
-        let plan = deepLinkPipeline.plan(pendingDeepLink.route)
+        case .required(let shouldRequireAuthentication, let isAuthenticated):
+            if shouldRequireAuthentication(pendingDeepLink.route), !isAuthenticated() {
+                return false
+            }
+        }
+
         self.pendingDeepLink = nil
-        for command in plan.commands {
+        for command in pendingDeepLink.plan.commands {
             _ = store.execute(command)
         }
         return true
     }
 }
-

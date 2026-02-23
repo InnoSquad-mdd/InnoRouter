@@ -1,14 +1,14 @@
 @MainActor
-public protocol NavStateReadable: AnyObject, Sendable {
+public protocol NavigationStateReader: AnyObject {
     associatedtype RouteType: Route
-    var state: NavStack<RouteType> { get }
+    var state: RouteStack<RouteType> { get }
 }
 
 @MainActor
-public protocol NavCommandExecuting: AnyObject, Sendable {
+public protocol NavigationCommandExecutor: AnyObject {
     associatedtype RouteType: Route
     @discardableResult
-    func execute(_ command: NavCommand<RouteType>) -> NavResult<RouteType>
+    func execute(_ command: NavigationCommand<RouteType>) -> NavigationResult<RouteType>
 }
 
-public typealias Navigator = NavStateReadable & NavCommandExecuting
+public typealias Navigator = NavigationStateReader & NavigationCommandExecutor

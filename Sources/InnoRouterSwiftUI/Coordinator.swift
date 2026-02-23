@@ -3,9 +3,13 @@ import SwiftUI
 
 import InnoRouterCore
 
-public enum NavIntent<R: Route>: Sendable, Equatable {
+public enum NavigationIntent<R: Route>: Sendable, Equatable {
     case go(R)
+    case goMany([R])
     case back
+    case backBy(Int)
+    case backTo(R)
+    case backToRoot
     case resetTo([R])
     case deepLink(URL)
 }
@@ -15,79 +19,66 @@ public protocol Coordinator: AnyObject, Observable {
     associatedtype RouteType: Route
     associatedtype Destination: View
 
-    var store: NavStore<RouteType> { get }
+    var store: NavigationStore<RouteType> { get }
 
-    func handle(_ intent: NavIntent<RouteType>)
+    func handle(_ intent: NavigationIntent<RouteType>)
     @ViewBuilder
     func destination(for route: RouteType) -> Destination
 }
 
-public extension Coordinator {
-    var navigator: AnyNavigator<RouteType> { AnyNavigator(store) }
-
-    func handle(_ intent: NavIntent<RouteType>) {
+public extension NavigationStore {
+    func send(_ intent: NavigationIntent<R>) {
         switch intent {
         case .go(let route):
-            _ = store.execute(.push(route))
+            _ = execute(.push(route))
+
+        case .goMany(let routes):
+            guard !routes.isEmpty else { return }
+            let commands = routes.map { NavigationCommand<R>.push($0) }
+            _ = execute(.sequence(commands))
 
         case .back:
-            _ = store.execute(.pop)
+            _ = execute(.pop)
+
+        case .backBy(let count):
+            _ = execute(.popCount(count))
+
+        case .backTo(let route):
+            _ = execute(.popTo(route))
+
+        case .backToRoot:
+            _ = execute(.popToRoot)
 
         case .resetTo(let routes):
-            _ = store.execute(.replace(routes))
+            _ = execute(.replace(routes))
 
         case .deepLink:
             break
         }
     }
+}
 
-    func navigate(to route: RouteType) {
-        handle(.go(route))
+public extension Coordinator {
+    func handle(_ intent: NavigationIntent<RouteType>) {
+        store.send(intent)
     }
 
-    @discardableResult
-    func execute(_ command: NavCommand<RouteType>) -> NavResult<RouteType> {
-        store.execute(command)
-    }
-
-    func goBack() {
-        _ = store.execute(.pop)
-    }
-
-    func goToRoot() {
-        _ = store.execute(.popToRoot)
+    func send(_ intent: NavigationIntent<RouteType>) {
+        handle(intent)
     }
 }
 
-@MainActor
-public final class AnyCoordinator<R: Route>: Coordinator {
-    public typealias RouteType = R
-    public typealias Destination = AnyView
-
-    private let _store: () -> NavStore<R>
-    private let _handle: (NavIntent<R>) -> Void
-    private let _destination: (R) -> AnyView
-
-    public var store: NavStore<R> { _store() }
-
-    public init<C: Coordinator>(_ coordinator: C) where C.RouteType == R {
-        self._store = { coordinator.store }
-        self._handle = { coordinator.handle($0) }
-        self._destination = { AnyView(coordinator.destination(for: $0)) }
-    }
-
-    public func handle(_ intent: NavIntent<R>) {
-        _handle(intent)
-    }
-
-    @ViewBuilder
-    public func destination(for route: R) -> AnyView {
-        _destination(route)
+extension Coordinator {
+    var navigationIntentDispatcher: AnyNavigationIntentDispatcher<RouteType> {
+        AnyNavigationIntentDispatcher { [weak self] intent in
+            self?.handle(intent)
+        }
     }
 }
 
 public struct CoordinatorHost<C: Coordinator, Root: View>: View {
     @Bindable private var coordinator: C
+    @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
     private let root: () -> Root
 
     public init(
@@ -105,7 +96,7 @@ public struct CoordinatorHost<C: Coordinator, Root: View>: View {
                     coordinator.destination(for: route)
                 }
         }
-        .navigator(coordinator.store)
+        .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
+        .navigationIntentDispatcher(coordinator.navigationIntentDispatcher)
     }
 }
-

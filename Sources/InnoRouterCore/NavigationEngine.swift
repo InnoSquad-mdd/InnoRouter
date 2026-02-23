@@ -1,7 +1,7 @@
-public struct NavEngine<R: Route>: Sendable {
+public struct NavigationEngine<R: Route>: Sendable {
     public init() {}
 
-    public func apply(_ command: NavCommand<R>, to state: inout NavStack<R>) -> NavResult<R> {
+    public func apply(_ command: NavigationCommand<R>, to state: inout RouteStack<R>) -> NavigationResult<R> {
         switch command {
         case .push(let route):
             state.path.append(route)
@@ -34,14 +34,9 @@ public struct NavEngine<R: Route>: Sendable {
             state.path = routes
             return .success
 
-        case .conditional(let condition, let nested):
-            guard condition() else { return .conditionNotMet }
-            return apply(nested, to: &state)
-
         case .sequence(let commands):
             let results = commands.map { apply($0, to: &state) }
             return .multiple(results)
         }
     }
 }
-
