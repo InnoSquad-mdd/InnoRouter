@@ -78,7 +78,7 @@ swift build --target InnoRouterCore
 - `decide(for:)` returns `.plan`, `.pending`, `.rejected(reason:)`, `.unhandled(url:)`
 - `PendingDeepLink.plan` should be replayed after auth succeeds
 
-### SwiftUI Philosophy (v7)
+### SwiftUI Philosophy (v2)
 
 - Views emit intent only; no public direct navigator injection.
 - `NavigationStore.state` remains single rendering source.

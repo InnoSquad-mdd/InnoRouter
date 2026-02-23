@@ -1,6 +1,6 @@
-# InnoRouter v7 Principle Scorecard
+# InnoRouter v2 Principle Scorecard
 
-This scorecard maps v7 implementation decisions to SwiftUI philosophy, SOLID principles, Swift API Design Guidelines, and `ios-native-skills` rules.
+This scorecard maps v2 implementation decisions to SwiftUI philosophy, SOLID principles, Swift API Design Guidelines, and `ios-native-skills` rules.
 
 ## Rule-to-Code Mapping
 
@@ -26,7 +26,7 @@ This scorecard maps v7 implementation decisions to SwiftUI philosophy, SOLID pri
 - Public Bool names follow prefix rule (`is*`, `has*`, `can*`, `should*`).
 - Intent APIs read naturally in call-site form.
 
-## External Framework Comparison (v7)
+## External Framework Comparison (v2)
 
 | Framework | Adopted | Not Adopted |
 |---|---|---|

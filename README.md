@@ -17,7 +17,7 @@ Core ideas:
 
 ```swift
 dependencies: [
-  .package(url: "https://github.com/your-org/InnoRouter.git", from: "7.0.0")
+  .package(url: "https://github.com/your-org/InnoRouter.git", from: "2.0.0")
 ]
 ```
 
@@ -246,9 +246,9 @@ let pipeline = DeepLinkPipeline<HomeRoute>(
 }
 ```
 
-## v7 Breaking Changes
+## v2 Breaking Changes
 
-InnoRouter v7 is a SwiftUI/SOLID/API-guideline hardening release focused on strict intent-first surface, fail-fast environment semantics, and typed effect outcomes.
+InnoRouter v2 is a SwiftUI/SOLID/API-guideline hardening release focused on strict intent-first surface, fail-fast environment semantics, and typed effect outcomes.
 
 ### Renamed/Removed Public APIs
 
@@ -276,9 +276,9 @@ InnoRouter v7 is a SwiftUI/SOLID/API-guideline hardening release focused on stri
 
 ### Framework Comparison
 
-InnoRouter v7 decisions were benchmarked against four external frameworks:
+InnoRouter v2 decisions were benchmarked against four external frameworks:
 
-| Framework | Adopted in v7 | Not adopted in v7 |
+| Framework | Adopted in v2 | Not adopted in v2 |
 |---|---|---|
 | `SwiftNavigation` | Type-safe route/state modeling and declarative transition boundaries | Observation/perception-specific binding strategy coupling |
 | `TCACoordinators` | Deterministic command execution/testing strategy (`execute(_:stopOnFailure:)`) | Full TCA-first reducer/runtime dependency |

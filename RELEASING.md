@@ -29,7 +29,7 @@ This project is a Swift Package with modular products:
   - pending deep links live in app policy layer
   - `PendingDeepLink.plan` replay path is explicit after authentication
 
-### v7 Breaking Release Notes
+### v2 Breaking Release Notes
 - SwiftUI public helper shortcuts removed from `Coordinator` public surface.
 - `@EnvironmentNavigationIntent` non-optional fail-fast behavior is documented.
 - Typed deep-link effect result changes are documented (`invalidURL`, `missingDeepLinkURL`, `noPendingDeepLink`).

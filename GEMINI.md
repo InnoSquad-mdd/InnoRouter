@@ -4,7 +4,7 @@
 
 InnoRouter is a SwiftUI-native navigation framework focused on state-driven navigation, unidirectional command execution, and dependency inversion.
 
-v7 guidance:
+v2 guidance:
 - SwiftUI views use `@EnvironmentNavigationIntent` and `send(_:)`.
 - Coordinator/Store layer owns command execution.
 - Direct view-level navigator APIs are not part of public SwiftUI surface.
