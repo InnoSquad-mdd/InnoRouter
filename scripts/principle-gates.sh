@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+if ! command -v rg >/dev/null 2>&1; then
+  echo "[principle-gates] Failed: ripgrep (rg) is required but was not found in PATH"
+  exit 1
+fi
+
 echo "[principle-gates] Running swift test"
 swift test
 
