@@ -211,6 +211,17 @@ struct NavigationCommandTests {
         let result = NavigationResult<TestRoute>.multiple([])
         #expect(result.isSuccess == false)
     }
+
+    @Test("Command validation previews legality without mutation")
+    func testCommandValidationPreview() {
+        let stack = RouteStack<TestRoute>(path: [.home])
+
+        #expect(NavigationCommand<TestRoute>.pop.validate(on: stack) == .success)
+        #expect(NavigationCommand<TestRoute>.pop.canExecute(on: stack) == true)
+        #expect(NavigationCommand<TestRoute>.popTo(.settings).validate(on: stack) == .routeNotFound(.settings))
+        #expect(NavigationCommand<TestRoute>.popTo(.settings).canExecute(on: stack) == false)
+        #expect(stack.path == [.home])
+    }
 }
 
 // MARK: - NavigationIntent Tests

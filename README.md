@@ -8,6 +8,18 @@ Core ideas:
 - Deep links are handled as **plans** (`DeepLinkPipeline -> DeepLinkDecision -> NavigationPlan`) instead of ad-hoc branching.
 - SwiftUI views emit **intent** (`NavigationIntent`) and do not directly execute router commands.
 
+## State Ownership
+
+InnoRouter should be treated as the **navigation transition engine** in the InnoSquad stack.
+
+- Own `RouteStack` mutations and command legality here.
+- Keep auth and business phase transitions in `InnoFlow`.
+- Keep transport retry/reconnect state in `InnoNetwork`.
+- Consume DI output from `InnoDI`, but do not model container lifecycle here.
+
+InnoRouter is already state-machine-friendly, but it should not become a general automata core
+for unrelated application lifecycles.
+
 ## Requirements
 
 - iOS 18+ / macOS 15+ / tvOS 18+ / watchOS 11+
@@ -136,6 +148,22 @@ Notes:
 - Middleware runs **per executed command** (including each step of `.sequence`).
 - If `willExecute` returns `nil`, execution is cancelled with `.cancelled`.
 
+Command legality is intentionally local to navigation:
+- `.pop` and `.popCount` fail with `.stackEmpty` when the stack cannot satisfy the command.
+- `.popTo(route)` fails with `.routeNotFound(route)` when the target route does not exist.
+- Deep-link auth gating produces `.pending(plan)` so replay responsibility stays explicit.
+
+If you want to preview legality without mutating state, use:
+
+```swift
+let stack = RouteStack(path: [.home, .detail(id: "123")])
+let command = NavigationCommand<TestRoute>.pop
+
+if command.canExecute(on: stack) {
+  _ = store.execute(command)
+}
+```
+
 ## Coordinator Pattern
 
 Use coordinators to centralize policy (auth redirects, flow routing, deep link orchestration).
@@ -249,6 +277,12 @@ let pipeline = DeepLinkPipeline<HomeRoute>(
   }
 }
 ```
+
+Deep-link lifecycle:
+- `.rejected`: rejected before route resolution because the URL is outside the router contract.
+- `.unhandled`: URL passed validation but no route matched.
+- `.pending`: route matched, but auth policy requires replay later.
+- `.plan`: route matched and can execute immediately.
 
 ## v2 Breaking Changes
 
