@@ -22,3 +22,19 @@ public enum NavigationCommand<R: Route>: Sendable, Equatable {
         }
     }
 }
+
+public extension NavigationCommand {
+    /// Returns the result this command would produce on the provided stack.
+    ///
+    /// This makes command legality explicit without mutating router state or
+    /// introducing a generic state-machine layer above navigation.
+    func validate(on state: RouteStack<R>, using engine: NavigationEngine<R> = .init()) -> NavigationResult<R> {
+        var preview = state
+        return engine.apply(self, to: &preview)
+    }
+
+    /// Returns `true` when the command can succeed on the provided stack.
+    func canExecute(on state: RouteStack<R>, using engine: NavigationEngine<R> = .init()) -> Bool {
+        validate(on: state, using: engine).isSuccess
+    }
+}
