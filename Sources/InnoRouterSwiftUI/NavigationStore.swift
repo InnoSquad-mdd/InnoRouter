@@ -56,48 +56,6 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.init(initial: initial, configuration: configuration)
     }
 
-    @available(*, deprecated, message: "Use init(initial:configuration:) instead.")
-    public convenience init(
-        initial: RouteStack<R> = .init(),
-        engine: NavigationEngine<R> = .init(),
-        middlewares: [AnyNavigationMiddleware<R>] = [],
-        onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)? = nil,
-        onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)? = nil,
-        nonPrefixPathRewritePolicy: NavigationPathMismatchPolicy<R> = .replace
-    ) {
-        self.init(
-            initial: initial,
-            configuration: NavigationStoreConfiguration(
-                engine: engine,
-                middlewares: middlewares.map { NavigationMiddlewareRegistration(middleware: $0) },
-                routeStackValidator: .permissive,
-                pathMismatchPolicy: nonPrefixPathRewritePolicy,
-                logger: nil,
-                onChange: onChange,
-                onBatchExecuted: onBatchExecuted
-            )
-        )
-    }
-
-    @available(*, deprecated, message: "Use try init(initialPath:configuration:) instead.")
-    public convenience init(
-        initialPath: [R],
-        onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)? = nil,
-        onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)? = nil,
-        nonPrefixPathRewritePolicy: NavigationPathMismatchPolicy<R> = .replace
-    ) {
-        self.init(
-            initial: RouteStack(path: initialPath),
-            configuration: NavigationStoreConfiguration(
-                routeStackValidator: .permissive,
-                pathMismatchPolicy: nonPrefixPathRewritePolicy,
-                logger: nil,
-                onChange: onChange,
-                onBatchExecuted: onBatchExecuted
-            )
-        )
-    }
-
     init(
         initial: RouteStack<R> = .init(),
         configuration: NavigationStoreConfiguration<R> = .init(),
