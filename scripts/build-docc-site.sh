@@ -157,7 +157,6 @@ DOCC_MODULES=(
   "InnoRouterMacros|Sources/InnoRouterMacros/InnoRouterMacros.docc|macros|InnoRouterMacros|com.innosquad.innorouter.docs.macros"
 )
 
-build_root="$ROOT_DIR/.build"
 temp_root="$(mktemp -d "${TMPDIR:-/tmp}/innorouter-docc.XXXXXX")"
 build_bin_dir=""
 modules_dir=""
@@ -165,6 +164,9 @@ module_cache_dir=""
 target_triple=""
 resource_dir=""
 sdk_path=""
+toolchain_bin_dir=""
+swift_symbolgraph_extract_bin=""
+docc_bin=""
 
 cleanup() {
   rm -rf "$temp_root"
@@ -180,8 +182,8 @@ if [[ -n "$EXISTING_SITE_DIR" && -d "$EXISTING_SITE_DIR" ]]; then
   rsync -a --exclude '.git' "$EXISTING_SITE_DIR"/ "$OUTPUT_DIR"/
 fi
 
-rm -rf "$OUTPUT_DIR/$VERSION" "$OUTPUT_DIR/latest"
-mkdir -p "$OUTPUT_DIR/$VERSION" "$OUTPUT_DIR/latest"
+rm -rf "${OUTPUT_DIR:?}/${VERSION:?}" "${OUTPUT_DIR:?}/latest"
+mkdir -p "${OUTPUT_DIR:?}/${VERSION:?}" "${OUTPUT_DIR:?}/latest"
 
 echo "[build-docc-site] Generating symbol graphs"
 swift build >/dev/null
@@ -201,6 +203,13 @@ resource_dir="$(swift -print-target-info | python3 -c 'import json, sys; print(j
 [[ -n "$target_triple" ]] || die "failed to determine target triple"
 [[ -n "$resource_dir" ]] || die "failed to determine Swift resource directory"
 
+toolchain_bin_dir="$(cd "$(dirname "$(dirname "$resource_dir")")/bin" && pwd -P)"
+swift_symbolgraph_extract_bin="$toolchain_bin_dir/swift-symbolgraph-extract"
+docc_bin="$toolchain_bin_dir/docc"
+
+[[ -x "$swift_symbolgraph_extract_bin" ]] || die "failed to locate swift-symbolgraph-extract in active toolchain: $swift_symbolgraph_extract_bin"
+[[ -x "$docc_bin" ]] || die "failed to locate docc in active toolchain: $docc_bin"
+
 extract_module_symbols() {
   local target="$1"
   local output="$2"
@@ -208,7 +217,7 @@ extract_module_symbols() {
   rm -rf "$output"
   mkdir -p "$output"
 
-  xcrun swift-symbolgraph-extract \
+  "$swift_symbolgraph_extract_bin" \
     -module-name "$target" \
     -I "$modules_dir" \
     -target "$target_triple" \
@@ -233,7 +242,7 @@ build_module_archive() {
 
   rm -rf "$output"
 
-  xcrun docc convert "$ROOT_DIR/$catalog" \
+  "$docc_bin" convert "$ROOT_DIR/$catalog" \
     --additional-symbol-graph-dir "$module_symbols_dir" \
     --output-dir "$output" \
     --fallback-display-name "$display_name" \
