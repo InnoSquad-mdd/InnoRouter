@@ -1,10 +1,8 @@
 import SwiftUI
 
 import InnoRouter
-import InnoRouterMacros
 
-@Routable
-enum ProductRoute {
+enum ProductRoute: Route {
     case list
     case detail(id: String)
     case login
@@ -69,8 +67,10 @@ struct DeepLinkExampleView: View {
     private func handle(url: URL, pipeline: DeepLinkPipeline<ProductRoute>) {
         switch pipeline.decide(for: url) {
         case .plan(let plan):
-            for command in plan.commands {
-                _ = store.execute(command)
+            Task { @MainActor in
+                for command in plan.commands {
+                    _ = store.execute(command)
+                }
             }
         case .pending:
             _ = store.execute(.push(.login))

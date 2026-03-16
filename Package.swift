@@ -38,6 +38,14 @@ let package = Package(
         
         // MARK: - InnoFlow Adapter
         .library(
+            name: "InnoRouterNavigationEffects",
+            targets: ["InnoRouterNavigationEffects"]
+        ),
+        .library(
+            name: "InnoRouterDeepLinkEffects",
+            targets: ["InnoRouterDeepLinkEffects"]
+        ),
+        .library(
             name: "InnoRouterEffects",
             targets: ["InnoRouterEffects"]
         ),
@@ -83,11 +91,28 @@ let package = Package(
         
         // MARK: - Effects Target
         .target(
-            name: "InnoRouterEffects",
+            name: "InnoRouterNavigationEffects",
+            dependencies: [
+                "InnoRouterCore",
+            ],
+            path: "Sources/InnoRouterNavigationEffects",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterDeepLinkEffects",
             dependencies: [
                 "InnoRouterCore",
                 "InnoRouterDeepLink",
-                // .product(name: "InnoFlow", package: "InnoFlow")
+                "InnoRouterNavigationEffects",
+            ],
+            path: "Sources/InnoRouterDeepLinkEffects",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterEffects",
+            dependencies: [
+                "InnoRouterNavigationEffects",
+                "InnoRouterDeepLinkEffects",
             ],
             path: "Sources/InnoRouterEffects",
             swiftSettings: [.swiftLanguageMode(.v6)]
@@ -98,6 +123,56 @@ let package = Package(
             name: "NavigationEnvironmentFailFastProbe",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
             path: "Sources/NavigationEnvironmentFailFastProbe",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
+        // MARK: - Example Smoke Targets
+        .target(
+            name: "InnoRouterStandaloneExampleSmoke",
+            dependencies: ["InnoRouter"],
+            path: "ExamplesSmoke",
+            exclude: ["CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift"],
+            sources: ["StandaloneSmoke.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterCoordinatorExampleSmoke",
+            dependencies: ["InnoRouter"],
+            path: "ExamplesSmoke",
+            exclude: ["StandaloneSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift"],
+            sources: ["CoordinatorSmoke.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterDeepLinkExampleSmoke",
+            dependencies: ["InnoRouter"],
+            path: "ExamplesSmoke",
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift"],
+            sources: ["DeepLinkSmoke.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterSplitCoordinatorExampleSmoke",
+            dependencies: ["InnoRouter"],
+            path: "ExamplesSmoke",
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift"],
+            sources: ["SplitCoordinatorSmoke.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterAppShellExampleSmoke",
+            dependencies: ["InnoRouter"],
+            path: "ExamplesSmoke",
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "ModalSmoke.swift"],
+            sources: ["AppShellSmoke.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterModalExampleSmoke",
+            dependencies: ["InnoRouter"],
+            path: "ExamplesSmoke",
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift"],
+            sources: ["ModalSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 

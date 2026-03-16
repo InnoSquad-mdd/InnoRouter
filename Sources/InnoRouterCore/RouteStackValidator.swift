@@ -1,0 +1,60 @@
+public enum RouteStackValidationError<R: Route>: Error, Equatable, Sendable {
+    case emptyStackNotAllowed
+    case duplicateRoute(R)
+    case missingRequiredRoot(expected: R)
+    case invalidRoot(expected: R, actual: R)
+}
+
+public struct RouteStackValidator<R: Route>: Sendable {
+    private let validateClosure: @Sendable ([R]) throws -> Void
+
+    public init(_ validate: @escaping @Sendable ([R]) throws -> Void) {
+        self.validateClosure = validate
+    }
+
+    public func validate(_ path: [R]) throws {
+        try validateClosure(path)
+    }
+
+    public static var permissive: Self {
+        Self { _ in }
+    }
+
+    public static var nonEmpty: Self {
+        Self { path in
+            guard !path.isEmpty else {
+                throw RouteStackValidationError<R>.emptyStackNotAllowed
+            }
+        }
+    }
+
+    public static var uniqueRoutes: Self {
+        Self { path in
+            var seen = Set<R>()
+
+            for route in path {
+                guard seen.insert(route).inserted else {
+                    throw RouteStackValidationError<R>.duplicateRoute(route)
+                }
+            }
+        }
+    }
+
+    public static func rooted(at route: R) -> Self {
+        Self { path in
+            guard let first = path.first else {
+                throw RouteStackValidationError<R>.missingRequiredRoot(expected: route)
+            }
+            guard first == route else {
+                throw RouteStackValidationError<R>.invalidRoot(expected: route, actual: first)
+            }
+        }
+    }
+
+    public func combined(with other: Self) -> Self {
+        Self { path in
+            try self.validate(path)
+            try other.validate(path)
+        }
+    }
+}

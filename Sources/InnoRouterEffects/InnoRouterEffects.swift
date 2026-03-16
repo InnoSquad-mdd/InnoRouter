@@ -1,17 +1,20 @@
 // MARK: - InnoRouterEffects.swift
-// InnoRouterEffects - Effect Integration
+// InnoRouterEffects - Effect Integration Umbrella
 // Copyright © 2025 Inno Squad. All rights reserved.
 
 @_exported import InnoRouterCore
 @_exported import InnoRouterDeepLink
+@_exported import InnoRouterNavigationEffects
+@_exported import InnoRouterDeepLinkEffects
 
 // MARK: - Module Overview
 //
-// InnoRouterEffects provides integration points between InnoRouterCore and effect-driven architectures.
+// InnoRouterEffects re-exports the split effect modules for compatibility.
 //
 // ## Key Types
 // - `NavigationEffectHandler`: Execute NavigationCommand as Effects
 // - `DeepLinkEffectHandler`: Handle deep links as Effects
+// - `AnyBatchNavigator`: Type erasure for batch-aware navigation boundaries
 // - `NavigationEffect`: Protocol for Effects containing NavigationCommand
 // - `DeepLinkEffect`: Protocol for Effects containing deep links
 //
@@ -20,45 +23,53 @@
 // ```swift
 // @InnoFlow
 // struct ProductFeature {
-//     // Dependencies
-//     let navigationHandler: NavigationEffectHandler<ProductRoute>
-//
-//     // Effect
-//     enum Effect: Sendable {
-//         case navigate(Navigation<ProductRoute>)
-//         case loadProducts
+//     struct State: Equatable, Sendable {
+//         var selectedProductID: String?
 //     }
 //
-//     // Reduce
-//     func reduce(state: inout State, action: Action) -> Effect? {
-//         switch action {
-//         case .productTapped(let id):
-//             return .navigate(.push(.detail(id: id)))
-//         case .backTapped:
-//             return .navigate(.pop)
-//         }
+//     enum Action: Equatable, Sendable {
+//         case productTapped(String)
+//         case backTapped
+//         case _navigationRequested(NavigationCommand<ProductRoute>)
 //     }
 //
-//     // Handle Effect
-//     func handle(effect: Effect) async -> EffectOutput<Action> {
-//         switch effect {
-//         case .navigate(let command):
-//             await navigationHandler.execute(command)
-//             return .none
-//         case .loadProducts:
-//             // ...
-//             return .none
+//     var body: some Reducer<State, Action> {
+//         Reduce { state, action in
+//             switch action {
+//             case .productTapped(let id):
+//                 state.selectedProductID = id
+//                 return .send(._navigationRequested(.push(.detail(id: id))))
+//             case .backTapped:
+//                 return .send(._navigationRequested(.pop))
+//             case ._navigationRequested:
+//                 return .none
+//             }
 //         }
 //     }
 // }
+//
+// @MainActor
+// func bindNavigation(
+//     store: Store<ProductFeature>,
+//     handler: NavigationEffectHandler<ProductRoute>
+// ) {
+//     // Keep route ownership in InnoRouter. The feature only emits navigation intent.
+//     if case let .some(id) = store.selectedProductID {
+//         handler.execute(.push(.detail(id: id)))
+//     }
+// }
 // ```
+//
+// Batch semantics:
+// - `execute(.sequence(...))` remains command algebra and observes each step individually.
+// - `execute([command, ...])` uses `executeBatch` semantics and returns `NavigationBatchResult`.
 //
 // ## Comparison: Standalone vs Effect-driven
 //
 // | Feature | InnoRouter (Standalone) | InnoRouterEffects |
 // |---------|-------------------------|-------------------|
 // | Import | `import InnoRouter` | `import InnoRouterEffects` |
-// | Navigation | `router.push()` | `store.send(.navigate(.push()))` |
-// | State | Direct Router | InnoFlow State |
+// | Navigation | `router.push()` | `store.send(._navigationRequested(.push()))` |
+// | State | Direct Router | InnoFlow business state + app/coordinator boundary binding |
 // | DeepLink | DeepLinkHandler | DeepLinkEffectHandler |
 // | Testability | Manual | InnoFlow TestStore |
