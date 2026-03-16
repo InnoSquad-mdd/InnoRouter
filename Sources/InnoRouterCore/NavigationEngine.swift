@@ -12,12 +12,15 @@ public struct NavigationEngine<R: Route>: Sendable {
             return .success
 
         case .pop:
-            guard !state.path.isEmpty else { return .stackEmpty }
+            guard !state.path.isEmpty else { return .emptyStack }
             _ = state.path.removeLast()
             return .success
 
         case .popCount(let count):
-            guard count > 0, count <= state.path.count else { return .stackEmpty }
+            guard count > 0 else { return .invalidPopCount(count) }
+            guard count <= state.path.count else {
+                return .insufficientStackDepth(requested: count, available: state.path.count)
+            }
             state.path.removeLast(count)
             return .success
 
@@ -26,7 +29,7 @@ public struct NavigationEngine<R: Route>: Sendable {
             return .success
 
         case .popTo(let route):
-            guard let index = state.path.firstIndex(of: route) else { return .routeNotFound(route) }
+            guard let index = state.path.lastIndex(of: route) else { return .routeNotFound(route) }
             state.path = Array(state.path.prefix(through: index))
             return .success
 

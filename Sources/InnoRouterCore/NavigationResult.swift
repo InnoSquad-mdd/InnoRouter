@@ -1,8 +1,10 @@
 public enum NavigationResult<R: Route>: Sendable, Equatable {
     case success
-    case cancelled
+    case cancelled(NavigationCancellationReason<R>)
+    case emptyStack
+    case invalidPopCount(Int)
+    case insufficientStackDepth(requested: Int, available: Int)
     case routeNotFound(R)
-    case stackEmpty
     case multiple([NavigationResult<R>])
 
     public var isSuccess: Bool {

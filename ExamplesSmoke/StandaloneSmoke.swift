@@ -1,10 +1,8 @@
 import SwiftUI
 
 import InnoRouter
-import InnoRouterMacros
 
-@Routable
-enum HomeRoute {
+enum HomeRoute: Route {
     case list
     case detail(id: String)
     case settings

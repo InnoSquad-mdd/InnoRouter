@@ -1,6 +1,58 @@
 import Foundation
+import OSLog
 
 import InnoRouterCore
+
+public enum DeepLinkMatcherDiagnosticsMode: Sendable, Equatable {
+    case disabled
+    case debugWarnings
+}
+
+public enum DeepLinkMatcherDiagnostic: Sendable, Equatable {
+    case duplicatePattern(pattern: String, firstIndex: Int, duplicateIndex: Int)
+    case wildcardShadowing(
+        pattern: String,
+        index: Int,
+        shadowedPattern: String,
+        shadowedIndex: Int
+    )
+    case parameterShadowing(
+        pattern: String,
+        index: Int,
+        shadowedPattern: String,
+        shadowedIndex: Int
+    )
+
+    public var message: String {
+        switch self {
+        case .duplicatePattern(let pattern, let firstIndex, let duplicateIndex):
+            return "DeepLinkMatcher duplicate pattern '\(pattern)' at indices \(firstIndex) and \(duplicateIndex)."
+        case .wildcardShadowing(let pattern, let index, let shadowedPattern, let shadowedIndex):
+            return "DeepLinkMatcher pattern '\(pattern)' at index \(index) shadows '\(shadowedPattern)' at index \(shadowedIndex) because its wildcard matches first."
+        case .parameterShadowing(let pattern, let index, let shadowedPattern, let shadowedIndex):
+            return "DeepLinkMatcher pattern '\(pattern)' at index \(index) shadows more specific pattern '\(shadowedPattern)' at index \(shadowedIndex)."
+        }
+    }
+}
+
+public struct DeepLinkMatcherConfiguration: Sendable {
+    public var diagnosticsMode: DeepLinkMatcherDiagnosticsMode
+    public var logger: Logger?
+
+    public init(
+        diagnosticsMode: DeepLinkMatcherDiagnosticsMode,
+        logger: Logger? = nil
+    ) {
+        self.diagnosticsMode = diagnosticsMode
+        self.logger = logger
+    }
+
+    #if DEBUG
+    public static var `default`: Self { .init(diagnosticsMode: .debugWarnings) }
+    #else
+    public static var `default`: Self { .init(diagnosticsMode: .disabled) }
+    #endif
+}
 
 public struct DeepLinkParameters: Sendable, Equatable {
     public let valuesByName: [String: [String]]
@@ -77,15 +129,30 @@ public struct DeepLinkPattern: Sendable {
         public static let noMatch = MatchResult(isMatched: false)
     }
 
-    private let patternParts: [PatternPart]
+    fileprivate let rawPattern: String
+    fileprivate let patternParts: [PatternPart]
 
-    private enum PatternPart: Sendable {
+    fileprivate enum PatternPart: Sendable, Equatable {
         case literal(String)
         case parameter(String)
         case wildcard
+
+        func covers(_ other: Self) -> Bool {
+            switch (self, other) {
+            case (.literal(let lhs), .literal(let rhs)):
+                return lhs == rhs
+            case (.parameter, .literal), (.parameter, .parameter):
+                return true
+            case (.wildcard, _):
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     public init(_ pattern: String) {
+        self.rawPattern = pattern
         self.patternParts = pattern
             .split(separator: "/")
             .map { part -> PatternPart in
@@ -146,13 +213,86 @@ public struct DeepLinkPattern: Sendable {
         }
         return merged
     }
+
+    fileprivate var normalizedPattern: String {
+        "/" + patternParts.map { part in
+            switch part {
+            case .literal(let value):
+                return value
+            case .parameter(let name):
+                return ":\(name)"
+            case .wildcard:
+                return "*"
+            }
+        }.joined(separator: "/")
+    }
+
+    fileprivate var wildcardIndex: Int? {
+        patternParts.firstIndex(of: .wildcard)
+    }
+
+    fileprivate func shadows(_ other: DeepLinkPattern) -> DeepLinkMatcherDiagnostic.Kind? {
+        if let wildcardIndex {
+            guard prefixStructurallyCovers(other.patternParts, prefixLength: wildcardIndex) else {
+                return nil
+            }
+            return .wildcard
+        }
+
+        guard patternParts.count == other.patternParts.count else {
+            return nil
+        }
+
+        var sawParameterShadow = false
+        for (lhs, rhs) in zip(patternParts, other.patternParts) {
+            switch (lhs, rhs) {
+            case (.literal(let lhsValue), .literal(let rhsValue)) where lhsValue == rhsValue:
+                continue
+            case (.parameter, .literal):
+                sawParameterShadow = true
+            case (.parameter, .parameter):
+                continue
+            default:
+                return nil
+            }
+        }
+
+        return sawParameterShadow ? .parameter : nil
+    }
+
+    private func prefixStructurallyCovers(
+        _ otherParts: [PatternPart],
+        prefixLength: Int
+    ) -> Bool {
+        guard otherParts.count >= prefixLength else {
+            return false
+        }
+
+        for index in 0..<prefixLength {
+            guard patternParts[index].covers(otherParts[index]) else {
+                return false
+            }
+        }
+        return true
+    }
 }
 
 public struct DeepLinkMatcher<R: Route>: Sendable {
     private let mappings: [DeepLinkMapping<R>]
+    public let diagnostics: [DeepLinkMatcherDiagnostic]
 
     public init(@DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) {
-        self.mappings = mappings()
+        self.init(configuration: .default, mappings: mappings)
+    }
+
+    public init(
+        configuration: DeepLinkMatcherConfiguration = .default,
+        @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]
+    ) {
+        let resolvedMappings = mappings()
+        self.mappings = resolvedMappings
+        self.diagnostics = Self.makeDiagnostics(for: resolvedMappings)
+        Self.emitDiagnostics(self.diagnostics, configuration: configuration)
     }
 
     public func match(_ url: URL) -> R? {
@@ -169,10 +309,73 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
         guard let url = URL(string: urlString) else { return nil }
         return match(url)
     }
+
+    private static func makeDiagnostics(
+        for mappings: [DeepLinkMapping<R>]
+    ) -> [DeepLinkMatcherDiagnostic] {
+        var diagnostics: [DeepLinkMatcherDiagnostic] = []
+
+        for earlierIndex in mappings.indices {
+            let earlier = mappings[earlierIndex]
+            for laterIndex in mappings.indices where laterIndex > earlierIndex {
+                let later = mappings[laterIndex]
+
+                if earlier.pattern.normalizedPattern == later.pattern.normalizedPattern {
+                    diagnostics.append(
+                        .duplicatePattern(
+                            pattern: later.pattern.normalizedPattern,
+                            firstIndex: earlierIndex,
+                            duplicateIndex: laterIndex
+                        )
+                    )
+                    continue
+                }
+
+                switch earlier.pattern.shadows(later.pattern) {
+                case .wildcard?:
+                    diagnostics.append(
+                        .wildcardShadowing(
+                            pattern: earlier.pattern.normalizedPattern,
+                            index: earlierIndex,
+                            shadowedPattern: later.pattern.normalizedPattern,
+                            shadowedIndex: laterIndex
+                        )
+                    )
+                case .parameter?:
+                    diagnostics.append(
+                        .parameterShadowing(
+                            pattern: earlier.pattern.normalizedPattern,
+                            index: earlierIndex,
+                            shadowedPattern: later.pattern.normalizedPattern,
+                            shadowedIndex: laterIndex
+                        )
+                    )
+                case nil:
+                    break
+                }
+            }
+        }
+
+        return diagnostics
+    }
+
+    private static func emitDiagnostics(
+        _ diagnostics: [DeepLinkMatcherDiagnostic],
+        configuration: DeepLinkMatcherConfiguration
+    ) {
+        guard case .debugWarnings = configuration.diagnosticsMode else {
+            return
+        }
+
+        for diagnostic in diagnostics {
+            configuration.logger?.warning("\(diagnostic.message, privacy: .public)")
+            assertionFailure(diagnostic.message)
+        }
+    }
 }
 
 public struct DeepLinkMapping<R: Route>: Sendable {
-    private let pattern: DeepLinkPattern
+    fileprivate let pattern: DeepLinkPattern
     private let handler: @Sendable (DeepLinkParameters) -> R?
 
     public init(
@@ -186,6 +389,13 @@ public struct DeepLinkMapping<R: Route>: Sendable {
     func match(_ parsed: DeepLinkParser.ParsedURL) -> R? {
         guard let result = pattern.match(parsed) else { return nil }
         return handler(DeepLinkParameters(valuesByName: result.parameters))
+    }
+}
+
+public extension DeepLinkMatcherDiagnostic {
+    enum Kind: Sendable, Equatable {
+        case wildcard
+        case parameter
     }
 }
 

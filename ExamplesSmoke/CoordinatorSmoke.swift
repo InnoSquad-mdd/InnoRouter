@@ -1,16 +1,13 @@
 import SwiftUI
 
 import InnoRouter
-import InnoRouterMacros
 
-@Routable
-enum AppRoute {
+enum AppRoute: Route {
     case home
     case auth
 }
 
-@Routable
-enum HomeRoute {
+enum HomeRoute: Route {
     case dashboard
     case profile
 }

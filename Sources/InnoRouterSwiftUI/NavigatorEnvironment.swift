@@ -3,10 +3,6 @@ import SwiftUI
 
 import InnoRouterCore
 
-struct NavigationEnvironmentStorageKey: EnvironmentKey {
-    static let defaultValue: NavigationEnvironmentStorage? = nil
-}
-
 @MainActor
 final class NavigationEnvironmentStorage {
     private var intentDispatchers: [ObjectIdentifier: Any] = [:]
@@ -24,10 +20,7 @@ final class NavigationEnvironmentStorage {
 }
 
 extension EnvironmentValues {
-    var navigationEnvironmentStorage: NavigationEnvironmentStorage? {
-        get { self[NavigationEnvironmentStorageKey.self] }
-        set { self[NavigationEnvironmentStorageKey.self] = newValue }
-    }
+    @Entry var navigationEnvironmentStorage: NavigationEnvironmentStorage?
 }
 
 extension View {

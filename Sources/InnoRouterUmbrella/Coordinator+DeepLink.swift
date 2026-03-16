@@ -10,16 +10,6 @@ public protocol DeepLinkCoordinating: Coordinator {
 }
 
 public extension DeepLinkCoordinating {
-    func handle(_ intent: NavigationIntent<RouteType>) {
-        switch intent {
-        case .deepLink(let url):
-            handleDeepLink(url)
-
-        default:
-            store.send(intent)
-        }
-    }
-
     func handleDeepLink(_ url: URL) {
         switch deepLinkPipeline.decide(for: url) {
         case .rejected(_), .unhandled(_):
@@ -55,5 +45,14 @@ public extension DeepLinkCoordinating {
             _ = store.execute(command)
         }
         return true
+    }
+
+    @discardableResult
+    func resumePendingDeepLinkIfAllowed(
+        _ authorize: @escaping @MainActor @Sendable (PendingDeepLink<RouteType>) async -> Bool
+    ) async -> Bool {
+        guard let pendingDeepLink else { return false }
+        guard await authorize(pendingDeepLink) else { return false }
+        return resumePendingDeepLinkIfPossible()
     }
 }
