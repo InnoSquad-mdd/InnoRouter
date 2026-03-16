@@ -447,6 +447,61 @@ struct NavigationCommandTests {
         #expect(store.state.path.isEmpty)
     }
 
+    @Test("Cancelled commands only notify participating middleware in didExecute")
+    @MainActor
+    func testCancelledCommandsOnlyNotifyParticipatingMiddleware() {
+        let store = NavigationStore<TestRoute>()
+        var willOrder: [String] = []
+        var didOrder: [String] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    willOrder.append("first")
+                    return .proceed(command)
+                },
+                didExecute: { _, result, _ in
+                    didOrder.append("first")
+                    return result
+                }
+            ),
+            debugName: "first"
+        )
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    willOrder.append("second")
+                    return .cancel(.middleware(debugName: nil, command: command))
+                },
+                didExecute: { _, result, _ in
+                    didOrder.append("second")
+                    return result
+                }
+            ),
+            debugName: "second"
+        )
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    willOrder.append("third")
+                    return .proceed(command)
+                },
+                didExecute: { _, result, _ in
+                    didOrder.append("third")
+                    return result
+                }
+            ),
+            debugName: "third"
+        )
+
+        let result = store.execute(.push(.home))
+
+        #expect(result == .cancelled(.middleware(debugName: "second", command: .push(.home))))
+        #expect(willOrder == ["first", "second"])
+        #expect(didOrder == ["first", "second"])
+        #expect(store.state.path.isEmpty)
+    }
+
     @Test("Middleware can transform results after execution in order")
     @MainActor
     func testMiddlewareCanTransformResultAfterExecution() {
@@ -566,6 +621,48 @@ struct NavigationIntentTests {
         store.send(.backBy(2))
 
         #expect(store.state.path == [.home])
+    }
+
+    @Test("NavigationStore send backBy zero routes through popCount semantics")
+    @MainActor
+    func testSendBackByZeroUsesPopCount() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home])
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.backBy(0))
+
+        #expect(seenCommands == [.popCount(0)])
+        #expect(store.state.path == [.home])
+    }
+
+    @Test("NavigationStore send backBy zero on empty stack still routes through popCount semantics")
+    @MainActor
+    func testSendBackByZeroOnEmptyUsesPopCount() {
+        let store = NavigationStore<TestRoute>()
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.backBy(0))
+
+        #expect(seenCommands == [.popCount(0)])
+        #expect(store.state.path.isEmpty)
     }
 
     @Test("NavigationStore send backTo pops to matching route")
@@ -1932,6 +2029,32 @@ struct CoordinatorDeepLinkTests {
         #expect(coordinator.pendingDeepLink == nil)
         #expect(coordinator.store.state.path == [.home, .settings])
     }
+
+    @Test("Async coordinator deep-link guard does not resume stale pending deep links")
+    @MainActor
+    func testResumePendingDeepLinkIfAllowedUsesCurrentPendingIdentity() async {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { url in
+                url.path.contains("home") ? .home : .settings
+            },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { false }
+            ),
+            plan: { route in NavigationPlan(commands: [.push(route)]) }
+        )
+        let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
+        coordinator.handleDeepLink(URL(string: "myapp://myapp.com/settings")!)
+
+        let resumed = await coordinator.resumePendingDeepLinkIfAllowed { _ in
+            coordinator.handleDeepLink(URL(string: "myapp://myapp.com/home")!)
+            return false
+        }
+
+        #expect(resumed == false)
+        #expect(coordinator.pendingDeepLink?.route == .home)
+        #expect(coordinator.store.state.path.isEmpty)
+    }
 }
 
 // MARK: - DeepLinkEffectHandler Tests
@@ -2078,6 +2201,40 @@ struct DeepLinkEffectHandlerTests {
         }
 
         #expect(resumed == .pending(handler.pendingDeepLink!))
+        #expect(handler.pendingDeepLink?.route == .home)
+        #expect(store.state.path.isEmpty)
+    }
+
+    @Test("Async deep-link guard returns the current pending deep link after denied stale authorization")
+    @MainActor
+    func testResumePendingDeepLinkIfAllowedDeniedUsesCurrentPendingIdentity() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/settings") { _ in .settings }
+            DeepLinkMapping("/home") { _ in .home }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyBatchNavigator(store),
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { false }
+            ),
+            plan: { route in NavigationPlan(commands: [.push(route)]) }
+        )
+
+        let firstPending = handler.handle(URL(string: "myapp://myapp.com/settings")!)
+        guard case .pending = firstPending else {
+            Issue.record("Expected pending result")
+            return
+        }
+
+        let denied = await handler.resumePendingDeepLinkIfAllowed { _ in
+            _ = handler.handle(URL(string: "myapp://myapp.com/home")!)
+            return false
+        }
+
+        #expect(denied == .pending(handler.pendingDeepLink!))
         #expect(handler.pendingDeepLink?.route == .home)
         #expect(store.state.path.isEmpty)
     }
@@ -2499,6 +2656,42 @@ struct ModalStoreTests {
         #expect(queueChanges.withLock(\.count) == 2)
         #expect(queueChanges.withLock { $0.last?.0.map(\.route) } == [.onboarding])
         #expect(queueChanges.withLock { $0.last?.1.isEmpty } == true)
+    }
+
+    @Test("Dismiss all clears state before callbacks so reentrant presents survive")
+    @MainActor
+    func testDismissAllClearsStateBeforeCallbacks() {
+        let callbackOrder = Mutex<[String]>([])
+        let observedStateDuringDismiss = Mutex<([TestModalRoute?], [[TestModalRoute]])>(([], []))
+        var store: ModalStore<TestModalRoute>!
+        store = ModalStore<TestModalRoute>(
+            configuration: .init(
+                onDismissed: { _, _ in
+                    callbackOrder.withLock { $0.append("dismiss") }
+                    observedStateDuringDismiss.withLock {
+                        $0.0.append(store.currentPresentation?.route)
+                        $0.1.append(store.queuedPresentations.map(\.route))
+                    }
+                    store.present(.profile, style: .sheet)
+                },
+                onQueueChanged: { _, _ in
+                    callbackOrder.withLock { $0.append("queue") }
+                }
+            )
+        )
+
+        store.present(.onboarding, style: .fullScreenCover)
+        store.present(.profile, style: .sheet)
+        callbackOrder.withLock { $0.removeAll() }
+
+        store.dismissAll()
+
+        #expect(callbackOrder.withLock { $0 } == ["queue", "dismiss"])
+        #expect(observedStateDuringDismiss.withLock { $0.0 } == [nil])
+        #expect(observedStateDuringDismiss.withLock { $0.1 } == [[]])
+        #expect(store.currentPresentation?.route == .profile)
+        #expect(store.currentPresentation?.style == .sheet)
+        #expect(store.queuedPresentations.isEmpty)
     }
 
     @Test("Duplicate routes retain unique identities in the queue")

@@ -52,7 +52,10 @@ public extension DeepLinkCoordinating {
         _ authorize: @escaping @MainActor @Sendable (PendingDeepLink<RouteType>) async -> Bool
     ) async -> Bool {
         guard let pendingDeepLink else { return false }
-        guard await authorize(pendingDeepLink) else { return false }
+        let capturedPendingDeepLink = pendingDeepLink
+        let isAuthorized = await authorize(capturedPendingDeepLink)
+        guard self.pendingDeepLink == capturedPendingDeepLink else { return false }
+        guard isAuthorized else { return false }
         return resumePendingDeepLinkIfPossible()
     }
 }

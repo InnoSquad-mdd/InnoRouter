@@ -2,6 +2,12 @@ import InnoRouterCore
 
 @MainActor
 final class NavigationMiddlewareRegistry<R: Route> {
+    struct InterceptionOutcome {
+        let command: NavigationCommand<R>
+        let interception: NavigationInterception<R>
+        let participantCount: Int
+    }
+
     private struct Entry {
         let handle: NavigationMiddlewareHandle
         let debugName: String?
@@ -120,29 +126,42 @@ final class NavigationMiddlewareRegistry<R: Route> {
     func intercept(
         _ command: NavigationCommand<R>,
         state: RouteStack<R>
-    ) -> NavigationInterception<R> {
+    ) -> InterceptionOutcome {
         var currentCommand = command
+        var participantCount = 0
 
         for entry in entries {
-            switch entry.middleware.willExecute(currentCommand, state: state) {
+            let interception = entry.middleware.willExecute(currentCommand, state: state)
+            participantCount += 1
+
+            switch interception {
             case .proceed(let updatedCommand):
                 currentCommand = updatedCommand
             case .cancel(let reason):
                 let resolvedReason = resolveCancellationReason(reason, entry: entry)
-                return .cancel(resolvedReason)
+                return InterceptionOutcome(
+                    command: currentCommand,
+                    interception: .cancel(resolvedReason),
+                    participantCount: participantCount
+                )
             }
         }
 
-        return .proceed(currentCommand)
+        return InterceptionOutcome(
+            command: currentCommand,
+            interception: .proceed(currentCommand),
+            participantCount: participantCount
+        )
     }
 
     func didExecute(
         _ command: NavigationCommand<R>,
         result: NavigationResult<R>,
-        state: RouteStack<R>
+        state: RouteStack<R>,
+        participantCount: Int
     ) -> NavigationResult<R> {
         var currentResult = result
-        for entry in entries {
+        for entry in entries.prefix(participantCount) {
             currentResult = entry.middleware.didExecute(command, result: currentResult, state: state)
         }
         return currentResult

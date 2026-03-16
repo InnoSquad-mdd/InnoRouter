@@ -119,17 +119,17 @@ public final class ModalStore<M: Route> {
     }
 
     public func dismissAll() {
-        if let dismissedPresentation = currentPresentation {
-            telemetrySink.recordDismissed(dismissedPresentation, reason: .dismissAll)
-            onDismissed?(dismissedPresentation, .dismissAll)
-        }
-
+        let dismissedPresentation = currentPresentation
         let oldQueue = queuedPresentations
         currentPresentation = nil
         queuedPresentations.removeAll()
         if oldQueue != queuedPresentations {
             telemetrySink.recordQueueChanged(oldQueue: oldQueue, newQueue: queuedPresentations)
             onQueueChanged?(oldQueue, queuedPresentations)
+        }
+        if let dismissedPresentation {
+            telemetrySink.recordDismissed(dismissedPresentation, reason: .dismissAll)
+            onDismissed?(dismissedPresentation, .dismissAll)
         }
     }
 

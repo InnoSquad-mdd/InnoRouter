@@ -225,7 +225,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         case .back:
             _ = execute(.pop)
         case .backBy(let count):
-            if count == state.path.count {
+            if count > 0, count == state.path.count {
                 _ = execute(.popToRoot)
             } else {
                 _ = execute(.popCount(count))
@@ -292,14 +292,16 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
         default:
             let stateBefore = currentState
-            switch middlewareRegistry.intercept(command, state: stateBefore) {
+            let interceptionOutcome = middlewareRegistry.intercept(command, state: stateBefore)
+            switch interceptionOutcome.interception {
             case .cancel(let reason):
                 let result: NavigationResult<R> = .cancelled(reason)
                 return finishExecution(
                     requestedCommand: command,
-                    command: command,
+                    command: interceptionOutcome.command,
                     executedCommands: [],
                     result: result,
+                    participantCount: interceptionOutcome.participantCount,
                     stateBefore: stateBefore,
                     currentState: &currentState,
                     shouldNotifyOnChange: shouldNotifyOnChange
@@ -311,6 +313,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                     command: commandToExecute,
                     executedCommands: [commandToExecute],
                     result: result,
+                    participantCount: interceptionOutcome.participantCount,
                     stateBefore: stateBefore,
                     currentState: &currentState,
                     shouldNotifyOnChange: shouldNotifyOnChange
@@ -324,11 +327,17 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         command: NavigationCommand<R>,
         executedCommands: [NavigationCommand<R>],
         result: NavigationResult<R>,
+        participantCount: Int,
         stateBefore: RouteStack<R>,
         currentState: inout RouteStack<R>,
         shouldNotifyOnChange: Bool
     ) -> ExecutionOutcome {
-        let finalResult = middlewareRegistry.didExecute(command, result: result, state: currentState)
+        let finalResult = middlewareRegistry.didExecute(
+            command,
+            result: result,
+            state: currentState,
+            participantCount: participantCount
+        )
 
         if shouldNotifyOnChange, currentState != stateBefore {
             onChange?(stateBefore, currentState)
@@ -372,7 +381,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
         default:
             let stateBefore = currentState
-            switch middlewareRegistry.intercept(command, state: stateBefore) {
+            let interceptionOutcome = middlewareRegistry.intercept(command, state: stateBefore)
+            switch interceptionOutcome.interception {
             case .cancel(let reason):
                 return TransactionOutcome(
                     requestedCommand: command,
@@ -399,6 +409,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                         CommittedStep(
                             command: commandToExecute,
                             result: result,
+                            participantCount: interceptionOutcome.participantCount,
                             stateAfter: currentState
                         )
                     )
@@ -457,6 +468,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private struct CommittedStep {
         let command: NavigationCommand<R>
         let result: NavigationResult<R>
+        let participantCount: Int
         let stateAfter: RouteStack<R>
     }
 
@@ -487,7 +499,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 return middlewareRegistry.didExecute(
                     step.command,
                     result: step.result,
-                    state: step.stateAfter
+                    state: step.stateAfter,
+                    participantCount: step.participantCount
                 )
             case .sequence(let outcomes):
                 var committedResults: [NavigationResult<R>] = []

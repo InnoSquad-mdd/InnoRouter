@@ -88,16 +88,18 @@ public final class DeepLinkEffectHandler<R: Route> {
         guard let pendingDeepLink else {
             return .noPendingDeepLink
         }
+        let capturedPendingDeepLink = pendingDeepLink
+        let isAuthorized = await authorize(capturedPendingDeepLink)
 
-        guard await authorize(pendingDeepLink) else {
-            return .pending(pendingDeepLink)
-        }
-
-        guard self.pendingDeepLink == pendingDeepLink else {
+        guard self.pendingDeepLink == capturedPendingDeepLink else {
             if let currentPendingDeepLink = self.pendingDeepLink {
                 return .pending(currentPendingDeepLink)
             }
             return .noPendingDeepLink
+        }
+
+        guard isAuthorized else {
+            return .pending(capturedPendingDeepLink)
         }
 
         return resumePendingDeepLink()
