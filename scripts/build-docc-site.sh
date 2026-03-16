@@ -1,0 +1,284 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+OUTPUT_DIR="$ROOT_DIR/.build/docc-site"
+EXISTING_SITE_DIR=""
+VERSION=""
+REPO_OWNER="InnoSquadCorp"
+REPO_NAME="InnoRouter"
+REPO_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}"
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/build-docc-site.sh --version <version> [--output-dir <dir>] [--existing-site-dir <dir>]
+
+Builds a static DocC site for all public InnoRouter modules.
+
+Options:
+  --version <version>           Required. Preview or semantic version label.
+  --output-dir <dir>            Optional. Defaults to .build/docc-site
+  --existing-site-dir <dir>     Optional. Existing site contents to merge before writing new docs.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version)
+      VERSION="${2:-}"
+      shift 2
+      ;;
+    --output-dir)
+      OUTPUT_DIR="${2:-}"
+      shift 2
+      ;;
+    --existing-site-dir)
+      EXISTING_SITE_DIR="${2:-}"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "[build-docc-site] Unknown argument: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$VERSION" ]]; then
+  echo "[build-docc-site] --version is required" >&2
+  usage
+  exit 1
+fi
+
+if ! command -v xcrun >/dev/null 2>&1; then
+  echo "[build-docc-site] xcrun is required" >&2
+  exit 1
+fi
+
+if ! command -v swift >/dev/null 2>&1; then
+  echo "[build-docc-site] swift is required" >&2
+  exit 1
+fi
+
+SOURCE_REF="main"
+if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  SOURCE_REF="$VERSION"
+fi
+
+DOCC_MODULES=(
+  "InnoRouterCore|Sources/InnoRouterCore/InnoRouterCore.docc|core|InnoRouterCore|com.innosquad.innorouter.docs.core"
+  "InnoRouterSwiftUI|Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc|swiftui|InnoRouterSwiftUI|com.innosquad.innorouter.docs.swiftui"
+  "InnoRouterDeepLink|Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc|deeplink|InnoRouterDeepLink|com.innosquad.innorouter.docs.deeplink"
+  "InnoRouterNavigationEffects|Sources/InnoRouterNavigationEffects/InnoRouterNavigationEffects.docc|navigation-effects|InnoRouterNavigationEffects|com.innosquad.innorouter.docs.navigationeffects"
+  "InnoRouterDeepLinkEffects|Sources/InnoRouterDeepLinkEffects/InnoRouterDeepLinkEffects.docc|deeplink-effects|InnoRouterDeepLinkEffects|com.innosquad.innorouter.docs.deeplinkeffects"
+  "InnoRouterMacros|Sources/InnoRouterMacros/InnoRouterMacros.docc|macros|InnoRouterMacros|com.innosquad.innorouter.docs.macros"
+)
+
+build_root="$ROOT_DIR/.build"
+temp_root="$(mktemp -d "${TMPDIR:-/tmp}/innorouter-docc.XXXXXX")"
+symbolgraph_dir=""
+
+cleanup() {
+  rm -rf "$temp_root"
+}
+trap cleanup EXIT
+
+echo "[build-docc-site] Preparing output directory: $OUTPUT_DIR"
+rm -rf "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR"
+
+if [[ -n "$EXISTING_SITE_DIR" && -d "$EXISTING_SITE_DIR" ]]; then
+  echo "[build-docc-site] Merging existing site from $EXISTING_SITE_DIR"
+  rsync -a --exclude '.git' "$EXISTING_SITE_DIR"/ "$OUTPUT_DIR"/
+fi
+
+rm -rf "$OUTPUT_DIR/$VERSION" "$OUTPUT_DIR/latest"
+mkdir -p "$OUTPUT_DIR/$VERSION" "$OUTPUT_DIR/latest"
+
+echo "[build-docc-site] Generating symbol graphs"
+find "$build_root" -type d -name symbolgraph -prune -exec rm -rf {} + 2>/dev/null || true
+swift package dump-symbol-graph >/dev/null
+
+symbolgraph_dir="$(find "$build_root" -type d -name symbolgraph | head -n 1)"
+if [[ -z "$symbolgraph_dir" ]]; then
+  echo "[build-docc-site] Failed to locate generated symbol graphs" >&2
+  exit 1
+fi
+
+build_module_archive() {
+  local target="$1"
+  local catalog="$2"
+  local output="$3"
+  local bundle_id="$4"
+  local display_name="$5"
+  local hosting_base_path="$6"
+  local module_symbols_dir="$7"
+
+  rm -rf "$output"
+  mkdir -p "$module_symbols_dir"
+  cp "$symbolgraph_dir/${target}.symbols.json" "$module_symbols_dir/"
+
+  xcrun docc convert "$ROOT_DIR/$catalog" \
+    --additional-symbol-graph-dir "$module_symbols_dir" \
+    --output-dir "$output" \
+    --fallback-display-name "$display_name" \
+    --fallback-bundle-identifier "$bundle_id" \
+    --fallback-default-module-kind Framework \
+    --checkout-path "$ROOT_DIR" \
+    --source-service github \
+    --source-service-base-url "$REPO_URL/blob/$SOURCE_REF" \
+    --hosting-base-path "$hosting_base_path" \
+    --transform-for-static-hosting
+}
+
+render_version_portal() {
+  local page_dir="$1"
+  local page_title="$2"
+
+  cat >"$page_dir/index.html" <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${page_title} Documentation</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; margin: 0; background: #0b1020; color: #e6ebf5; }
+    main { max-width: 980px; margin: 0 auto; padding: 48px 24px 64px; }
+    h1 { margin: 0 0 12px; font-size: 2.4rem; }
+    p { line-height: 1.65; color: #bfd0ea; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top: 28px; }
+    .card { display: block; text-decoration: none; color: inherit; border: 1px solid rgba(255,255,255,0.12); border-radius: 18px; padding: 20px; background: rgba(255,255,255,0.04); }
+    .card:hover { border-color: rgba(91, 163, 255, 0.75); background: rgba(91, 163, 255, 0.08); }
+    .eyebrow { font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; color: #7ea7ff; }
+    .back { display: inline-block; margin-top: 28px; color: #9fc0ff; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">InnoRouter DocC</div>
+    <h1>${page_title}</h1>
+    <p>Module-level reference and guides for the current InnoRouter release line.</p>
+    <div class="grid">
+      <a class="card" href="./core/"><strong>InnoRouterCore</strong><p>Route stack, commands, validators, middleware, batch, and transaction execution.</p></a>
+      <a class="card" href="./swiftui/"><strong>InnoRouterSwiftUI</strong><p>Stores, hosts, split layouts, modal routing, coordinators, and environment intent.</p></a>
+      <a class="card" href="./deeplink/"><strong>InnoRouterDeepLink</strong><p>Pattern matching, diagnostics, pipelines, and pending deep-link replay.</p></a>
+      <a class="card" href="./navigation-effects/"><strong>InnoRouterNavigationEffects</strong><p>App-boundary command, batch, transaction, and guarded execution helpers.</p></a>
+      <a class="card" href="./deeplink-effects/"><strong>InnoRouterDeepLinkEffects</strong><p>Deep-link effect execution, typed outcomes, and pending resume helpers.</p></a>
+      <a class="card" href="./macros/"><strong>InnoRouterMacros</strong><p>@Routable and @CasePathable for concise route declarations and extraction.</p></a>
+    </div>
+    <a class="back" href="../">Back to documentation portal</a>
+  </main>
+</body>
+</html>
+EOF
+}
+
+render_root_portal() {
+  local page_path="$1"
+  local version_links=""
+  local discovered_versions=()
+
+  while IFS= read -r version_dir; do
+    discovered_versions+=("$version_dir")
+  done < <(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type d ! -name latest -exec basename {} \; | LC_ALL=C sort -Vr)
+
+  for version_dir in "${discovered_versions[@]}"; do
+    version_links+="<li><a href=\"./${version_dir}/\">${version_dir}</a></li>"
+  done
+
+  cat >"$page_path" <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InnoRouter Documentation</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; margin: 0; background: #07101b; color: #edf3ff; }
+    main { max-width: 1080px; margin: 0 auto; padding: 56px 24px 72px; }
+    h1 { margin: 0 0 10px; font-size: 2.8rem; }
+    p { line-height: 1.7; color: #c3d3ea; }
+    .hero { margin-bottom: 28px; }
+    .cta-row, .version-list { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+    .button, .tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 10px 16px; text-decoration: none; color: inherit; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); }
+    .button.primary { background: linear-gradient(135deg, #5b8cff, #63c7ff); color: #07101b; border: none; font-weight: 600; }
+    section { margin-top: 36px; padding: 24px; border-radius: 22px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); }
+    ul { margin: 12px 0 0; padding-left: 18px; }
+    li { margin: 8px 0; }
+    a { color: #9ec5ff; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="hero">
+      <div class="tag">InnoRouter DocC Portal</div>
+      <h1>InnoRouter Documentation</h1>
+      <p>Detailed guides and API reference for the current latest-stable InnoRouter surface. The repository README stays focused on overview and quick start, while this DocC site holds the module-level reference set.</p>
+      <div class="cta-row">
+        <a class="button primary" href="./latest/">Open latest docs</a>
+        <a class="button" href="$REPO_URL">GitHub repository</a>
+        <a class="button" href="$REPO_URL/blob/main/README.md">README</a>
+      </div>
+    </div>
+    <section>
+      <h2>Latest</h2>
+      <p>The <code>latest</code> alias always points at the most recent released documentation set.</p>
+      <div class="cta-row">
+        <a class="button" href="./latest/">Browse latest</a>
+      </div>
+    </section>
+    <section>
+      <h2>Released versions</h2>
+      <ul>
+        ${version_links:-<li>No released versions have been published yet.</li>}
+      </ul>
+    </section>
+    <section>
+      <h2>Repository guidance</h2>
+      <ul>
+        <li><a href="$REPO_URL/tree/main/Examples">Examples</a> contains human-facing examples that use the latest idiomatic API shape.</li>
+        <li><a href="$REPO_URL/tree/main/ExamplesSmoke">ExamplesSmoke</a> contains CI-facing smoke fixtures that prioritize compiler stability.</li>
+        <li><a href="$REPO_URL/blob/main/RELEASING.md">RELEASING.md</a> documents the semver tag flow and GitHub Release + DocC publishing contract.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
+EOF
+}
+
+for module in "${DOCC_MODULES[@]}"; do
+  IFS='|' read -r target catalog slug display_name bundle_id <<<"$module"
+  echo "[build-docc-site] Building ${target}"
+  build_module_archive \
+    "$target" \
+    "$catalog" \
+    "$OUTPUT_DIR/$VERSION/$slug" \
+    "$bundle_id" \
+    "$display_name" \
+    "/${REPO_NAME}/${VERSION}/${slug}" \
+    "$temp_root/${slug}-${VERSION}-symbols"
+
+  build_module_archive \
+    "$target" \
+    "$catalog" \
+    "$OUTPUT_DIR/latest/$slug" \
+    "$bundle_id" \
+    "$display_name" \
+    "/${REPO_NAME}/latest/${slug}" \
+    "$temp_root/${slug}-latest-symbols"
+done
+
+render_version_portal "$OUTPUT_DIR/$VERSION" "InnoRouter ${VERSION}"
+render_version_portal "$OUTPUT_DIR/latest" "InnoRouter latest"
+render_root_portal "$OUTPUT_DIR/index.html"
+touch "$OUTPUT_DIR/.nojekyll"
+
+echo "[build-docc-site] Site generated at $OUTPUT_DIR"

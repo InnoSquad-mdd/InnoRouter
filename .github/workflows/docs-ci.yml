@@ -1,0 +1,40 @@
+name: docs-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docc:
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Swift 6.2
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.2"
+
+      - name: Swift Version
+        run: swift --version
+
+      - name: Build DocC Site
+        run: ./scripts/build-docc-site.sh --version preview
+
+      - name: Upload DocC Preview Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docc-site-preview
+          path: .build/docc-site
