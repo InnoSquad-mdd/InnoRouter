@@ -64,8 +64,87 @@ if ! command -v swift >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[build-docc-site] python3 is required" >&2
+  exit 1
+fi
+
+die() {
+  echo "[build-docc-site] $1" >&2
+  exit 1
+}
+
+sanitize_version() {
+  local candidate="$1"
+
+  [[ -n "$candidate" ]] || die "version must not be empty"
+  [[ "$candidate" != *"/"* ]] || die "version must not contain path separators"
+  [[ "$candidate" != *".."* ]] || die "version must not contain '..'"
+  [[ "$candidate" =~ ^[A-Za-z0-9._-]+$ ]] || die "version contains unsupported characters"
+}
+
+resolve_path_under_root() {
+  local input="$1"
+  local absolute_input=""
+  local parent=""
+  local basename_input=""
+  local resolved_parent=""
+
+  [[ -n "$input" ]] || die "path must not be empty"
+
+  if [[ "$input" = /* ]]; then
+    absolute_input="$input"
+  else
+    absolute_input="$ROOT_DIR/$input"
+  fi
+
+  parent="$(dirname "$absolute_input")"
+  basename_input="$(basename "$absolute_input")"
+  mkdir -p "$parent"
+  resolved_parent="$(cd "$parent" && pwd -P)"
+
+  case "$resolved_parent/$basename_input" in
+    "$ROOT_DIR"/*) printf '%s\n' "$resolved_parent/$basename_input" ;;
+    *) die "path must stay within repository root: $input" ;;
+  esac
+}
+
+resolve_existing_dir_under_root() {
+  local input="$1"
+  local absolute_input=""
+  local resolved=""
+
+  [[ -n "$input" ]] || die "existing site path must not be empty"
+
+  if [[ "$input" = /* ]]; then
+    absolute_input="$input"
+  else
+    absolute_input="$ROOT_DIR/$input"
+  fi
+
+  [[ -d "$absolute_input" ]] || die "existing site path does not exist: $input"
+  resolved="$(cd "$absolute_input" && pwd -P)"
+
+  case "$resolved" in
+    "$ROOT_DIR"/*) printf '%s\n' "$resolved" ;;
+    *) die "existing site path must stay within repository root: $input" ;;
+  esac
+}
+
+sanitize_version "$VERSION"
+OUTPUT_DIR="$(resolve_path_under_root "$OUTPUT_DIR")"
+if [[ -n "$EXISTING_SITE_DIR" ]]; then
+  EXISTING_SITE_DIR="$(resolve_existing_dir_under_root "$EXISTING_SITE_DIR")"
+fi
+
 SOURCE_REF="main"
-if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if [[ "$VERSION" == "preview" ]]; then
+  if [[ -n "${GITHUB_SHA:-}" ]]; then
+    SOURCE_REF="$GITHUB_SHA"
+  elif git -C "$ROOT_DIR" rev-parse --verify HEAD >/dev/null 2>&1; then
+    SOURCE_REF="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+  fi
+elif [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   SOURCE_REF="$VERSION"
 fi
 
@@ -80,7 +159,12 @@ DOCC_MODULES=(
 
 build_root="$ROOT_DIR/.build"
 temp_root="$(mktemp -d "${TMPDIR:-/tmp}/innorouter-docc.XXXXXX")"
-symbolgraph_dir=""
+build_bin_dir=""
+modules_dir=""
+module_cache_dir=""
+target_triple=""
+resource_dir=""
+sdk_path=""
 
 cleanup() {
   rm -rf "$temp_root"
@@ -100,14 +184,43 @@ rm -rf "$OUTPUT_DIR/$VERSION" "$OUTPUT_DIR/latest"
 mkdir -p "$OUTPUT_DIR/$VERSION" "$OUTPUT_DIR/latest"
 
 echo "[build-docc-site] Generating symbol graphs"
-find "$build_root" -type d -name symbolgraph -prune -exec rm -rf {} + 2>/dev/null || true
-swift package dump-symbol-graph >/dev/null
+swift build >/dev/null
 
-symbolgraph_dir="$(find "$build_root" -type d -name symbolgraph | head -n 1)"
-if [[ -z "$symbolgraph_dir" ]]; then
-  echo "[build-docc-site] Failed to locate generated symbol graphs" >&2
-  exit 1
-fi
+build_bin_dir="$(swift build --show-bin-path)"
+modules_dir="$build_bin_dir/Modules"
+module_cache_dir="$build_bin_dir/ModuleCache"
+sdk_path="$(xcrun --show-sdk-path)"
+
+[[ -d "$modules_dir" ]] || die "failed to locate build modules directory"
+[[ -d "$module_cache_dir" ]] || die "failed to locate module cache directory"
+[[ -n "$sdk_path" ]] || die "failed to locate SDK path"
+
+target_triple="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["target"]["triple"])')"
+resource_dir="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["paths"]["runtimeResourcePath"])')"
+
+[[ -n "$target_triple" ]] || die "failed to determine target triple"
+[[ -n "$resource_dir" ]] || die "failed to determine Swift resource directory"
+
+extract_module_symbols() {
+  local target="$1"
+  local output="$2"
+
+  rm -rf "$output"
+  mkdir -p "$output"
+
+  xcrun swift-symbolgraph-extract \
+    -module-name "$target" \
+    -I "$modules_dir" \
+    -target "$target_triple" \
+    -module-cache-path "$module_cache_dir" \
+    -sdk "$sdk_path" \
+    -resource-dir "$resource_dir" \
+    -minimum-access-level public \
+    -omit-extension-block-symbols \
+    -output-dir "$output" >/dev/null
+
+  [[ -f "$output/${target}.symbols.json" ]] || die "failed to generate symbol graph for $target"
+}
 
 build_module_archive() {
   local target="$1"
@@ -119,8 +232,6 @@ build_module_archive() {
   local module_symbols_dir="$7"
 
   rm -rf "$output"
-  mkdir -p "$module_symbols_dir"
-  cp "$symbolgraph_dir/${target}.symbols.json" "$module_symbols_dir/"
 
   xcrun docc convert "$ROOT_DIR/$catalog" \
     --additional-symbol-graph-dir "$module_symbols_dir" \
@@ -257,6 +368,8 @@ EOF
 for module in "${DOCC_MODULES[@]}"; do
   IFS='|' read -r target catalog slug display_name bundle_id <<<"$module"
   echo "[build-docc-site] Building ${target}"
+  extract_module_symbols "$target" "$temp_root/${slug}-symbols"
+
   build_module_archive \
     "$target" \
     "$catalog" \
@@ -264,7 +377,7 @@ for module in "${DOCC_MODULES[@]}"; do
     "$bundle_id" \
     "$display_name" \
     "/${REPO_NAME}/${VERSION}/${slug}" \
-    "$temp_root/${slug}-${VERSION}-symbols"
+    "$temp_root/${slug}-symbols"
 
   build_module_archive \
     "$target" \
@@ -273,7 +386,7 @@ for module in "${DOCC_MODULES[@]}"; do
     "$bundle_id" \
     "$display_name" \
     "/${REPO_NAME}/latest/${slug}" \
-    "$temp_root/${slug}-latest-symbols"
+    "$temp_root/${slug}-symbols"
 done
 
 render_version_portal "$OUTPUT_DIR/$VERSION" "InnoRouter ${VERSION}"

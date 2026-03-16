@@ -13,7 +13,7 @@ This module owns:
 - ``CoordinatorHost`` and ``CoordinatorSplitHost``
 - ``ModalStore`` and ``ModalHost``
 - ``NavigationIntent`` and ``ModalIntent``
-- ``EnvironmentNavigationIntent`` and `EnvironmentModalIntent`
+- ``EnvironmentNavigationIntent`` and ``EnvironmentModalIntent``
 - ``FlowCoordinator`` and ``TabCoordinator``
 
 The guiding rule is simple: views emit intent, stores own transition authority, and hosts bridge system UI state back into those authorities.

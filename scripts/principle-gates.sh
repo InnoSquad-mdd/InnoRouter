@@ -33,7 +33,7 @@ if rg -n "public .*\\bNav[A-Z]" Sources; then
 fi
 
 echo "[principle-gates] Checking deprecated/availability shims"
-if rg -n "deprecated|@available\\(" Sources --glob '!Sources/InnoRouterSwiftUI/NavigationStore.swift'; then
+if rg -n "deprecated|@available\\(" Sources --glob '*.swift' --glob '!Sources/InnoRouterSwiftUI/NavigationStore.swift'; then
   echo "[principle-gates] Failed: deprecated or availability shim found"
   exit 1
 fi
@@ -51,7 +51,7 @@ if rg -n "AnyCoordinator" Sources Examples ExamplesSmoke README.md; then
 fi
 
 echo "[principle-gates] Checking optional intent dispatch usage"
-if rg -n "navigationIntent\\?\\.send" Sources Examples ExamplesSmoke README.md; then
+if rg -n "navigationIntent\\?\\.send" Sources Examples ExamplesSmoke README.md RELEASING.md CLAUDE.md Docs --glob '*.swift' --glob '*.md'; then
   echo "[principle-gates] Failed: optional intent dispatch usage found"
   exit 1
 fi

@@ -95,7 +95,7 @@ swift build --target InnoRouterDeepLinkEffects
 ### NavigationStore
 
 - `execute(_:)`: single command
-- `executeBatch(_:)`: per-step execution + one coalesced observer event
+- `executeBatch(_:stopOnFailure:)`: per-step execution + one coalesced observer event
 - `executeTransaction(_:)`: atomic preview/commit semantics
 - `send(_:)`: SwiftUI view intent entry point
 
@@ -114,7 +114,7 @@ swift build --target InnoRouterDeepLinkEffects
 
 ## Documentation strategy
 
-The repository uses `README + DocC 병행`.
+The repository uses `README + DocC` together.
 
 - `README.md`: repository overview and quick start
 - `.docc` catalogs under `Sources/*`: detailed module guides

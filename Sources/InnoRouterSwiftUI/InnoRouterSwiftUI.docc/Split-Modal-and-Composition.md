@@ -27,8 +27,8 @@ Modal routing intentionally stays separate from stack routing:
 
 - modal intent uses ``ModalIntent``
 - stack intent uses ``NavigationIntent``
-- modal queue state lives in `ModalStore`
-- stack state lives in `NavigationStore`
+- modal queue state lives in ``ModalStore``
+- stack state lives in ``NavigationStore``
 
 `alert` and `confirmationDialog` stay outside this framework surface and should remain feature-owned state.
 

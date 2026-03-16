@@ -136,5 +136,5 @@ jobs:
             - Release: https://innosquadcorp.github.io/InnoRouter/${{ needs.build.outputs.version }}/
 
             Repository references
-            - README: https://github.com/InnoSquadCorp/InnoRouter/blob/main/README.md
-            - Release checklist: https://github.com/InnoSquadCorp/InnoRouter/blob/main/RELEASING.md
+            - README: https://github.com/InnoSquadCorp/InnoRouter/blob/${{ needs.build.outputs.version }}/README.md
+            - Release checklist: https://github.com/InnoSquadCorp/InnoRouter/blob/${{ needs.build.outputs.version }}/RELEASING.md

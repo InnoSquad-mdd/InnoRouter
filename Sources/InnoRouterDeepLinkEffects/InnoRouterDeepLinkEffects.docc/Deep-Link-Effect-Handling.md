@@ -8,12 +8,13 @@
 
 Important result shapes include:
 
-- accepted and executed
-- pending
-- rejected
-- unhandled
-- invalid URL
-- no pending deep link available
+- `.executed`
+- `.pending`
+- `.rejected`
+- `.unhandled`
+- `.invalidURL`
+- `.missingDeepLinkURL`
+- `.noPendingDeepLink`
 
 The handler keeps deep-link execution explicit:
 

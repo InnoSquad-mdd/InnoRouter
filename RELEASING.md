@@ -77,7 +77,7 @@ swift test
 
 ## Documentation source of truth
 
-The repository uses `README + DocC 병행`.
+The repository uses `README + DocC` together.
 
 - `README.md`: overview, quick start, module map, release and CI entry points
 - DocC: detailed module guides and API-oriented documentation
