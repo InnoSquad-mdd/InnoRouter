@@ -42,8 +42,9 @@ public final class AnyBatchNavigator<R: Route>: Navigator, NavigationBatchExecut
 }
 
 public extension AnyBatchNavigator {
-    func push(_ route: R) {
-        _ = execute(.push(route))
+    @discardableResult
+    func push(_ route: R) -> NavigationResult<R> {
+        execute(.push(route))
     }
 
     @discardableResult
@@ -51,11 +52,13 @@ public extension AnyBatchNavigator {
         execute(.pop)
     }
 
-    func popToRoot() {
-        _ = execute(.popToRoot)
+    @discardableResult
+    func popToRoot() -> NavigationResult<R> {
+        execute(.popToRoot)
     }
 
-    func replace(with routes: [R]) {
-        _ = execute(.replace(routes))
+    @discardableResult
+    func replace(with routes: [R]) -> NavigationResult<R> {
+        execute(.replace(routes))
     }
 }

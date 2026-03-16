@@ -3,19 +3,26 @@ import OSLog
 
 import InnoRouterCore
 
+/// Controls how `DeepLinkMatcher` surfaces structural diagnostics.
 public enum DeepLinkMatcherDiagnosticsMode: Sendable, Equatable {
+    /// Disables matcher diagnostics.
     case disabled
+    /// Emits warning diagnostics during matcher construction without failing execution.
     case debugWarnings
 }
 
+/// Describes a structural issue detected while building a `DeepLinkMatcher`.
 public enum DeepLinkMatcherDiagnostic: Sendable, Equatable {
+    /// Indicates that the same normalized pattern was declared more than once.
     case duplicatePattern(pattern: String, firstIndex: Int, duplicateIndex: Int)
+    /// Indicates that an earlier wildcard pattern shadows a later mapping.
     case wildcardShadowing(
         pattern: String,
         index: Int,
         shadowedPattern: String,
         shadowedIndex: Int
     )
+    /// Indicates that an earlier parameterized pattern shadows a more specific mapping.
     case parameterShadowing(
         pattern: String,
         index: Int,
@@ -23,6 +30,7 @@ public enum DeepLinkMatcherDiagnostic: Sendable, Equatable {
         shadowedIndex: Int
     )
 
+    /// A human-readable diagnostic message suitable for logs or debug output.
     public var message: String {
         switch self {
         case .duplicatePattern(let pattern, let firstIndex, let duplicateIndex):
@@ -35,10 +43,14 @@ public enum DeepLinkMatcherDiagnostic: Sendable, Equatable {
     }
 }
 
+/// Configuration for matcher diagnostics and logging.
 public struct DeepLinkMatcherConfiguration: Sendable {
+    /// Diagnostic emission mode used during matcher construction.
     public var diagnosticsMode: DeepLinkMatcherDiagnosticsMode
+    /// Optional logger for diagnostic output.
     public var logger: Logger?
 
+    /// Creates a matcher configuration.
     public init(
         diagnosticsMode: DeepLinkMatcherDiagnosticsMode,
         logger: Logger? = nil
@@ -219,8 +231,8 @@ public struct DeepLinkPattern: Sendable {
             switch part {
             case .literal(let value):
                 return value
-            case .parameter(let name):
-                return ":\(name)"
+            case .parameter:
+                return ":param"
             case .wildcard:
                 return "*"
             }
@@ -250,7 +262,8 @@ public struct DeepLinkPattern: Sendable {
                 continue
             case (.parameter, .literal):
                 sawParameterShadow = true
-            case (.parameter, .parameter):
+            case (.parameter(let lhsName), .parameter(let rhsName)):
+                sawParameterShadow = sawParameterShadow || lhsName != rhsName
                 continue
             default:
                 return nil
@@ -369,7 +382,6 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
 
         for diagnostic in diagnostics {
             configuration.logger?.warning("\(diagnostic.message, privacy: .public)")
-            assertionFailure(diagnostic.message)
         }
     }
 }

@@ -45,9 +45,13 @@ public final class ModalStore<M: Route> {
         queuedPresentations: [ModalPresentation<M>] = [],
         configuration: ModalStoreConfiguration<M> = .init()
     ) {
+        let normalizedState = Self.normalize(
+            currentPresentation: currentPresentation,
+            queuedPresentations: queuedPresentations
+        )
         let telemetrySink = ModalStoreTelemetrySink<M>(logger: configuration.logger)
-        self.currentPresentation = currentPresentation
-        self.queuedPresentations = queuedPresentations
+        self.currentPresentation = normalizedState.current
+        self.queuedPresentations = normalizedState.queue
         self.onPresented = configuration.onPresented
         self.onDismissed = configuration.onDismissed
         self.onQueueChanged = configuration.onQueueChanged
@@ -60,12 +64,16 @@ public final class ModalStore<M: Route> {
         configuration: ModalStoreConfiguration<M> = .init(),
         telemetryRecorder: ModalStoreTelemetryRecorder<M>? = nil
     ) {
+        let normalizedState = Self.normalize(
+            currentPresentation: currentPresentation,
+            queuedPresentations: queuedPresentations
+        )
         let telemetrySink = ModalStoreTelemetrySink(
             logger: configuration.logger,
             recorder: telemetryRecorder
         )
-        self.currentPresentation = currentPresentation
-        self.queuedPresentations = queuedPresentations
+        self.currentPresentation = normalizedState.current
+        self.queuedPresentations = normalizedState.queue
         self.onPresented = configuration.onPresented
         self.onDismissed = configuration.onDismissed
         self.onQueueChanged = configuration.onQueueChanged
@@ -111,17 +119,17 @@ public final class ModalStore<M: Route> {
     }
 
     public func dismissAll() {
-        if let dismissedPresentation = currentPresentation {
-            telemetrySink.recordDismissed(dismissedPresentation, reason: .dismissAll)
-            onDismissed?(dismissedPresentation, .dismissAll)
-        }
-
+        let dismissedPresentation = currentPresentation
         let oldQueue = queuedPresentations
         currentPresentation = nil
         queuedPresentations.removeAll()
         if oldQueue != queuedPresentations {
             telemetrySink.recordQueueChanged(oldQueue: oldQueue, newQueue: queuedPresentations)
             onQueueChanged?(oldQueue, queuedPresentations)
+        }
+        if let dismissedPresentation {
+            telemetrySink.recordDismissed(dismissedPresentation, reason: .dismissAll)
+            onDismissed?(dismissedPresentation, .dismissAll)
         }
     }
 
@@ -151,5 +159,16 @@ public final class ModalStore<M: Route> {
         onQueueChanged?(oldQueue, queuedPresentations)
         telemetrySink.recordPresented(promotedPresentation)
         onPresented?(promotedPresentation)
+    }
+
+    private static func normalize(
+        currentPresentation: ModalPresentation<M>?,
+        queuedPresentations: [ModalPresentation<M>]
+    ) -> (current: ModalPresentation<M>?, queue: [ModalPresentation<M>]) {
+        guard currentPresentation == nil, let firstQueued = queuedPresentations.first else {
+            return (currentPresentation, queuedPresentations)
+        }
+
+        return (firstQueued, Array(queuedPresentations.dropFirst()))
     }
 }

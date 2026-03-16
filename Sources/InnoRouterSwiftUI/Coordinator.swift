@@ -63,11 +63,13 @@ private struct CoordinatorStackHostContent<C: Coordinator, Root: View>: View {
     }
 }
 
+/// Hosts a stack-based coordinator surface and injects its navigation dispatcher into the environment.
 public struct CoordinatorHost<C: Coordinator, Root: View>: View {
     @Bindable private var coordinator: C
     @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
     private let root: () -> Root
 
+    /// Creates a coordinator host with the supplied coordinator and root builder.
     public init(
         coordinator: C,
         @ViewBuilder root: @escaping () -> Root
@@ -83,12 +85,14 @@ public struct CoordinatorHost<C: Coordinator, Root: View>: View {
     }
 }
 
+/// Hosts a split-view coordinator surface whose detail column is driven by the coordinator's store.
 public struct CoordinatorSplitHost<C: Coordinator, Sidebar: View, Root: View>: View {
     @Bindable private var coordinator: C
     @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
     private let sidebar: () -> Sidebar
     private let root: () -> Root
 
+    /// Creates a split coordinator host with separate sidebar and root builders.
     public init(
         coordinator: C,
         @ViewBuilder sidebar: @escaping () -> Sidebar,

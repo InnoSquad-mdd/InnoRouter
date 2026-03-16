@@ -22,8 +22,8 @@ final class ModalStoreTelemetrySink<M: Route> {
         logger.notice(
             """
             modal presented \
-            id=\(presentation.id.uuidString, privacy: .public) \
-            route=\(String(describing: presentation.route), privacy: .public) \
+            id=\(presentation.id.uuidString, privacy: .private) \
+            route=\(Self.routeSummary(for: presentation.route), privacy: .public) \
             style=\(String(describing: presentation.style), privacy: .public)
             """
         )
@@ -39,8 +39,8 @@ final class ModalStoreTelemetrySink<M: Route> {
         logger.notice(
             """
             modal dismissed \
-            id=\(presentation.id.uuidString, privacy: .public) \
-            route=\(String(describing: presentation.route), privacy: .public) \
+            id=\(presentation.id.uuidString, privacy: .private) \
+            route=\(Self.routeSummary(for: presentation.route), privacy: .public) \
             style=\(String(describing: presentation.style), privacy: .public) \
             reason=\(String(describing: reason), privacy: .public)
             """
@@ -54,8 +54,8 @@ final class ModalStoreTelemetrySink<M: Route> {
         logger.notice(
             """
             modal queued \
-            id=\(presentation.id.uuidString, privacy: .public) \
-            route=\(String(describing: presentation.route), privacy: .public) \
+            id=\(presentation.id.uuidString, privacy: .private) \
+            route=\(Self.routeSummary(for: presentation.route), privacy: .public) \
             style=\(String(describing: presentation.style), privacy: .public)
             """
         )
@@ -75,5 +75,13 @@ final class ModalStoreTelemetrySink<M: Route> {
             newCount=\(String(newQueue.count), privacy: .public)
             """
         )
+    }
+
+    private static func routeSummary(for route: M) -> String {
+        let description = String(describing: route)
+        return description
+            .split(separator: "(", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? description
     }
 }

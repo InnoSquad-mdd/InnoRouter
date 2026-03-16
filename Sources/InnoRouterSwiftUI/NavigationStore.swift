@@ -120,7 +120,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
     @discardableResult
     public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
-        executeSingle(command, shouldNotifyOnChange: true)
+        executeSingle(command, shouldNotifyOnChange: true).result
     }
 
     @discardableResult
@@ -134,11 +134,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         var hasStoppedOnFailure = false
 
         for command in commands {
-            let result = executeSingle(command, shouldNotifyOnChange: false)
-            executedCommands.append(command)
-            results.append(result)
+            let outcome = executeSingle(command, shouldNotifyOnChange: false)
+            executedCommands.append(contentsOf: outcome.executedCommands)
+            results.append(outcome.result)
 
-            if stopOnFailure && !result.isSuccess {
+            if stopOnFailure && !outcome.result.isSuccess {
                 hasStoppedOnFailure = true
                 break
             }
@@ -167,18 +167,17 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     ) -> NavigationTransactionResult<R> {
         let stateBefore = state
         var shadowState = state
+        var outcomes: [TransactionOutcome] = []
         var executedCommands: [NavigationCommand<R>] = []
-        var results: [NavigationResult<R>] = []
-        var committedSteps: [CommittedStep] = []
         var failureIndex: Int?
 
         for (index, command) in commands.enumerated() {
             let outcome = executeTransactionCommand(command, state: &shadowState)
-            executedCommands.append(command)
-            results.append(outcome.result)
+            outcomes.append(outcome)
+            executedCommands.append(contentsOf: outcome.executedCommands)
 
             if outcome.result.isSuccess {
-                committedSteps.append(contentsOf: outcome.steps)
+                continue
             } else {
                 failureIndex = index
                 break
@@ -186,14 +185,15 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
 
         let isCommitted = failureIndex == nil
+        let results: [NavigationResult<R>]
         if isCommitted {
             state = shadowState
-            for step in committedSteps {
-                _ = middlewareRegistry.didExecute(step.command, result: step.result, state: step.stateAfter)
-            }
+            results = outcomes.map { $0.committedResult(using: middlewareRegistry) }
             if state != stateBefore {
                 onChange?(stateBefore, state)
             }
+        } else {
+            results = outcomes.map(\.result)
         }
 
         let transaction = NavigationTransactionResult(
@@ -225,7 +225,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         case .back:
             _ = execute(.pop)
         case .backBy(let count):
-            if count == state.path.count {
+            if count > 0, count == state.path.count {
                 _ = execute(.popToRoot)
             } else {
                 _ = execute(.popCount(count))
@@ -270,7 +270,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private func executeSingle(
         _ command: NavigationCommand<R>,
         shouldNotifyOnChange: Bool
-    ) -> NavigationResult<R> {
+    ) -> ExecutionOutcome {
         executeSingle(command, state: &state, shouldNotifyOnChange: shouldNotifyOnChange)
     }
 
@@ -278,22 +278,30 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         _ command: NavigationCommand<R>,
         state currentState: inout RouteStack<R>,
         shouldNotifyOnChange: Bool
-    ) -> NavigationResult<R> {
+    ) -> ExecutionOutcome {
         switch command {
         case .sequence(let commands):
-            let results = commands.map {
+            let outcomes = commands.map {
                 executeSingle($0, state: &currentState, shouldNotifyOnChange: shouldNotifyOnChange)
             }
-            return .multiple(results)
+            return ExecutionOutcome(
+                requestedCommand: command,
+                executedCommands: outcomes.flatMap(\.executedCommands),
+                result: .multiple(outcomes.map(\.result))
+            )
 
         default:
             let stateBefore = currentState
-            switch middlewareRegistry.intercept(command, state: stateBefore) {
+            let interceptionOutcome = middlewareRegistry.intercept(command, state: stateBefore)
+            switch interceptionOutcome.interception {
             case .cancel(let reason):
                 let result: NavigationResult<R> = .cancelled(reason)
                 return finishExecution(
-                    command: command,
+                    requestedCommand: command,
+                    command: interceptionOutcome.command,
+                    executedCommands: [],
                     result: result,
+                    participantCount: interceptionOutcome.participantCount,
                     stateBefore: stateBefore,
                     currentState: &currentState,
                     shouldNotifyOnChange: shouldNotifyOnChange
@@ -301,8 +309,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             case .proceed(let commandToExecute):
                 let result = engine.apply(commandToExecute, to: &currentState)
                 return finishExecution(
+                    requestedCommand: command,
                     command: commandToExecute,
+                    executedCommands: [commandToExecute],
                     result: result,
+                    participantCount: interceptionOutcome.participantCount,
                     stateBefore: stateBefore,
                     currentState: &currentState,
                     shouldNotifyOnChange: shouldNotifyOnChange
@@ -312,18 +323,30 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     }
 
     private func finishExecution(
+        requestedCommand: NavigationCommand<R>,
         command: NavigationCommand<R>,
+        executedCommands: [NavigationCommand<R>],
         result: NavigationResult<R>,
+        participantCount: Int,
         stateBefore: RouteStack<R>,
         currentState: inout RouteStack<R>,
         shouldNotifyOnChange: Bool
-    ) -> NavigationResult<R> {
-        let finalResult = middlewareRegistry.didExecute(command, result: result, state: currentState)
+    ) -> ExecutionOutcome {
+        let finalResult = middlewareRegistry.didExecute(
+            command,
+            result: result,
+            state: currentState,
+            participantCount: participantCount
+        )
 
         if shouldNotifyOnChange, currentState != stateBefore {
             onChange?(stateBefore, currentState)
         }
-        return finalResult
+        return ExecutionOutcome(
+            requestedCommand: requestedCommand,
+            executedCommands: executedCommands,
+            result: finalResult
+        )
     }
 
     private func executeTransactionCommand(
@@ -332,40 +355,64 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     ) -> TransactionOutcome {
         switch command {
         case .sequence(let commands):
-            var results: [NavigationResult<R>] = []
-            var steps: [CommittedStep] = []
+            var outcomes: [TransactionOutcome] = []
+            var executedCommands: [NavigationCommand<R>] = []
 
             for nestedCommand in commands {
                 let outcome = executeTransactionCommand(nestedCommand, state: &currentState)
-                results.append(outcome.result)
-                if outcome.result.isSuccess {
-                    steps.append(contentsOf: outcome.steps)
-                } else {
-                    return TransactionOutcome(result: .multiple(results), steps: [])
+                outcomes.append(outcome)
+                executedCommands.append(contentsOf: outcome.executedCommands)
+                if !outcome.result.isSuccess {
+                    return TransactionOutcome(
+                        requestedCommand: command,
+                        executedCommands: executedCommands,
+                        result: .multiple(outcomes.map(\.result)),
+                        node: nil
+                    )
                 }
             }
 
-            return TransactionOutcome(result: .multiple(results), steps: steps)
+            return TransactionOutcome(
+                requestedCommand: command,
+                executedCommands: executedCommands,
+                result: .multiple(outcomes.map(\.result)),
+                node: .sequence(outcomes)
+            )
 
         default:
             let stateBefore = currentState
-            switch middlewareRegistry.intercept(command, state: stateBefore) {
+            let interceptionOutcome = middlewareRegistry.intercept(command, state: stateBefore)
+            switch interceptionOutcome.interception {
             case .cancel(let reason):
-                return TransactionOutcome(result: .cancelled(reason), steps: [])
+                return TransactionOutcome(
+                    requestedCommand: command,
+                    executedCommands: [],
+                    result: .cancelled(reason),
+                    node: nil
+                )
             case .proceed(let commandToExecute):
                 let result = engine.apply(commandToExecute, to: &currentState)
                 guard result.isSuccess else {
-                    return TransactionOutcome(result: result, steps: [])
+                    return TransactionOutcome(
+                        requestedCommand: command,
+                        executedCommands: [commandToExecute],
+                        result: result,
+                        node: nil
+                    )
                 }
+
                 return TransactionOutcome(
+                    requestedCommand: command,
+                    executedCommands: [commandToExecute],
                     result: result,
-                    steps: [
+                    node: .leaf(
                         CommittedStep(
                             command: commandToExecute,
                             result: result,
+                            participantCount: interceptionOutcome.participantCount,
                             stateAfter: currentState
                         )
-                    ]
+                    )
                 )
             }
         }
@@ -421,11 +468,50 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private struct CommittedStep {
         let command: NavigationCommand<R>
         let result: NavigationResult<R>
+        let participantCount: Int
         let stateAfter: RouteStack<R>
     }
 
-    private struct TransactionOutcome {
+    private struct ExecutionOutcome {
+        let requestedCommand: NavigationCommand<R>
+        let executedCommands: [NavigationCommand<R>]
         let result: NavigationResult<R>
-        let steps: [CommittedStep]
+    }
+
+    private indirect enum TransactionNode {
+        case leaf(CommittedStep)
+        case sequence([TransactionOutcome])
+    }
+
+    private struct TransactionOutcome {
+        let requestedCommand: NavigationCommand<R>
+        let executedCommands: [NavigationCommand<R>]
+        let result: NavigationResult<R>
+
+        let node: TransactionNode?
+
+        @MainActor
+        func committedResult(
+            using middlewareRegistry: NavigationMiddlewareRegistry<R>
+        ) -> NavigationResult<R> {
+            switch node {
+            case .leaf(let step):
+                return middlewareRegistry.didExecute(
+                    step.command,
+                    result: step.result,
+                    state: step.stateAfter,
+                    participantCount: step.participantCount
+                )
+            case .sequence(let outcomes):
+                var committedResults: [NavigationResult<R>] = []
+                committedResults.reserveCapacity(outcomes.count)
+                for outcome in outcomes {
+                    committedResults.append(outcome.committedResult(using: middlewareRegistry))
+                }
+                return .multiple(committedResults)
+            case nil:
+                return result
+            }
+        }
     }
 }

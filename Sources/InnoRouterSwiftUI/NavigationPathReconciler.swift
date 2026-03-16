@@ -48,6 +48,8 @@ struct NavigationPathReconciler<R: Route> {
     }
 
     private static func longestCommonPrefixLength(between lhs: [R], and rhs: [R]) -> Int {
-        zip(lhs, rhs).prefix { $0 == $1 }.count
+        zip(lhs, rhs).prefix { pair in
+            pair.0 == pair.1
+        }.count
     }
 }
