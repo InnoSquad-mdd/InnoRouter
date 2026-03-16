@@ -2,12 +2,14 @@ import SwiftUI
 
 import InnoRouterCore
 
+/// Hosts modal presentation surfaces backed by a `ModalStore`.
 public struct ModalHost<M: Route, Destination: View, Content: View>: View {
     @Bindable private var store: ModalStore<M>
     @State private var modalEnvironmentStorage = ModalEnvironmentStorage()
     private let destination: (M) -> Destination
     private let content: () -> Content
 
+    /// Creates a modal host with destination and content builders.
     public init(
         store: ModalStore<M>,
         @ViewBuilder destination: @escaping (M) -> Destination,

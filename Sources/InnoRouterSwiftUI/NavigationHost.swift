@@ -27,12 +27,14 @@ private struct NavigationStackHostContent<R: Route, DestinationView: View, Root:
     }
 }
 
+/// Hosts a stack-based navigation surface backed by a `NavigationStore`.
 public struct NavigationHost<R: Route, DestinationView: View, Root: View>: View {
     @Bindable private var store: NavigationStore<R>
     @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
     private let destination: (R) -> DestinationView
     private let root: () -> Root
 
+    /// Creates a navigation host with destination and root builders.
     public init(
         store: NavigationStore<R>,
         @ViewBuilder destination: @escaping (R) -> DestinationView,
@@ -55,6 +57,7 @@ public struct NavigationHost<R: Route, DestinationView: View, Root: View>: View 
     }
 }
 
+/// Hosts a split-view navigation surface whose detail column is driven by a `NavigationStore`.
 public struct NavigationSplitHost<R: Route, Sidebar: View, DestinationView: View, Root: View>: View {
     @Bindable private var store: NavigationStore<R>
     @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
@@ -62,6 +65,7 @@ public struct NavigationSplitHost<R: Route, Sidebar: View, DestinationView: View
     private let destination: (R) -> DestinationView
     private let root: () -> Root
 
+    /// Creates a split navigation host with separate sidebar, destination, and root builders.
     public init(
         store: NavigationStore<R>,
         @ViewBuilder sidebar: @escaping () -> Sidebar,

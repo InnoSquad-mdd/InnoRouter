@@ -191,8 +191,8 @@ struct NavigationStoreTests {
     
     @Test("Pop removes last route")
     @MainActor
-    func testPop() {
-        let store = try! NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
+    func testPop() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
         
         let result = store.execute(.pop)
         #expect(result == .success)
@@ -212,8 +212,8 @@ struct NavigationStoreTests {
     
     @Test("PopToRoot clears all routes")
     @MainActor
-    func testPopToRoot() {
-        let store = try! NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
+    func testPopToRoot() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
         
         _ = store.execute(.popToRoot)
         #expect(store.state.path.isEmpty)
@@ -221,8 +221,8 @@ struct NavigationStoreTests {
     
     @Test("Replace replaces entire stack")
     @MainActor
-    func testReplace() {
-        let store = try! NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
+    func testReplace() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
         
         _ = store.execute(.replace([.settings]))
         #expect(store.state.path.count == 1)
@@ -231,8 +231,8 @@ struct NavigationStoreTests {
     
     @Test("Pop to specific route")
     @MainActor
-    func testPopTo() {
-        let store = try! NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
+    func testPopTo() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
         
         let result = store.execute(.popTo(.detail(id: "123")))
         #expect(result == .success)
@@ -242,8 +242,8 @@ struct NavigationStoreTests {
 
     @Test("Pop to nearest matching route when duplicates exist")
     @MainActor
-    func testPopToNearestMatch() {
-        let store = try! NavigationStore<TestRoute>(
+    func testPopToNearestMatch() throws {
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home, .detail(id: "123"), .settings, .detail(id: "123"), .profile(userId: "u1", tab: 0)]
         )
 
@@ -291,8 +291,8 @@ struct NavigationCommandTests {
     
     @Test("Execute pop command")
     @MainActor
-    func testExecutePop() {
-        let store = try! NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
+    func testExecutePop() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
         
         let result = store.execute(.pop)
         
@@ -312,8 +312,8 @@ struct NavigationCommandTests {
 
     @Test("Execute popCount zero returns invalidPopCount")
     @MainActor
-    func testExecutePopCountZero() {
-        let store = try! NavigationStore<TestRoute>(initialPath: [.home])
+    func testExecutePopCountZero() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home])
 
         let result = store.execute(.popCount(0))
 
@@ -323,8 +323,8 @@ struct NavigationCommandTests {
 
     @Test("Execute popCount negative returns invalidPopCount")
     @MainActor
-    func testExecutePopCountNegative() {
-        let store = try! NavigationStore<TestRoute>(initialPath: [.home])
+    func testExecutePopCountNegative() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home])
 
         let result = store.execute(.popCount(-1))
 
@@ -334,8 +334,8 @@ struct NavigationCommandTests {
 
     @Test("Execute popCount beyond stack depth returns insufficientStackDepth")
     @MainActor
-    func testExecutePopCountTooLarge() {
-        let store = try! NavigationStore<TestRoute>(initialPath: [.home])
+    func testExecutePopCountTooLarge() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home])
 
         let result = store.execute(.popCount(2))
 
@@ -487,8 +487,8 @@ struct NavigationCommandTests {
     }
 
     @Test("Command validation previews legality without mutation")
-    func testCommandValidationPreview() {
-        let stack: RouteStack<TestRoute> = validatedStack([.home])
+    func testCommandValidationPreview() throws {
+        let stack: RouteStack<TestRoute> = try validatedStack([.home])
 
         #expect(NavigationCommand<TestRoute>.pop.validate(on: stack) == .success)
         #expect(NavigationCommand<TestRoute>.pop.canExecute(on: stack) == true)
@@ -502,7 +502,7 @@ struct NavigationCommandTests {
         arguments: Array(0..<100)
     )
     @MainActor
-    func randomCommandStreamsMatchReferenceModel(seed: Int) {
+    func randomCommandStreamsMatchReferenceModel(seed: Int) throws {
         let store = NavigationStore<TestRoute>()
         var referencePath: [TestRoute] = []
         var rng = SeededGenerator(seed: UInt64(seed + 1))
@@ -515,7 +515,7 @@ struct NavigationCommandTests {
             )
 
             let expectedPreview = previewReferenceResult(command, path: referencePath)
-            let actualPreview = command.validate(on: validatedStack(referencePath))
+            let actualPreview = command.validate(on: try validatedStack(referencePath))
             #expect(actualPreview == expectedPreview)
 
             let actual = store.execute(command)
@@ -558,8 +558,8 @@ struct NavigationIntentTests {
 
     @Test("NavigationStore send backBy pops expected count")
     @MainActor
-    func testSendBackBy() {
-        let store = try! NavigationStore<TestRoute>(
+    func testSendBackBy() throws {
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home, .detail(id: "123"), .settings]
         )
 
@@ -570,8 +570,8 @@ struct NavigationIntentTests {
 
     @Test("NavigationStore send backTo pops to matching route")
     @MainActor
-    func testSendBackTo() {
-        let store = try! NavigationStore<TestRoute>(
+    func testSendBackTo() throws {
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home, .detail(id: "123"), .settings]
         )
 
@@ -582,8 +582,8 @@ struct NavigationIntentTests {
 
     @Test("NavigationStore send backToRoot clears stack")
     @MainActor
-    func testSendBackToRoot() {
-        let store = try! NavigationStore<TestRoute>(
+    func testSendBackToRoot() throws {
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home, .detail(id: "123"), .settings]
         )
 
@@ -599,8 +599,8 @@ struct NavigationIntentTests {
 struct NavigationPathBindingTests {
     @Test("Path binding shrink uses popCount")
     @MainActor
-    func testPathBindingShrinkUsesPopCount() {
-        let store = try! NavigationStore<TestRoute>(
+    func testPathBindingShrinkUsesPopCount() throws {
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home, .detail(id: "123"), .settings]
         )
         var executedCommands: [NavigationCommand<TestRoute>] = []
@@ -622,8 +622,8 @@ struct NavigationPathBindingTests {
 
     @Test("Path binding root shrink uses popToRoot")
     @MainActor
-    func testPathBindingRootShrinkUsesPopToRoot() {
-        let store = try! NavigationStore<TestRoute>(
+    func testPathBindingRootShrinkUsesPopToRoot() throws {
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home, .detail(id: "123"), .settings]
         )
         var executedCommands: [NavigationCommand<TestRoute>] = []
@@ -645,10 +645,10 @@ struct NavigationPathBindingTests {
 
     @Test("Path binding expansion uses batch push execution")
     @MainActor
-    func testPathBindingExpansionUsesBatchPushes() {
+    func testPathBindingExpansionUsesBatchPushes() throws {
         var changeCount = 0
         var observedBatch: NavigationBatchResult<TestRoute>?
-        let store = try! NavigationStore<TestRoute>(
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home],
             configuration: NavigationStoreConfiguration(
                 onChange: { _, _ in
@@ -682,8 +682,8 @@ struct NavigationPathBindingTests {
 
     @Test("Path binding non-prefix rewrite falls back to replace")
     @MainActor
-    func testPathBindingNonPrefixRewriteUsesReplace() {
-        let store = try! NavigationStore<TestRoute>(
+    func testPathBindingNonPrefixRewriteUsesReplace() throws {
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home, .detail(id: "123")]
         )
         var executedCommands: [NavigationCommand<TestRoute>] = []
@@ -705,10 +705,10 @@ struct NavigationPathBindingTests {
 
     @Test("Path binding non-prefix rewrite can ignore changes")
     @MainActor
-    func testPathBindingNonPrefixRewriteIgnore() {
+    func testPathBindingNonPrefixRewriteIgnore() throws {
         var changeCount = 0
         var batchCount = 0
-        let store = try! NavigationStore<TestRoute>(
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home, .detail(id: "123")],
             configuration: NavigationStoreConfiguration(
                 pathMismatchPolicy: .ignore,
@@ -741,9 +741,9 @@ struct NavigationPathBindingTests {
 
     @Test("Path binding non-prefix rewrite custom single resolution runs execute")
     @MainActor
-    func testPathBindingNonPrefixRewriteCustomSingle() {
+    func testPathBindingNonPrefixRewriteCustomSingle() throws {
         let store = NavigationStore<TestRoute>(
-            initial: validatedStack([.home, .detail(id: "123")]),
+            initial: try validatedStack([.home, .detail(id: "123")]),
             configuration: NavigationStoreConfiguration(
                 pathMismatchPolicy: .custom { _, _ in
                     .single(.popToRoot)
@@ -769,10 +769,10 @@ struct NavigationPathBindingTests {
 
     @Test("Path binding non-prefix rewrite custom batch resolution runs executeBatch")
     @MainActor
-    func testPathBindingNonPrefixRewriteCustomBatch() {
+    func testPathBindingNonPrefixRewriteCustomBatch() throws {
         var changeCount = 0
         var observedBatch: NavigationBatchResult<TestRoute>?
-        let store = try! NavigationStore<TestRoute>(
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home],
             configuration: NavigationStoreConfiguration(
                 pathMismatchPolicy: .custom { _, _ in
@@ -807,10 +807,10 @@ struct NavigationPathBindingTests {
 
     @Test("Path binding non-prefix rewrite assert-and-replace reports and falls back")
     @MainActor
-    func testPathBindingNonPrefixRewriteAssertAndReplace() {
+    func testPathBindingNonPrefixRewriteAssertAndReplace() throws {
         var assertionCount = 0
         let store = NavigationStore<TestRoute>(
-            initial: validatedStack([.home, .detail(id: "123")]),
+            initial: try validatedStack([.home, .detail(id: "123")]),
             configuration: NavigationStoreConfiguration(
                 pathMismatchPolicy: .assertAndReplace
             ),
@@ -832,10 +832,10 @@ struct NavigationPathBindingTests {
 struct NavigationBatchTests {
     @Test("Execute batch records snapshots, middleware, and observer once")
     @MainActor
-    func testExecuteBatchCapturesSnapshots() {
+    func testExecuteBatchCapturesSnapshots() throws {
         var changeCount = 0
         var observedBatch: NavigationBatchResult<TestRoute>?
-        let store = try! NavigationStore<TestRoute>(
+        let store = try NavigationStore<TestRoute>(
             initialPath: [.home],
             configuration: NavigationStoreConfiguration(
                 onChange: { _, _ in
@@ -866,8 +866,8 @@ struct NavigationBatchTests {
         #expect(batch.requestedCommands == [.push(.detail(id: "123")), .push(.settings)])
         #expect(batch.executedCommands == [.push(.detail(id: "123")), .push(.settings)])
         #expect(batch.results == [.success, .success])
-        #expect(batch.stateBefore == validatedStack([.home]))
-        #expect(batch.stateAfter == validatedStack([.home, .detail(id: "123"), .settings]))
+        #expect(batch.stateBefore == (try validatedStack([.home])))
+        #expect(batch.stateAfter == (try validatedStack([.home, .detail(id: "123"), .settings])))
         #expect(batch.hasStoppedOnFailure == false)
         #expect(batch.isSuccess == true)
         #expect(store.state == batch.stateAfter)
@@ -879,7 +879,7 @@ struct NavigationBatchTests {
 
     @Test("Execute batch can stop on first failure")
     @MainActor
-    func testExecuteBatchStopOnFailure() {
+    func testExecuteBatchStopOnFailure() throws {
         var changeCount = 0
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
@@ -898,11 +898,36 @@ struct NavigationBatchTests {
         #expect(batch.executedCommands == [.push(.home), .popCount(5)])
         #expect(batch.results == [.success, .insufficientStackDepth(requested: 5, available: 1)])
         #expect(batch.stateBefore == RouteStack<TestRoute>())
-        #expect(batch.stateAfter == validatedStack([.home]))
+        #expect(batch.stateAfter == (try validatedStack([.home])))
         #expect(batch.hasStoppedOnFailure == true)
         #expect(batch.isSuccess == false)
         #expect(store.state.path == [.home])
         #expect(changeCount == 1)
+    }
+
+    @Test("Execute batch records middleware-rewritten commands")
+    @MainActor
+    func testExecuteBatchTracksActualExecutedCommands() {
+        let store = NavigationStore<TestRoute>()
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    switch command {
+                    case .push(.home):
+                        return .proceed(.push(.settings))
+                    default:
+                        return .proceed(command)
+                    }
+                }
+            ),
+            debugName: "rewrite"
+        )
+
+        let batch = store.executeBatch([.push(.home), .push(.detail(id: "123"))])
+
+        #expect(batch.requestedCommands == [.push(.home), .push(.detail(id: "123"))])
+        #expect(batch.executedCommands == [.push(.settings), .push(.detail(id: "123"))])
+        #expect(store.state.path == [.settings, .detail(id: "123")])
     }
 
     @Test("Sequence and batch keep different observation semantics")
@@ -1034,7 +1059,7 @@ struct NavigationBatchTests {
 struct NavigationTransactionTests {
     @Test("Execute transaction commits once and notifies observers once")
     @MainActor
-    func testExecuteTransactionCommit() {
+    func testExecuteTransactionCommit() throws {
         var changeCount = 0
         var transactionObserver: NavigationTransactionResult<TestRoute>?
         let store = NavigationStore<TestRoute>(
@@ -1065,8 +1090,8 @@ struct NavigationTransactionTests {
         #expect(transaction.failureIndex == nil)
         #expect(transaction.results == [.success, .success])
         #expect(transaction.stateBefore == RouteStack<TestRoute>())
-        #expect(transaction.stateAfter == validatedStack([.home, .settings]))
-        #expect(store.state == validatedStack([.home, .settings]))
+        #expect(transaction.stateAfter == (try validatedStack([.home, .settings])))
+        #expect(store.state == (try validatedStack([.home, .settings])))
         #expect(changeCount == 1)
         #expect(didExecuteOrder == [.push(.home), .push(.settings)])
         #expect(transactionObserver == transaction)
@@ -1111,6 +1136,38 @@ struct NavigationTransactionTests {
         #expect(transactionObserver == transaction)
     }
 
+    @Test("Execute transaction uses rewritten commands and folded results")
+    @MainActor
+    func testExecuteTransactionUsesActualCommandsAndFoldedResults() throws {
+        let store = NavigationStore<TestRoute>()
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    switch command {
+                    case .push(.home):
+                        return .proceed(.push(.settings))
+                    default:
+                        return .proceed(command)
+                    }
+                },
+                didExecute: { command, result, _ in
+                    if command == .push(.settings) {
+                        return .multiple([result])
+                    }
+                    return result
+                }
+            ),
+            debugName: "rewrite"
+        )
+
+        let transaction = store.executeTransaction([.push(.home), .push(.detail(id: "123"))])
+
+        #expect(transaction.executedCommands == [.push(.settings), .push(.detail(id: "123"))])
+        #expect(transaction.results == [.multiple([.success]), .success])
+        #expect(transaction.isCommitted == true)
+        #expect(store.state == (try validatedStack([.settings, .detail(id: "123")])))
+    }
+
     @Test("Sequence preserves partial success while transaction rolls back")
     @MainActor
     func testSequenceAndTransactionDifferOnFailure() {
@@ -1134,10 +1191,10 @@ struct NavigationTransactionTests {
 struct NavigationStoreTelemetryTests {
     @Test("Non-prefix rewrite emits ignore telemetry without mutation")
     @MainActor
-    func testIgnoreRewriteTelemetry() {
+    func testIgnoreRewriteTelemetry() throws {
         let recorder = Mutex<[NavigationStoreTelemetryEvent<TestRoute>]>([])
         let store = NavigationStore<TestRoute>(
-            initial: validatedStack([.home, .detail(id: "123")]),
+            initial: try validatedStack([.home, .detail(id: "123")]),
             configuration: NavigationStoreConfiguration(
                 pathMismatchPolicy: .ignore,
                 logger: Logger(subsystem: "InnoRouterTests", category: "NavigationStore")
@@ -1165,10 +1222,10 @@ struct NavigationStoreTelemetryTests {
 
     @Test("Non-prefix rewrite emits custom batch telemetry")
     @MainActor
-    func testCustomBatchRewriteTelemetry() {
+    func testCustomBatchRewriteTelemetry() throws {
         let recorder = Mutex<[NavigationStoreTelemetryEvent<TestRoute>]>([])
         let store = NavigationStore<TestRoute>(
-            initial: validatedStack([.home]),
+            initial: try validatedStack([.home]),
             configuration: NavigationStoreConfiguration(
                 pathMismatchPolicy: .custom { _, _ in
                     .batch([.push(.settings), .push(.detail(id: "123"))])
@@ -1260,8 +1317,8 @@ private struct SeededGenerator {
     }
 }
 
-private func validatedStack<R: Route>(_ path: [R]) -> RouteStack<R> {
-    try! RouteStack(validating: path)
+private func validatedStack<R: Route>(_ path: [R]) throws -> RouteStack<R> {
+    try RouteStack(validating: path)
 }
 
 private let allTestRoutes: [TestRoute] = [
@@ -1524,13 +1581,44 @@ struct DeepLinkTests {
         #expect(
             matcher.diagnostics == [
                 .parameterShadowing(
-                    pattern: "/products/:id",
+                    pattern: "/products/:param",
                     index: 0,
                     shadowedPattern: "/products/featured",
                     shadowedIndex: 1
                 )
             ]
         )
+    }
+
+    @Test("DeepLinkMatcher treats renamed parameters as equivalent structure")
+    func testMatcherParameterNameOnlyShadowingDiagnostics() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/users/:id") { _ in .detail(id: "id") }
+            DeepLinkMapping("/users/:slug") { _ in .detail(id: "slug") }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .duplicatePattern(pattern: "/users/:param", firstIndex: 0, duplicateIndex: 1)
+            ]
+        )
+    }
+
+    @Test("DeepLinkMatcher debug warnings remain non-fatal")
+    func testMatcherDebugWarningsDoNotAssert() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(
+                diagnosticsMode: .debugWarnings,
+                logger: Logger(subsystem: "InnoRouterTests", category: "DeepLinkMatcher")
+            )
+        ) {
+            DeepLinkMapping("/products/:id") { _ in .detail(id: "generic") }
+            DeepLinkMapping("/products/featured") { _ in .settings }
+        }
+
+        #expect(matcher.diagnostics.count == 1)
     }
 
     @Test("DeepLinkMatcher diagnostics do not change declaration-order precedence")
@@ -1960,6 +2048,40 @@ struct DeepLinkEffectHandlerTests {
         #expect(!handler.hasPendingDeepLink)
     }
 
+    @Test("Async deep-link guard does not resume a stale pending deep link")
+    @MainActor
+    func testResumePendingDeepLinkIfAllowedUsesCurrentPendingIdentity() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/settings") { _ in .settings }
+            DeepLinkMapping("/home") { _ in .home }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyBatchNavigator(store),
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { false }
+            ),
+            plan: { route in NavigationPlan(commands: [.push(route)]) }
+        )
+
+        let firstPending = handler.handle(URL(string: "myapp://myapp.com/settings")!)
+        guard case .pending = firstPending else {
+            Issue.record("Expected pending result")
+            return
+        }
+
+        let resumed = await handler.resumePendingDeepLinkIfAllowed { _ in
+            _ = handler.handle(URL(string: "myapp://myapp.com/home")!)
+            return true
+        }
+
+        #expect(resumed == .pending(handler.pendingDeepLink!))
+        #expect(handler.pendingDeepLink?.route == .home)
+        #expect(store.state.path.isEmpty)
+    }
+
     @Test("Rejected decision preserves rejection reason")
     @MainActor
     func testRejectedReasonIsPreserved() {
@@ -2060,7 +2182,7 @@ struct DeepLinkEffectHandlerTests {
 struct NavigationEffectHandlerTests {
     @Test("execute(_:stopOnFailure:) returns batch result and preserves middleware order")
     @MainActor
-    func testExecuteStopOnFailure() {
+    func testExecuteStopOnFailure() throws {
         var changeCount = 0
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
@@ -2099,13 +2221,25 @@ struct NavigationEffectHandlerTests {
         #expect(batch.results == [.success, .insufficientStackDepth(requested: 5, available: 1)])
         #expect(batch.hasStoppedOnFailure == true)
         #expect(batch.stateBefore == RouteStack<TestRoute>())
-        #expect(batch.stateAfter == validatedStack([.home]))
+        #expect(batch.stateAfter == (try validatedStack([.home])))
         #expect(store.state.path == [.home])
         #expect(willExecuteCount == 2)
         #expect(didExecuteCount == 2)
         #expect(changeCount == 1)
         #expect(handler.lastBatchResult == batch)
         #expect(handler.lastResult == .insufficientStackDepth(requested: 5, available: 1))
+    }
+
+    @Test("AnyBatchNavigator convenience methods surface typed results")
+    @MainActor
+    func testAnyBatchNavigatorConvenienceMethodsReturnResults() {
+        let navigator = AnyBatchNavigator(NavigationStore<TestRoute>())
+
+        let popToRootResult = navigator.popToRoot()
+        let replaceResult = navigator.replace(with: [.home])
+
+        #expect(popToRootResult == .success)
+        #expect(replaceResult == .success)
     }
 
     @Test("single execute clears stale batch result")
@@ -2129,7 +2263,7 @@ struct NavigationEffectHandlerTests {
 
     @Test("executeTransaction returns atomic transaction result")
     @MainActor
-    func testExecuteTransaction() {
+    func testExecuteTransaction() throws {
         let store = NavigationStore<TestRoute>()
         let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
 
@@ -2137,7 +2271,7 @@ struct NavigationEffectHandlerTests {
 
         #expect(transaction.isCommitted == true)
         #expect(transaction.results == [.success, .success])
-        #expect(transaction.stateAfter == validatedStack([.home, .settings]))
+        #expect(transaction.stateAfter == (try validatedStack([.home, .settings])))
         #expect(store.state.path == [.home, .settings])
         #expect(handler.lastResult == .success)
         #expect(handler.lastBatchResult == nil)
@@ -2179,6 +2313,32 @@ struct NavigationEffectHandlerTests {
 
 @Suite("ModalStore Tests")
 struct ModalStoreTests {
+    @Test("Initial queued presentations normalize into active and queued state without callbacks")
+    @MainActor
+    func testInitNormalizesQueuedPresentationsWithoutCallbacks() {
+        let presented = Mutex<[ModalPresentation<TestModalRoute>]>([])
+        let queueChanges = Mutex<[([ModalPresentation<TestModalRoute>], [ModalPresentation<TestModalRoute>])]>([])
+        let first = ModalPresentation<TestModalRoute>(route: .profile, style: .sheet)
+        let second = ModalPresentation<TestModalRoute>(route: .onboarding, style: .fullScreenCover)
+        let store = ModalStore<TestModalRoute>(
+            currentPresentation: nil,
+            queuedPresentations: [first, second],
+            configuration: .init(
+                onPresented: { presentation in
+                    presented.withLock { $0.append(presentation) }
+                },
+                onQueueChanged: { oldQueue, newQueue in
+                    queueChanges.withLock { $0.append((oldQueue, newQueue)) }
+                }
+            )
+        )
+
+        #expect(store.currentPresentation == first)
+        #expect(store.queuedPresentations == [second])
+        #expect(presented.withLock { $0.isEmpty })
+        #expect(queueChanges.withLock { $0.isEmpty })
+    }
+
     @Test("First present becomes the active modal")
     @MainActor
     func testPresentCreatesActiveModal() {

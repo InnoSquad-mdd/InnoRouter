@@ -125,7 +125,6 @@ struct HomeView: View {
 - `.backTo(Route)`
 - `.backToRoot`
 - `.resetTo([Route])`
-- `.deepLink(URL)`
 
 ## Middleware
 
@@ -137,8 +136,10 @@ Attach cross-cutting policies (auth guard, logging, analytics, de-dupe) without 
 store.addMiddleware(
   AnyNavigationMiddleware(
     willExecute: { command, state in
-      if case .push(let next) = command, state.path.last == next { return nil }
-      return command
+      if case .push(let next) = command, state.path.last == next {
+        return .cancel(.custom("Duplicate push"))
+      }
+      return .proceed(command)
     }
   )
 )
@@ -146,17 +147,18 @@ store.addMiddleware(
 
 Notes:
 - Middleware runs **per executed command** (including each step of `.sequence`).
-- If `willExecute` returns `nil`, execution is cancelled with `.cancelled`.
+- If `willExecute` returns `.cancel(...)`, execution is cancelled with `.cancelled(...)`.
 
 Command legality is intentionally local to navigation:
-- `.pop` and `.popCount` fail with `.stackEmpty` when the stack cannot satisfy the command.
+- `.pop` fails with `.emptyStack` when there is nothing to remove.
+- `.popCount` fails with `.invalidPopCount` for non-positive counts and `.insufficientStackDepth` when the stack is too shallow.
 - `.popTo(route)` fails with `.routeNotFound(route)` when the target route does not exist.
 - Deep-link auth gating produces `.pending(plan)` so replay responsibility stays explicit.
 
 If you want to preview legality without mutating state, use:
 
 ```swift
-let stack = RouteStack(path: [.home, .detail(id: "123")])
+let stack = try RouteStack(validating: [.home, .detail(id: "123")])
 let command = NavigationCommand<TestRoute>.pop
 
 if command.canExecute(on: stack) {

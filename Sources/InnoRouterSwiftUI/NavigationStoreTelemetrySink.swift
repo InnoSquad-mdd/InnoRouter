@@ -37,8 +37,10 @@ final class NavigationStoreTelemetrySink<R: Route> {
             navigation path mismatch \
             policy=\(policy.rawValue, privacy: .public) \
             resolution=\(eventResolution.kind, privacy: .public) \
-            oldPath=\(String(describing: oldPath), privacy: .public) \
-            newPath=\(String(describing: newPath), privacy: .public)
+            oldPathCount=\(oldPath.count, privacy: .public) \
+            oldPathSummary=\(Self.pathSummary(for: oldPath), privacy: .public) \
+            newPathCount=\(newPath.count, privacy: .public) \
+            newPathSummary=\(Self.pathSummary(for: newPath), privacy: .public)
             """
         )
     }
@@ -75,5 +77,17 @@ final class NavigationStoreTelemetrySink<R: Route> {
         case .ignore:
             return .ignore
         }
+    }
+
+    private static func pathSummary(for path: [R]) -> String {
+        path.map(routeSummary(for:)).joined(separator: " -> ")
+    }
+
+    private static func routeSummary(for route: R) -> String {
+        let description = String(describing: route)
+        return description
+            .split(separator: "(", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? description
     }
 }

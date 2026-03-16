@@ -93,6 +93,13 @@ public final class DeepLinkEffectHandler<R: Route> {
             return .pending(pendingDeepLink)
         }
 
+        guard self.pendingDeepLink == pendingDeepLink else {
+            if let currentPendingDeepLink = self.pendingDeepLink {
+                return .pending(currentPendingDeepLink)
+            }
+            return .noPendingDeepLink
+        }
+
         return resumePendingDeepLink()
     }
 
