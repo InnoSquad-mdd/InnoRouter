@@ -66,11 +66,6 @@ jobs:
             ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}"
           fi
 
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: .build/docc-site
-
       - name: Package Release Site Artifact
         run: tar -czf .build/docc-site-release.tar.gz -C .build docc-site
 
@@ -79,21 +74,6 @@ jobs:
         with:
           name: docc-site-release
           path: .build/docc-site-release.tar.gz
-
-  deploy-pages:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
 
   publish-gh-pages:
     needs: build
@@ -125,7 +105,6 @@ jobs:
   create-release:
     needs:
       - build
-      - deploy-pages
       - publish-gh-pages
     runs-on: ubuntu-latest
     permissions:
