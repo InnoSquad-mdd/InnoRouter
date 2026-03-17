@@ -23,6 +23,9 @@ This keeps shell state out of the stack authority.
 
 Use ``ModalStore`` with ``ModalHost`` when `sheet` or `fullScreenCover` should be routed with the same discipline as stack navigation.
 
+On iOS and tvOS, ``ModalHost`` uses native `sheet` and `fullScreenCover` presentation.
+On other supported platforms, `fullScreenCover` requests degrade to `sheet`.
+
 Modal routing intentionally stays separate from stack routing:
 
 - modal intent uses ``ModalIntent``

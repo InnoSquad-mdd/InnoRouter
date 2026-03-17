@@ -71,7 +71,7 @@ flowchart LR
     Intent --> Store["NavigationStore / ModalStore"]
     Store --> Policy["Middleware / telemetry / validation"]
     Policy --> Execution["NavigationEngine / modal queue"]
-    Execution --> Host["NavigationHost / SplitHost / ModalHost"]
+    Execution --> Host["NavigationHost / NavigationSplitHost / CoordinatorSplitHost / ModalHost"]
     Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
 ```
 
@@ -291,6 +291,9 @@ struct ShellView: View {
 ```
 
 ### Modal scope boundary
+
+On iOS and tvOS, `ModalHost` maps styles directly to `sheet` and `fullScreenCover`.
+On other supported platforms, `fullScreenCover` safely degrades to `sheet`.
 
 InnoRouter intentionally does **not** own:
 
