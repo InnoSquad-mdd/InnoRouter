@@ -255,6 +255,34 @@ build_module_archive() {
     --transform-for-static-hosting
 }
 
+render_module_entry_redirect() {
+  local module_dir="$1"
+  local module_name="$2"
+  local module_slug=""
+  local doc_path=""
+
+  module_slug="$(printf '%s' "$module_name" | tr '[:upper:]' '[:lower:]')"
+  doc_path="./documentation/${module_slug}/"
+
+  cat >"$module_dir/index.html" <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=${doc_path}">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redirecting…</title>
+  <script>window.location.replace('${doc_path}');</script>
+</head>
+<body>
+  <p>Redirecting to <a href="${doc_path}">${module_name}</a>…</p>
+</body>
+</html>
+EOF
+
+  printf '{}\n' >"$module_dir/theme-settings.json"
+}
+
 render_version_portal() {
   local page_dir="$1"
   local page_title="$2"
@@ -387,6 +415,7 @@ for module in "${DOCC_MODULES[@]}"; do
     "$display_name" \
     "/${REPO_NAME}/${VERSION}/${slug}" \
     "$temp_root/${slug}-symbols"
+  render_module_entry_redirect "$OUTPUT_DIR/$VERSION/$slug" "$target"
 
   build_module_archive \
     "$target" \
@@ -396,6 +425,7 @@ for module in "${DOCC_MODULES[@]}"; do
     "$display_name" \
     "/${REPO_NAME}/latest/${slug}" \
     "$temp_root/${slug}-symbols"
+  render_module_entry_redirect "$OUTPUT_DIR/latest/$slug" "$target"
 done
 
 render_version_portal "$OUTPUT_DIR/$VERSION" "InnoRouter ${VERSION}"
