@@ -1,45 +1,63 @@
-# InnoRouter v2 Principle Scorecard
+# InnoRouter Principle Scorecard
 
-This scorecard maps v2 implementation decisions to SwiftUI philosophy, SOLID principles, Swift API Design Guidelines, and `ios-native-skills` rules.
+This scorecard maps the current implementation to SwiftUI philosophy, SOLID, typed execution semantics, and the repository’s release/documentation discipline.
 
-## Rule-to-Code Mapping
+## Architecture mapping
 
-| Axis | Rule | Implementation Evidence | Status |
+| Axis | Current state | Evidence | Status |
 |---|---|---|---|
-| SwiftUI | `swiftui-navigation` | `@EnvironmentNavigationIntent` + intent-first dispatch in `Sources/InnoRouterSwiftUI/NavigatorEnvironment.swift` and host injection in `Sources/InnoRouterSwiftUI/NavigationHost.swift` | Enforced |
-| SwiftUI | `swiftui-state-management` | `NavigationStore.state` as source of truth in `Sources/InnoRouterSwiftUI/NavigationStore.swift` | Enforced |
-| SwiftUI | `swiftui-view-composition` | Views emit intent only in `Examples/StandaloneExample.swift` and `Examples/CoordinatorExample.swift` | Enforced |
-| SOLID | `arch-single-responsibility` | Coordinator public surface focused on `send(_:)` / `handle(_:)` in `Sources/InnoRouterSwiftUI/Coordinator.swift` | Enforced |
-| SOLID | `arch-protocol-oriented` | `Navigator` protocol boundary in `Sources/InnoRouterCore/Navigator.swift` | Enforced |
-| SOLID | `arch-dependency-injection` | Effect handlers depend on generic `Navigator` init in `Sources/InnoRouterEffects/NavigationEffectHandler.swift` and `Sources/InnoRouterEffects/DeepLinkEffectHandler.swift` | Enforced |
-| SOLID | `arch-error-handling` | Typed deep-link effect outcomes (`invalidURL`, `missingDeepLinkURL`, `noPendingDeepLink`) in `Sources/InnoRouterEffects/DeepLinkEffectHandler.swift` | Enforced |
-| Concurrency | `concurrency-main-actor` | UI integration and handlers annotated with `@MainActor` across SwiftUI/effects modules | Enforced |
-| Concurrency | `concurrency-sendable` | Deep-link decisions, plans, and parameters are `Sendable` in `Sources/InnoRouterDeepLink` | Enforced |
-| Testing | `test-methodology` | Scenario coverage in `Tests/InnoRouterTests/InnoRouterTests.swift` | Enforced |
-| InnoSquad | `innosquad-innorouter` | Route stack/command engine/store/coordinator/deeplink pipeline integration preserved across Core/SwiftUI/DeepLink modules | Enforced |
-| InnoSquad | `innosquad-integration` | Effect integration remains layered in `Sources/InnoRouterEffects` and umbrella glue in `Sources/InnoRouterUmbrella` | Enforced |
+| Core semantics | Typed route stack, command algebra, batch, and transaction execution | `Sources/InnoRouterCore` | Enforced |
+| SwiftUI authority | Stack, split-detail, and modal surfaces are separated by host/store responsibility | `Sources/InnoRouterSwiftUI` | Enforced |
+| Deep-link planning | URL matching and policy flow are explicit, typed, and replay-friendly | `Sources/InnoRouterDeepLink` | Enforced |
+| App boundary effects | Navigation-only effects and deep-link effects are split cleanly | `Sources/InnoRouterNavigationEffects`, `Sources/InnoRouterDeepLinkEffects` | Enforced |
+| Documentation | README and DocC coexist; module-level docs live beside sources | `README.md`, `Sources/*/*.docc` | Enforced |
+| Release discipline | Semver tags, DocC publishing, and GitHub Releases share one flow | `.github/workflows/release.yml`, `RELEASING.md` | Enforced |
 
-## Swift API Design Guide Checklist
+## SwiftUI philosophy
 
-- Public type names are nouns (`NavigationStore`, `DeepLinkPipeline`, `NavigationIntent`).
-- Public methods use verb phrases (`send(_:)`, `execute(_:)`, `resumePendingDeepLink()`).
-- Public Bool names follow prefix rule (`is*`, `has*`, `can*`, `should*`).
-- Intent APIs read naturally in call-site form.
+Positive alignment:
 
-## External Framework Comparison (v2)
+- Views emit `NavigationIntent` and `ModalIntent` instead of mutating stores directly.
+- Stack routing, modal routing, and split-detail routing are different authorities rather than one overloaded state bucket.
+- Environment wiring is fail-fast.
+- `NavigationStore` and `ModalStore` expose explicit authority boundaries rather than hiding side effects in views.
 
-| Framework | Adopted | Not Adopted |
-|---|---|---|
-| SwiftNavigation | Typed state/route transitions | Observation-specific runtime coupling |
-| TCACoordinators | Deterministic execution controls (`stopOnFailure`) | TCA runtime dependency |
-| FlowStacks | Plan-based deep-link replay | Stack-internal API coupling |
-| Stinsen | Host-scoped coordinator boundaries | Container/runtime ownership coupling |
+Intentional trade-offs:
 
-## Quality Gates
+- `NavigationStore`, `ModalStore`, and `Coordinator` remain reference types because they represent shared authority, not ephemeral local state.
+- Column visibility and sidebar selection remain app-owned instead of being absorbed into router state.
 
-Run `./scripts/principle-gates.sh` from the repository root to validate:
-- tests
-- naming/deprecation gates
-- SwiftUI surface purity gates
-- deep-link fallback removal
-- public Bool naming rule
+## Execution model
+
+InnoRouter deliberately exposes three semantics instead of collapsing them:
+
+- `.sequence`: left-to-right command algebra
+- `executeBatch`: observation batching
+- `executeTransaction`: atomic all-or-nothing commit
+
+This separation improves reasoning and testing because each semantic has one clear contract.
+
+## Documentation and release quality
+
+The repository now treats documentation as a first-class artifact:
+
+- `.md` files explain repository-level usage and release process
+- `.docc` catalogs cover module-level concepts and symbols
+- CI validates DocC generation on every PR
+- CD publishes versioned docs and a `latest` alias from the same semver tag that cuts the library release
+
+## Current strengths
+
+- Typed failures stay in normal control flow.
+- Middleware cancellation reasons are explicit.
+- Deep-link matcher diagnostics catch ambiguity without changing precedence.
+- Modal routing now has lightweight lifecycle observability without inheriting stack-level middleware complexity.
+- Human-facing examples and smoke fixtures are intentionally separated.
+
+## Remaining trade-offs
+
+- SwiftUI shell state such as split column visibility is still app-owned.
+- Alerts and confirmation dialogs remain outside the framework scope.
+- Core middleware stays synchronous by design; async policy belongs at effect boundaries.
+
+These are intentional scope boundaries, not accidental omissions.

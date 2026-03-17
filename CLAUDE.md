@@ -1,108 +1,155 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working in this repository.
+Quick repository guidance for maintainers and coding agents working in InnoRouter.
 
-## Project Overview
+## Project snapshot
 
-InnoRouter is a SwiftUI-native navigation framework built around **state**, **unidirectional execution**, and **dependency inversion**.
+InnoRouter is a SwiftUI-native navigation framework with:
 
-- Navigation data model: `RouteStack`, `NavigationCommand`, `NavigationEngine`
-- SwiftUI integration: `NavigationStore`, `NavigationHost`, `CoordinatorHost`
-- View interaction contract: `NavigationIntent` + `@EnvironmentNavigationIntent`
-- Deep link pipeline: `DeepLinkPipeline` -> `DeepLinkDecision` -> `NavigationPlan`
+- typed stack state in `InnoRouterCore`
+- SwiftUI authority in `InnoRouterSwiftUI`
+- deep-link parsing and planning in `InnoRouterDeepLink`
+- app-boundary execution helpers in `InnoRouterNavigationEffects` and `InnoRouterDeepLinkEffects`
+- optional route/case-path macros in `InnoRouterMacros`
 
-**Requirements**: iOS 18+ / macOS 15+ / tvOS 18+ / watchOS 11+, Swift 6.2+
+Requirements:
 
-## Common Commands
+- iOS 18+
+- macOS 15+
+- tvOS 18+
+- watchOS 11+
+- Swift 6.2+
 
-### Testing
+## Common commands
+
+### Runtime and package checks
+
 ```bash
 swift test
-swift test --filter InnoRouterTests
-swift test --filter InnoRouterMacrosTests
+./scripts/principle-gates.sh
 ```
 
-### Build
+### DocC
+
 ```bash
-swift build
+./scripts/build-docc-site.sh --version preview
+```
+
+### Selected build targets
+
+```bash
 swift build --target InnoRouter
 swift build --target InnoRouterCore
+swift build --target InnoRouterSwiftUI
+swift build --target InnoRouterNavigationEffects
+swift build --target InnoRouterDeepLinkEffects
 ```
 
-## Architecture
+## Module map
 
-### Modules
+### InnoRouterCore
 
-1. **InnoRouterCore**
-- `Route`
-- `RouteStack<R>`
-- `NavigationCommand<R>`
-- `NavigationEngine<R>`
-- `Navigator`, `AnyNavigator<R>`
-- `NavigationMiddleware`
+- `Route`, `RouteStack`, `RouteStackValidator`
+- `NavigationCommand`, `NavigationEngine`
+- `NavigationResult`, `NavigationBatchResult`, `NavigationTransactionResult`
+- `Navigator`, `AnyNavigator`, `AnyBatchNavigator`
+- `NavigationMiddleware`, `NavigationInterception`, `NavigationCancellationReason`
 
-2. **InnoRouterSwiftUI**
-- `NavigationStore<R>` (`@Observable`, `@MainActor`)
-- `NavigationHost`, `CoordinatorHost`
-- `Coordinator`
-- `NavigationIntent<R>`
-- `@EnvironmentNavigationIntent`
-- `AnyNavigationIntentDispatcher<R>`
+### InnoRouterSwiftUI
+
+- `NavigationStore`, `NavigationStoreConfiguration`
+- `NavigationHost`, `NavigationSplitHost`
+- `CoordinatorHost`, `CoordinatorSplitHost`
+- `ModalStore`, `ModalStoreConfiguration`, `ModalHost`
+- `NavigationIntent`, `ModalIntent`
+- `@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`
 - `FlowCoordinator`, `TabCoordinator`
 
-3. **InnoRouterDeepLink**
-- `DeepLinkMatcher<R>`
-- `DeepLinkPipeline<R>`
-- `DeepLinkDecision<R>`
-- `NavigationPlan<R>`
-- `DeepLinkCoordinating`
+### InnoRouterDeepLink
 
-4. **InnoRouter** (umbrella)
+- `DeepLinkMatcher`, `DeepLinkMatcherConfiguration`, diagnostics
+- `DeepLinkPipeline`
+- `DeepLinkDecision`
+- `PendingDeepLink`
+- `NavigationPlan`
 
-5. **InnoRouterMacros**
+### InnoRouterNavigationEffects
 
-6. **InnoRouterEffects**
+- `NavigationEffectHandler`
+- sync `@MainActor` single/batch/transaction helpers
+- async boundary helper `executeGuarded`
 
-### Execution Flow
+### InnoRouterDeepLinkEffects
 
-1. `NavigationStore.execute(_:)`
-- `.sequence` recursively executes each nested command
-- middleware chain executes before engine apply
-- `onChange` fires only when state changed
+- `DeepLinkEffectHandler`
+- typed deep-link outcomes
+- pending replay helper `resumePendingDeepLinkIfAllowed`
 
-2. `NavigationStore.send(_:)`
-- maps `NavigationIntent` to command execution
-- canonical path for SwiftUI view-initiated navigation
+### InnoRouterMacros
 
-3. Deep link
-- `decide(for:)` returns `.plan`, `.pending`, `.rejected(reason:)`, `.unhandled(url:)`
-- `PendingDeepLink.plan` should be replayed after auth succeeds
+- `@Routable`
+- `@CasePathable`
 
-### SwiftUI Philosophy (v2)
+## Execution model
 
-- Views emit intent only; no public direct navigator injection.
-- `NavigationStore.state` remains single rendering source.
-- Coordinator centralizes policy and destination mapping.
-- Missing environment wiring fails fast.
+### NavigationStore
 
-## Testing Conventions
+- `execute(_:)`: single command
+- `executeBatch(_:stopOnFailure:)`: per-step execution + one coalesced observer event
+- `executeTransaction(_:)`: atomic preview/commit semantics
+- `send(_:)`: SwiftUI view intent entry point
 
-- Use Swift Testing (`@Suite`, `@Test`, `#expect`)
-- Navigation tests run on `@MainActor`
-- Verify middleware call order/count for `.sequence`
-- Verify deep-link payload semantics and pending replay behavior
-- Verify typed deep-link effect results (`invalidURL`, `missingDeepLinkURL`, `noPendingDeepLink`)
-- Verify multi-host isolation
+### ModalStore
 
-## Release Gates
+- single current presentation + queued pending presentations
+- `sheet` / `fullScreenCover` only
+- lifecycle observability through `ModalStoreConfiguration`
 
-- `rg -n "public .*\\bNav[A-Z]" Sources` returns 0
-- `rg -n "deprecated|@available\\(" Sources` returns 0
-- `rg -n "@EnvironmentNavigator|public func navigator\\(" Sources Examples README.md` returns 0
-- `rg -n "AnyCoordinator" Sources Examples README.md` returns 0
-- `rg -n "navigationIntent\\?\\.send" Sources Examples README.md` returns 0
-- `rg -n "about:blank|schemeNotAllowed\\(actualScheme: nil\\)" Sources/InnoRouterEffects` returns 0
+### Deep links
 
-## Release Process
+- match first
+- validate scheme/host
+- apply authentication policy
+- produce a `NavigationPlan` or a typed non-plan outcome
 
-See `RELEASING.md`.
+## Documentation strategy
+
+The repository uses `README + DocC` together.
+
+- `README.md`: repository overview and quick start
+- `.docc` catalogs under `Sources/*`: detailed module guides
+- `RELEASING.md`: semver release and Pages publishing rules
+- `Docs/v2-principle-scorecard.md`: principle and architecture mapping
+
+## Examples policy
+
+- `Examples/`: human-facing examples, macro-first where appropriate
+- `ExamplesSmoke/`: compiler-stable smoke fixtures for CI
+
+Both must stay aligned with the same public feature surface.
+
+## Release and Pages policy
+
+- release tags are bare semver only, such as `1.0.0`
+- never use a leading `v` in release tags
+- a release tag publishes both GitHub Release and versioned DocC
+- latest docs live under `/latest/`
+- released docs remain available under `/<version>/`
+
+## Documentation gates
+
+`principle-gates.sh` now checks:
+
+- runtime tests
+- smoke builds
+- DocC preview build
+- fail-fast environment probe
+- legacy API references in docs
+- semver tag formatting in docs
+- renamed symbol drift in docs
+
+## Links
+
+- README: [README.md](README.md)
+- Release guide: [RELEASING.md](RELEASING.md)
+- Scorecard: [Docs/v2-principle-scorecard.md](Docs/v2-principle-scorecard.md)

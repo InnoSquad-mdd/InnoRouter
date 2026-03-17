@@ -1,0 +1,148 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Swift 6.2
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.2"
+
+      - name: Swift Version
+        run: swift --version
+
+      - name: Install ripgrep
+        run: brew install ripgrep
+
+      - name: Validate Release Tag
+        id: version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tags must use bare semantic versioning (for example 1.0.0)." >&2
+            exit 1
+          fi
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Existing gh-pages Site
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: .build/gh-pages-cache
+          fetch-depth: 1
+
+      - name: Run Principle Gates
+        run: ./scripts/principle-gates.sh
+
+      - name: Build Versioned DocC Site
+        shell: bash
+        run: |
+          if [[ -d ".build/gh-pages-cache" && -f ".build/gh-pages-cache/index.html" ]]; then
+            ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}" --existing-site-dir .build/gh-pages-cache
+          else
+            ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}"
+          fi
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .build/docc-site
+
+      - name: Package Release Site Artifact
+        run: tar -czf .build/docc-site-release.tar.gz -C .build docc-site
+
+      - name: Upload Release Site Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docc-site-release
+          path: .build/docc-site-release.tar.gz
+
+  deploy-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  publish-gh-pages:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Release Site Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docc-site-release
+          path: .build/release-site-artifact
+
+      - name: Extract Release Site Artifact
+        run: |
+          mkdir -p .build
+          tar -xzf .build/release-site-artifact/docc-site-release.tar.gz -C .build
+
+      - name: Publish gh-pages Storage Branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: .build/docc-site
+          force_orphan: false
+          enable_jekyll: false
+
+  create-release:
+    needs:
+      - build
+      - deploy-pages
+      - publish-gh-pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.version }}
+          name: InnoRouter ${{ needs.build.outputs.version }}
+          generate_release_notes: true
+          body: |
+            Documentation
+            - Latest: https://innosquadcorp.github.io/InnoRouter/latest/
+            - Release: https://innosquadcorp.github.io/InnoRouter/${{ needs.build.outputs.version }}/
+
+            Repository references
+            - README: https://github.com/InnoSquadCorp/InnoRouter/blob/${{ needs.build.outputs.version }}/README.md
+            - Release checklist: https://github.com/InnoSquadCorp/InnoRouter/blob/${{ needs.build.outputs.version }}/RELEASING.md

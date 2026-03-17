@@ -1,51 +1,69 @@
 # InnoRouter
 
-InnoRouter is a SwiftUI-native navigation framework built around **state**, **unidirectional execution**, and **dependency inversion**.
+InnoRouter is a SwiftUI-native navigation framework built around typed state, explicit command execution, and app-boundary deep-link planning.
 
-Core ideas:
-- Navigation is expressed as data (`RouteStack`, `NavigationCommand`) and rendered by SwiftUI.
-- Features/Coordinators depend on `Navigator` (interface), not a concrete router/store.
-- Deep links are handled as **plans** (`DeepLinkPipeline -> DeepLinkDecision -> NavigationPlan`) instead of ad-hoc branching.
-- SwiftUI views emit **intent** (`NavigationIntent`) and do not directly execute router commands.
+It treats navigation as a first-class state machine instead of a scattering of view-local side effects.
 
-## State Ownership
+## What InnoRouter owns
 
-InnoRouter should be treated as the **navigation transition engine** in the InnoSquad stack.
+InnoRouter is responsible for:
 
-- Own `RouteStack` mutations and command legality here.
-- Keep auth and business phase transitions in `InnoFlow`.
-- Keep transport retry/reconnect state in `InnoNetwork`.
-- Consume DI output from `InnoDI`, but do not model container lifecycle here.
+- stack navigation state through `RouteStack`
+- command execution through `NavigationCommand` and `NavigationEngine`
+- SwiftUI navigation authority through `NavigationStore`
+- modal authority for `sheet` and `fullScreenCover` through `ModalStore`
+- deep-link matching and planning through `DeepLinkMatcher` and `DeepLinkPipeline`
+- app-boundary execution helpers through `InnoRouterNavigationEffects` and `InnoRouterDeepLinkEffects`
 
-InnoRouter is already state-machine-friendly, but it should not become a general automata core
-for unrelated application lifecycles.
+It is intentionally not a general application state machine.
+
+Keep these concerns outside InnoRouter:
+
+- business workflow state
+- authentication/session lifecycle
+- networking retry or transport state
+- alerts and confirmation dialogs
 
 ## Requirements
 
-- iOS 18+ / macOS 15+ / tvOS 18+ / watchOS 11+
+- iOS 18+
+- macOS 15+
+- tvOS 18+
+- watchOS 11+
 - Swift 6.2+
 
-## Installation (SPM)
+## Installation
 
 ```swift
 dependencies: [
-  .package(url: "https://github.com/your-org/InnoRouter.git", from: "2.0.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "2.0.0")
 ]
 ```
 
 ## Modules
 
-- `InnoRouter` (recommended): umbrella re-export of `InnoRouterCore` + `InnoRouterSwiftUI` + `InnoRouterDeepLink`
-- `InnoRouterCore`: runtime (`RouteStack`, `NavigationCommand`, `NavigationEngine`, `AnyNavigator`, middleware)
-- `InnoRouterSwiftUI`: SwiftUI integration (`NavigationStore`, hosts, coordinators, `@EnvironmentNavigationIntent`)
-- `InnoRouterDeepLink`: parsing/matching/pipeline (`DeepLinkMatcher`, `DeepLinkPipeline`)
-- `InnoRouterMacros` (optional): `@Routable`, `@CasePathable`
-- `InnoRouterEffects` (optional): effect-style helpers (works with any architecture)
-- InnoFlow state-driven integration (separate package): `InnoRouterFlowBridge` — https://github.com/InnoSquad-mdd/InnoRouterFlowBridge
+- `InnoRouter`: umbrella re-export of `InnoRouterCore`, `InnoRouterSwiftUI`, and `InnoRouterDeepLink`
+- `InnoRouterCore`: route stack, validators, commands, results, batch/transaction executors, middleware
+- `InnoRouterSwiftUI`: stores, stack/split/modal hosts, coordinators, environment intent dispatch
+- `InnoRouterDeepLink`: pattern matching, diagnostics, pipeline planning, pending deep links
+- `InnoRouterNavigationEffects`: synchronous `@MainActor` execution helpers for app boundaries
+- `InnoRouterDeepLinkEffects`: deep-link execution helpers layered on navigation effects
+- `InnoRouterEffects`: compatibility umbrella for both effect modules
+- `InnoRouterMacros`: `@Routable` and `@CasePathable`
 
-## Quick Start (SwiftUI)
+## Documentation
 
-### 1) Define routes
+- Latest DocC portal: [InnoRouter latest docs](https://innosquadcorp.github.io/InnoRouter/latest/)
+- Versioned docs root: [InnoRouter docs](https://innosquadcorp.github.io/InnoRouter/)
+- Release checklist: [RELEASING.md](RELEASING.md)
+- Maintainer quick guide: [CLAUDE.md](CLAUDE.md)
+
+`README.md` is the repository entry point.  
+DocC is the detailed module-level reference set.
+
+## Quick Start
+
+### 1. Define a route
 
 Without macros:
 
@@ -53,13 +71,13 @@ Without macros:
 import InnoRouter
 
 enum HomeRoute: Route {
-  case list
-  case detail(id: String)
-  case settings
+    case list
+    case detail(id: String)
+    case settings
 }
 ```
 
-With macros (optional):
+With macros:
 
 ```swift
 import InnoRouter
@@ -67,56 +85,124 @@ import InnoRouterMacros
 
 @Routable
 enum HomeRoute {
-  case list
-  case detail(id: String)
-  case settings
+    case list
+    case detail(id: String)
+    case settings
 }
 ```
 
-### 2) Create a store and host it
+### 2. Create a `NavigationStore`
+
+```swift
+import InnoRouter
+import OSLog
+
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        routeStackValidator: .nonEmpty.combined(with: .rooted(at: .list)),
+        logger: Logger(subsystem: "com.example.app", category: "navigation")
+    )
+)
+```
+
+### 3. Host it in SwiftUI
 
 ```swift
 import SwiftUI
 import InnoRouter
 
 struct AppRoot: View {
-  @State private var store = NavigationStore<HomeRoute>()
+    @State private var store = try! NavigationStore<HomeRoute>(
+        initialPath: [.list]
+    )
 
-  var body: some View {
-    NavigationHost(store: store) { route in
-      switch route {
-      case .list: HomeView()
-      case .detail(let id): DetailView(id: id)
-      case .settings: SettingsView()
-      }
-    } root: {
-      HomeView()
+    var body: some View {
+        NavigationHost(store: store) { route in
+            switch route {
+            case .list:
+                HomeListView()
+            case .detail(let id):
+                DetailView(id: id)
+            case .settings:
+                SettingsView()
+            }
+        } root: {
+            HomeListView()
+        }
     }
-  }
 }
 ```
 
-### 3) Emit intent from a view
-
-`NavigationHost` injects an intent dispatcher. Use `@EnvironmentNavigationIntent`:
+### 4. Emit intent from a child view
 
 ```swift
-struct HomeView: View {
-  @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
+struct HomeListView: View {
+    @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
 
-  var body: some View {
-    List {
-      Button("Detail") { navigationIntent.send(.go(.detail(id: "123"))) }
-      Button("Settings") { navigationIntent.send(.go(.settings)) }
-      Button("Back") { navigationIntent.send(.back) }
+    var body: some View {
+        List {
+            Button("Detail") {
+                navigationIntent.send(.go(.detail(id: "123")))
+            }
+
+            Button("Settings") {
+                navigationIntent.send(.go(.settings))
+            }
+
+            Button("Back") {
+                navigationIntent.send(.back)
+            }
+        }
     }
-  }
 }
 ```
 
-## Navigation Intent Catalog
+Views should emit intent. They should not hold direct mutation authority over the router state.
 
-`NavigationIntent` is the official SwiftUI entry point:
+## State and execution model
+
+InnoRouter exposes three distinct execution semantics.
+
+### Single command
+
+`execute(_:)` applies one `NavigationCommand` and returns a typed `NavigationResult`.
+
+### Batch
+
+`executeBatch(_:stopOnFailure:)` preserves per-step command execution but coalesces observation.
+
+Use batch execution when:
+
+- multiple commands should still run one-by-one
+- middleware should still see each step
+- observers should still receive one aggregated transition event
+
+### Transaction
+
+`executeTransaction(_:)` previews commands on a shadow stack and commits only if every step succeeds.
+
+Use transaction execution when:
+
+- partial success is not acceptable
+- you want rollback on failure or cancellation
+- one all-or-nothing commit event matters more than step-by-step observation
+
+### `.sequence`
+
+`.sequence` is command algebra, not a transaction.
+
+It is intentionally:
+
+- left-to-right
+- non-atomic
+- typed through `NavigationResult.multiple`
+
+Earlier successful steps stay applied even if a later step fails.
+
+## Stack routing surface
+
+`NavigationIntent` is the official SwiftUI stack-intent surface:
 
 - `.go(Route)`
 - `.goMany([Route])`
@@ -126,210 +212,321 @@ struct HomeView: View {
 - `.backToRoot`
 - `.resetTo([Route])`
 
+`NavigationStore.send(_:)` is the SwiftUI entry point for these intents.
+
+## Modal routing surface
+
+InnoRouter supports modal routing for:
+
+- `sheet`
+- `fullScreenCover`
+
+Use:
+
+- `ModalStore`
+- `ModalHost`
+- `ModalIntent`
+- `@EnvironmentModalIntent`
+
+Example:
+
+```swift
+@Routable
+enum AppModalRoute {
+    case profile
+    case onboarding
+}
+
+struct ShellView: View {
+    @State private var modalStore = ModalStore<AppModalRoute>()
+
+    var body: some View {
+        ModalHost(store: modalStore) { route in
+            switch route {
+            case .profile:
+                ProfileView()
+            case .onboarding:
+                OnboardingView()
+            }
+        } content: {
+            HomeView()
+        }
+    }
+}
+```
+
+### Modal scope boundary
+
+InnoRouter intentionally does **not** own:
+
+- `alert`
+- `confirmationDialog`
+
+Keep those as feature-local or coordinator-local presentation state.
+
+### Modal observability
+
+`ModalStoreConfiguration` provides lightweight lifecycle hooks:
+
+- `logger`
+- `onPresented`
+- `onDismissed`
+- `onQueueChanged`
+
+`ModalDismissalReason` distinguishes:
+
+- `.dismiss`
+- `.dismissAll`
+- `.systemDismiss`
+
+Unlike `NavigationStore`, modal routing intentionally does not expose middleware.
+
+## Split navigation
+
+For iPad and macOS detail navigation, use:
+
+- `NavigationSplitHost`
+- `CoordinatorSplitHost`
+
+InnoRouter owns only the detail stack in split layouts.
+
+These remain app-owned:
+
+- sidebar selection
+- column visibility
+- compact adaptation
+
+## Coordinator surface
+
+Coordinators are policy objects that sit between SwiftUI intent and command execution.
+
+Use `CoordinatorHost` or `CoordinatorSplitHost` when:
+
+- view intent needs policy routing first
+- app shells need coordination logic
+- multiple navigation authorities should be composed behind one coordinator
+
+`FlowCoordinator` and `TabCoordinator` are helpers, not replacements for `NavigationStore`.
+
+Recommended division:
+
+- `NavigationStore`: route-stack authority
+- `TabCoordinator`: shell/tab selection state
+- `FlowCoordinator`: local step progression inside a destination
+
+## Deep-link model
+
+Deep links are handled as plans, not hidden side effects.
+
+Core pieces:
+
+- `DeepLinkMatcher`
+- `DeepLinkPipeline`
+- `DeepLinkDecision`
+- `PendingDeepLink`
+- `NavigationPlan`
+
+Typical flow:
+
+1. match a URL into a route
+2. reject or accept by scheme/host
+3. apply auth policy
+4. emit `.plan`, `.pending`, `.rejected`, or `.unhandled`
+5. execute the resulting navigation plan explicitly
+
+### Matcher diagnostics
+
+`DeepLinkMatcher` can report:
+
+- duplicate patterns
+- wildcard shadowing
+- parameter shadowing
+
+Diagnostics do not change declaration-order precedence. They help catch authoring mistakes without silently changing runtime behavior.
+
 ## Middleware
 
-Attach cross-cutting policies (auth guard, logging, analytics, de-dupe) without policy leakage into view code.
+Middleware provides a cross-cutting policy layer around command execution.
 
-```swift
-@State private var store = NavigationStore<HomeRoute>()
+Pre-execution:
 
-store.addMiddleware(
-  AnyNavigationMiddleware(
-    willExecute: { command, state in
-      if case .push(let next) = command, state.path.last == next {
-        return .cancel(.custom("Duplicate push"))
-      }
-      return .proceed(command)
-    }
-  )
-)
-```
+- `willExecute(_:state:) -> NavigationInterception`
+- `.proceed(updatedCommand)`
+- `.cancel(reason)`
 
-Notes:
-- Middleware runs **per executed command** (including each step of `.sequence`).
-- If `willExecute` returns `.cancel(...)`, execution is cancelled with `.cancelled(...)`.
+Post-execution:
 
-Command legality is intentionally local to navigation:
-- `.pop` fails with `.emptyStack` when there is nothing to remove.
-- `.popCount` fails with `.invalidPopCount` for non-positive counts and `.insufficientStackDepth` when the stack is too shallow.
-- `.popTo(route)` fails with `.routeNotFound(route)` when the target route does not exist.
-- Deep-link auth gating produces `.pending(plan)` so replay responsibility stays explicit.
+- `didExecute(_:result:state:) -> NavigationResult`
 
-If you want to preview legality without mutating state, use:
+Middleware can:
 
-```swift
-let stack = try RouteStack(validating: [.home, .detail(id: "123")])
-let command = NavigationCommand<TestRoute>.pop
+- rewrite commands
+- block execution with typed cancellation reasons
+- fold results after execution
 
-if command.canExecute(on: stack) {
-  _ = store.execute(command)
-}
-```
+Middleware cannot mutate store state directly.
 
-## Coordinator Pattern
+### Typed cancellation
 
-Use coordinators to centralize policy (auth redirects, flow routing, deep link orchestration).
+Cancellation reasons use `NavigationCancellationReason`:
 
-```swift
-import SwiftUI
-import InnoRouter
+- `.middleware(debugName:command:)`
+- `.conditionFailed`
+- `.custom(String)`
 
-@MainActor
-@Observable
-final class HomeCoordinator: Coordinator {
-  typealias RouteType = HomeRoute
-  typealias Destination = HomeDestinationView
+### Middleware management
 
-  let store = NavigationStore<HomeRoute>()
+`NavigationStore` exposes handle-based management:
 
-  func handle(_ intent: NavigationIntent<HomeRoute>) {
-    switch intent {
-    case .go(let route):
-      if route == .settings {
-        _ = store.execute(.push(.settings))
-      } else {
-        store.send(intent)
-      }
-    default:
-      store.send(intent)
-    }
-  }
+- `addMiddleware`
+- `insertMiddleware`
+- `removeMiddleware`
+- `replaceMiddleware`
+- `moveMiddleware`
+- `middlewareMetadata`
 
-  func destination(for route: HomeRoute) -> HomeDestinationView {
-    HomeDestinationView(route: route)
-  }
-}
+## Path reconciliation
 
-struct HomeDestinationView: View {
-  let route: HomeRoute
+SwiftUI `NavigationStack(path:)` updates are mapped back into semantic commands.
 
-  var body: some View {
-    switch route {
-    case .list: Text("List")
-    case .detail(let id): Text("Detail \(id)")
-    case .settings: Text("Settings")
-    }
-  }
-}
+Rules:
 
-struct Root: View {
-  @State private var coordinator = HomeCoordinator()
+- prefix shrink -> `.popCount` or `.popToRoot`
+- prefix expand -> batched `.push`
+- non-prefix mismatch -> `NavigationPathMismatchPolicy`
 
-  var body: some View {
-    CoordinatorHost(coordinator: coordinator) {
-      HomeView()
-    }
-  }
-}
-```
+Available mismatch policies:
 
-## Deep Links
+- `.replace`
+- `.assertAndReplace`
+- `.ignore`
+- `.custom`
 
-### Matcher (URL -> Route)
+When `NavigationStoreConfiguration.logger` is set, mismatch handling emits structured telemetry.
 
-```swift
-import InnoRouter
+## Effect modules
 
-let matcher = DeepLinkMatcher<HomeRoute> {
-  DeepLinkMapping("/home") { _ in .list }
-  DeepLinkMapping("/product/:id") { params in
-    params.firstValue(forName: "id").map { .detail(id: $0) }
-  }
-}
-```
+### `InnoRouterNavigationEffects`
 
-If a path parameter and query parameter share the same key, `DeepLinkPattern.match(_:)`
-uses merge behavior (`merge(_:with:)`) that keeps path values first and appends query values.
-`DeepLinkParameters.firstValue(forName:)` therefore resolves to the path value in collisions.
+Use this when app-shell code wants a small execution façade over a navigator boundary.
 
-### Pipeline (URL -> Decision)
+Key API:
 
-```swift
-let pipeline = DeepLinkPipeline<HomeRoute>(
-  allowedSchemes: ["myapp", "https"],
-  allowedHosts: ["myapp.com"],
-  resolve: { matcher.match($0) },
-  authenticationPolicy: .required(
-    shouldRequireAuthentication: { route in
-      if case .settings = route { return true }
-      return false
-    },
-    isAuthenticated: { authManager.isLoggedIn }
-  ),
-  plan: { route in NavigationPlan(commands: [.push(route)]) }
-)
-```
+- `execute(_:)`
+- `execute(_ commands:)`
+- `executeTransaction(_:)`
+- `executeGuarded(_:, prepare:)`
 
-### SwiftUI usage
+These APIs are synchronous `@MainActor` APIs, except the explicit async guard helper.
 
-```swift
-.onOpenURL { url in
-  switch pipeline.decide(for: url) {
-  case .plan(let plan):
-    Task { @MainActor in
-      for command in plan.commands { _ = store.execute(command) }
-    }
-  case .pending(let pendingDeepLink):
-    // show login flow, then execute pendingDeepLink.plan later
-    break
-  case .rejected(let reason):
-    print("Rejected deep link: \(reason)")
-  case .unhandled(let unhandledURL):
-    print("Unhandled deep link: \(unhandledURL)")
-  }
-}
-```
+### `InnoRouterDeepLinkEffects`
 
-Deep-link lifecycle:
-- `.rejected`: rejected before route resolution because the URL is outside the router contract.
-- `.unhandled`: URL passed validation but no route matched.
-- `.pending`: route matched, but auth policy requires replay later.
-- `.plan`: route matched and can execute immediately.
+Use this when deep-link plans should be executed at an app boundary with typed outcomes.
 
-## v2 Breaking Changes
+Key API:
 
-InnoRouter v2 is a SwiftUI/SOLID/API-guideline hardening release focused on strict intent-first surface, fail-fast environment semantics, and typed effect outcomes.
+- `handle(_ url:)`
+- `resumePendingDeepLink()`
+- `resumePendingDeepLinkIfAllowed(_:)`
 
-### Renamed/Removed Public APIs
+## `Examples` vs `ExamplesSmoke`
 
-1. Legacy navigator environment wrapper removed.
-2. `@EnvironmentNavigationIntent` introduced as the official SwiftUI view entry point.
-3. Public coordinator helper shortcuts removed from SwiftUI public surface (`navigate(to:)`, `execute(_:)`, `goBack()`, `goToRoot()`, `navigator`).
-4. Type-erased coordinator API remains removed.
+The repository intentionally separates documentation examples from CI examples.
 
-### Behavior Changes
+- `Examples/`: human-facing, idiomatic, macro-based examples
+- `ExamplesSmoke/`: compiler-stable smoke fixtures for CI
 
-1. `EnvironmentNavigationIntent.wrappedValue` is non-optional and fails fast when host injection is missing.
-2. `NavigationHost` and `CoordinatorHost` inject route-scoped intent dispatchers; view samples route through `send(_:)` only.
-3. `NavigationIntent` includes practical multi-step/back-stack variants:
-   - `goMany`, `backBy`, `backTo`, `backToRoot`
-4. `DeepLinkEffectHandler.Result` now distinguishes:
-   - `.invalidURL(input:)`
-   - `.missingDeepLinkURL`
-   - `.noPendingDeepLink`
+Current examples cover:
+
+- standalone stack routing
+- coordinator routing
+- deep links
+- split navigation
+- app shell composition
+- modal routing
+
+## Docs and release flow
+
+### DocC
+
+DocC is built per module and published to GitHub Pages.
+
+Published structure:
+
+- `/InnoRouter/latest/`
+- `/InnoRouter/1.0.0/`
+- `/InnoRouter/` root portal
+
+### CI
+
+CI validates:
+
+- `swift test`
+- `principle-gates`
+- example smoke builds
+- DocC preview build
+
+### CD
+
+CD runs on bare semver tags only:
+
+- `1.0.0`
+- `2.0.0`
+
+Invalid tag examples:
+
+- any tag with a leading `v`
+- `release-1.0.0`
+
+Release workflow responsibilities:
+
+- rerun code/documentation gates
+- build versioned DocC
+- update `/latest/`
+- preserve older versioned docs
+- publish GitHub Release
 
 ### SwiftUI Philosophy Alignment
 
-1. Single source of truth remains `NavigationStore.state`.
-2. Views emit intent and avoid direct imperative path mutation.
-3. Configuration errors in environment wiring are surfaced immediately.
+InnoRouter follows SwiftUI’s declarative direction while making deliberate trade-offs for shared navigation authority.
 
-### Framework Comparison
+- Views emit intent instead of directly mutating router state.
+- Stack, split-detail, and modal authorities stay separate.
+- Missing environment wiring fails fast.
+- `NavigationStore` remains a reference type because it is shared authority, not ephemeral local state.
+- `Coordinator` remains `AnyObject` for the same reason.
 
-InnoRouter v2 decisions were benchmarked against four external frameworks:
-
-| Framework | Adopted in v2 | Not adopted in v2 |
-|---|---|---|
-| `SwiftNavigation` | Type-safe route/state modeling and declarative transition boundaries | Observation/perception-specific binding strategy coupling |
-| `TCACoordinators` | Deterministic command execution/testing strategy (`execute(_:stopOnFailure:)`) | Full TCA-first reducer/runtime dependency |
-| `FlowStacks` | Plan-based deep-link replay model | Stack internals API shape compatibility |
-| `Stinsen` | Host-scoped coordinator boundary and isolation patterns | Container-specific runtime/DI coupling |
+This is an intentional pragmatic trade-off, not an accidental drift away from SwiftUI.
 
 ## Examples
 
-See `Examples/StandaloneExample.swift`, `Examples/CoordinatorExample.swift`, `Examples/DeepLinkExample.swift`.
+Human-facing examples live here:
 
-## Development
+- [Examples/StandaloneExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/StandaloneExample.swift)
+- [Examples/CoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/CoordinatorExample.swift)
+- [Examples/DeepLinkExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/DeepLinkExample.swift)
+- [Examples/SplitCoordinatorExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/SplitCoordinatorExample.swift)
+- [Examples/AppShellExample.swift](https://github.com/InnoSquadCorp/InnoRouter/blob/main/Examples/AppShellExample.swift)
 
-- Run tests: `swift test`
-- Release checklist: `RELEASING.md`
+## Quality gates
+
+Run these locally before cutting a release:
+
+```bash
+swift test
+./scripts/principle-gates.sh
+./scripts/build-docc-site.sh --version preview
+```
+
+## Roadmap
+
+Potential next steps for a future major release:
+
+- [ ] Modal middleware (medium priority)
+  Add a middleware-style policy layer to `ModalStore` for auth gating, deduplication, and coordinated presentation rules.
+- [ ] Composite navigation plans (low priority)
+  Explore a unified plan model that can express stack and modal transitions together, such as “dismiss modal, then push route” as one higher-level transition.
+
+## License
+
+MIT

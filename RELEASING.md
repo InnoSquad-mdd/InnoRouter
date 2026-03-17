@@ -1,58 +1,101 @@
 # Releasing InnoRouter
 
-This project is a Swift Package with modular products:
+This repository ships a Swift Package, versioned DocC documentation, and GitHub Releases from the same semver tag event.
 
-- `InnoRouterCore`: runtime (`RouteStack`, `NavigationCommand`, `NavigationEngine`, `AnyNavigator`, middleware)
-- `InnoRouterSwiftUI`: SwiftUI integration (`NavigationStore`, hosts, coordinator contracts, environment intent dispatch)
-- `InnoRouterDeepLink`: deep link parsing/matching/pipeline
-- `InnoRouter`: umbrella re-export (Core + SwiftUI + DeepLink)
-- `InnoRouterMacros`: optional macros (`@Routable`, `@CasePathable`)
-- `InnoRouterEffects`: optional effect helpers
+## Release tag contract
 
-## Checklist
+Allowed tag format:
 
-### API & SemVer
-- Confirm intended public API surface (what should stay `public` vs `internal`).
-- If breaking changes exist, bump major version.
-- Add release notes in `README.md` with these sections:
-  - `Renamed/Removed Public APIs`
-  - `Behavior Changes`
-  - `SwiftUI Philosophy Alignment`
-  - `Framework Comparison`
-  - `SOLID and iOS Rules Mapping`
+- `1.0.0`
+- `2.1.3`
 
-### Behavioral Contracts
-- `NavigationStore.send(_:)` and `NavigationStore.execute(_:)` semantics are documented and tested.
-- `.sequence` behavior is documented (middleware ordering and execution count).
-- `onChange` triggers only on real state changes.
-- Deep link policy is documented:
-  - pending deep links live in app policy layer
-  - `PendingDeepLink.plan` replay path is explicit after authentication
+Disallowed tag format:
 
-### v2 Breaking Release Notes
-- SwiftUI public helper shortcuts removed from `Coordinator` public surface.
-- `@EnvironmentNavigationIntent` non-optional fail-fast behavior is documented.
-- Typed deep-link effect result changes are documented (`invalidURL`, `missingDeepLinkURL`, `noPendingDeepLink`).
-- Added intent set (`goMany`, `backBy`, `backTo`, `backToRoot`) remains documented.
+- any tag with a leading `v`
+- `release-1.0.0`
 
-### Tests
-- `swift test` passes locally.
-- Tests include intent-dispatch path from host/coordinator integration.
-- Fail-fast probe fails as expected on missing environment injection:
-  - `swift run NavigationEnvironmentFailFastProbe` exits non-zero and reports `NavigationEnvironmentStorage is missing`.
-- Deep link and effect contracts from v5 remain green.
-- Macro tests remain green against current SwiftSyntax output.
-- Multi-host isolation tests remain green.
+The release workflow validates `GITHUB_REF_NAME` with `^[0-9]+\.[0-9]+\.[0-9]+$` and fails on anything else.
 
-### Package Health
-- `Package.swift` products/targets are consistent with folder names.
-- No unused/legacy directories remain under `Sources/` and `Tests/`.
-- Examples compile against the current API.
-- Gate checks:
-  - `./scripts/principle-gates.sh`
-  - `rg -n "@unchecked Sendable" Sources Tests` returns 0 results.
-  - `rg -n "^### SwiftUI Philosophy Alignment$" README.md | wc -l` equals 1.
+## What a release publishes
 
-### Tag & Publish
-- Create a git tag `vX.Y.Z`.
-- Publish release notes.
+A release tag triggers:
+
+1. code and documentation gates
+2. versioned DocC build
+3. `/latest/` DocC refresh
+4. GitHub Pages deployment
+5. GitHub Release creation
+
+The library release and the documentation release are the same event.
+
+## Pages structure
+
+Published documentation lives at:
+
+- `https://innosquadcorp.github.io/InnoRouter/`
+- `https://innosquadcorp.github.io/InnoRouter/latest/`
+- `https://innosquadcorp.github.io/InnoRouter/<version>/`
+
+Each release version keeps its own documentation subtree. `latest` is updated to the newest released version.
+
+## Required local checks
+
+Run these before tagging:
+
+```bash
+swift test
+./scripts/principle-gates.sh
+./scripts/build-docc-site.sh --version preview
+```
+
+## CI and CD responsibilities
+
+### CI
+
+`principle-gates.yml`
+
+- runs on pull requests and pushes to `main` and `develop`
+- validates runtime tests, smoke builds, fail-fast behavior, and documentation gates
+
+`docs-ci.yml`
+
+- runs on pull requests and pushes to `main` and `develop`
+- builds a preview DocC site with `--version preview`
+- uploads the generated static site as an artifact
+
+### CD
+
+`release.yml`
+
+- runs on semver tag pushes
+- rebuilds and revalidates the package
+- builds versioned DocC output
+- merges new docs with existing released docs
+- updates `/latest/`
+- deploys GitHub Pages
+- publishes a GitHub Release named `InnoRouter <version>`
+
+## Documentation source of truth
+
+The repository uses `README + DocC` together.
+
+- `README.md`: overview, quick start, module map, release and CI entry points
+- DocC: detailed module guides and API-oriented documentation
+- `CLAUDE.md`: maintainer/agent quick reference
+- `Docs/v2-principle-scorecard.md`: architecture and quality mapping
+
+Migration guides are intentionally not part of this release process.
+
+## Release checklist
+
+- Public APIs match current README and DocC examples.
+- All `.md` files use bare semver tags, not `v`-prefixed tags.
+- `Examples/` still match current human-facing API usage.
+- `ExamplesSmoke/` still compile and cover the same surface.
+- All `.docc` catalogs build locally.
+- `NavigationStore`, `ModalStore`, deep-link, effect, and macro docs reflect current symbols.
+- Release notes links point to the current README, RELEASING guide, and DocC portal.
+
+## GitHub Pages note
+
+The workflow publishes the generated site to GitHub Pages and also keeps the rendered output mirrored in the `gh-pages` branch so versioned documentation can be preserved between releases.
