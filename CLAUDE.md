@@ -130,7 +130,7 @@ Both must stay aligned with the same public feature surface.
 
 ## Release and Pages policy
 
-- release tags are bare semver only, such as `1.0.0`
+- release tags are bare semver only, such as `3.0.0`
 - never use a leading `v` in release tags
 - a release tag publishes both GitHub Release and versioned DocC
 - latest docs live under `/latest/`

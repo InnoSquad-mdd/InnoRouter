@@ -36,7 +36,7 @@ Keep these concerns outside InnoRouter:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "2.0.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "3.0.0")
 ]
 ```
 
@@ -60,6 +60,41 @@ dependencies: [
 
 `README.md` is the repository entry point.  
 DocC is the detailed module-level reference set.
+
+## How it works
+
+### Runtime flow
+
+```mermaid
+flowchart LR
+    View["SwiftUI view"] --> Intent["Environment intent dispatcher"]
+    Intent --> Store["NavigationStore / ModalStore"]
+    Store --> Policy["Middleware / telemetry / validation"]
+    Policy --> Execution["NavigationEngine / modal queue"]
+    Execution --> Host["NavigationHost / NavigationSplitHost / CoordinatorSplitHost / ModalHost"]
+    Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
+```
+
+- Views emit typed intent through environment dispatchers.
+- Stores own navigation or modal authority.
+- Hosts translate store state into native SwiftUI navigation APIs.
+
+### Deep-link flow
+
+```mermaid
+flowchart LR
+    URL["Incoming URL"] --> Match["DeepLinkMatcher"]
+    Match --> Plan["DeepLinkPipeline"]
+    Plan --> Effect["DeepLinkEffectHandler"]
+    Effect --> Decision{"Authorized now?"}
+    Decision -->|"No"| Pending["PendingDeepLink"]
+    Decision -->|"Yes"| Execute["Batch / transaction execution"]
+    Execute --> Store["NavigationStore / ModalStore"]
+```
+
+- Matching and planning stay pure.
+- Effect handlers are the boundary where app policy decides whether to execute now or defer.
+- Pending deep links preserve the planned transition until the app is ready to replay it.
 
 ## Quick Start
 
@@ -256,6 +291,9 @@ struct ShellView: View {
 ```
 
 ### Modal scope boundary
+
+On iOS and tvOS, `ModalHost` maps styles directly to `sheet` and `fullScreenCover`.
+On other supported platforms, `fullScreenCover` safely degrades to `sheet`.
 
 InnoRouter intentionally does **not** own:
 
@@ -454,7 +492,7 @@ DocC is built per module and published to GitHub Pages.
 Published structure:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/1.0.0/`
+- `/InnoRouter/3.0.0/`
 - `/InnoRouter/` root portal
 
 ### CI
@@ -470,13 +508,12 @@ CI validates:
 
 CD runs on bare semver tags only:
 
-- `1.0.0`
-- `2.0.0`
+- `3.0.0`
 
 Invalid tag examples:
 
 - any tag with a leading `v`
-- `release-1.0.0`
+- `release-3.0.0`
 
 Release workflow responsibilities:
 

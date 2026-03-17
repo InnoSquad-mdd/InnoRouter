@@ -6,13 +6,12 @@ This repository ships a Swift Package, versioned DocC documentation, and GitHub 
 
 Allowed tag format:
 
-- `1.0.0`
-- `2.1.3`
+- `3.0.0`
 
 Disallowed tag format:
 
 - any tag with a leading `v`
-- `release-1.0.0`
+- `release-3.0.0`
 
 The release workflow validates `GITHUB_REF_NAME` with `^[0-9]+\.[0-9]+\.[0-9]+$` and fails on anything else.
 
