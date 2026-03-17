@@ -36,7 +36,7 @@ Keep these concerns outside InnoRouter:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "2.0.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "3.0.0")
 ]
 ```
 
@@ -489,7 +489,7 @@ DocC is built per module and published to GitHub Pages.
 Published structure:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/1.0.0/`
+- `/InnoRouter/3.0.0/`
 - `/InnoRouter/` root portal
 
 ### CI
@@ -505,13 +505,12 @@ CI validates:
 
 CD runs on bare semver tags only:
 
-- `1.0.0`
-- `2.0.0`
+- `3.0.0`
 
 Invalid tag examples:
 
 - any tag with a leading `v`
-- `release-1.0.0`
+- `release-3.0.0`
 
 Release workflow responsibilities:
 
