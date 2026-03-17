@@ -71,11 +71,14 @@ jobs:
         with:
           path: .build/docc-site
 
+      - name: Package Release Site Artifact
+        run: tar -czf .build/docc-site-release.tar.gz -C .build docc-site
+
       - name: Upload Release Site Artifact
         uses: actions/upload-artifact@v4
         with:
           name: docc-site-release
-          path: .build/docc-site
+          path: .build/docc-site-release.tar.gz
 
   deploy-pages:
     needs: build
@@ -103,7 +106,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: docc-site-release
-          path: .build/docc-site
+          path: .build/release-site-artifact
+
+      - name: Extract Release Site Artifact
+        run: |
+          mkdir -p .build
+          tar -xzf .build/release-site-artifact/docc-site-release.tar.gz -C .build
 
       - name: Publish gh-pages Storage Branch
         uses: peaceiris/actions-gh-pages@v4

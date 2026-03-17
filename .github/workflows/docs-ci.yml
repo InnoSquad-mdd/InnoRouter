@@ -33,8 +33,11 @@ jobs:
       - name: Build DocC Site
         run: ./scripts/build-docc-site.sh --version preview
 
+      - name: Package DocC Preview Artifact
+        run: tar -czf .build/docc-site-preview.tar.gz -C .build docc-site
+
       - name: Upload DocC Preview Artifact
         uses: actions/upload-artifact@v4
         with:
           name: docc-site-preview
-          path: .build/docc-site
+          path: .build/docc-site-preview.tar.gz
