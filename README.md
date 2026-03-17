@@ -61,6 +61,41 @@ dependencies: [
 `README.md` is the repository entry point.  
 DocC is the detailed module-level reference set.
 
+## How it works
+
+### Runtime flow
+
+```mermaid
+flowchart LR
+    View["SwiftUI view"] --> Intent["Environment intent dispatcher"]
+    Intent --> Store["NavigationStore / ModalStore"]
+    Store --> Policy["Middleware / telemetry / validation"]
+    Policy --> Execution["NavigationEngine / modal queue"]
+    Execution --> Host["NavigationHost / SplitHost / ModalHost"]
+    Host --> System["NavigationStack / NavigationSplitView / sheet / fullScreenCover"]
+```
+
+- Views emit typed intent through environment dispatchers.
+- Stores own navigation or modal authority.
+- Hosts translate store state into native SwiftUI navigation APIs.
+
+### Deep-link flow
+
+```mermaid
+flowchart LR
+    URL["Incoming URL"] --> Match["DeepLinkMatcher"]
+    Match --> Plan["DeepLinkPipeline"]
+    Plan --> Effect["DeepLinkEffectHandler"]
+    Effect --> Decision{"Authorized now?"}
+    Decision -->|"No"| Pending["PendingDeepLink"]
+    Decision -->|"Yes"| Execute["Batch / transaction execution"]
+    Execute --> Store["NavigationStore / ModalStore"]
+```
+
+- Matching and planning stay pure.
+- Effect handlers are the boundary where app policy decides whether to execute now or defer.
+- Pending deep links preserve the planned transition until the app is ready to replay it.
+
 ## Quick Start
 
 ### 1. Define a route
