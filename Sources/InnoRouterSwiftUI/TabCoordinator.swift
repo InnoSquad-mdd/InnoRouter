@@ -55,9 +55,23 @@ public struct TabCoordinatorView<C: TabCoordinator>: View {
                         Label(tab.title, systemImage: tab.icon)
                     }
                     .tag(tab)
-                    .badge(coordinator.tabBadges[tab] ?? 0)
+                    .tabBadge(coordinator.tabBadges[tab])
             }
         }
     }
 }
 
+private extension View {
+    @ViewBuilder
+    func tabBadge(_ count: Int?) -> some View {
+#if os(tvOS) || os(watchOS)
+        self
+#else
+        if let count, count > 0 {
+            self.badge(count)
+        } else {
+            self
+        }
+#endif
+    }
+}
