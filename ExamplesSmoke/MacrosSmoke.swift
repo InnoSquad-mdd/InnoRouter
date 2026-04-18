@@ -1,0 +1,32 @@
+import InnoRouter
+import InnoRouterMacros
+
+@Routable
+enum MacrosSmokeRoute {
+    case list
+    case detail(id: String)
+    case settings
+}
+
+@CasePathable
+enum MacrosSmokeEvent {
+    case tapped
+    case opened(id: String)
+}
+
+@MainActor
+enum MacrosSmokeConsumer {
+    static func exercise() {
+        let route = MacrosSmokeRoute.detail(id: "42")
+
+        let _: Bool = route.is(MacrosSmokeRoute.Cases.detail)
+        let _: Bool = route.is(MacrosSmokeRoute.Cases.list)
+        let _: String? = route[case: MacrosSmokeRoute.Cases.detail]
+
+        let _: MacrosSmokeRoute = MacrosSmokeRoute.Cases.detail.embed("99")
+
+        let event = MacrosSmokeEvent.opened(id: "evt-1")
+        let _: Bool = event.is(MacrosSmokeEvent.Cases.opened)
+        let _: String? = event[case: MacrosSmokeEvent.Cases.opened]
+    }
+}

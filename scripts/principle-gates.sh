@@ -22,6 +22,7 @@ swift build --target InnoRouterDeepLinkExampleSmoke
 swift build --target InnoRouterSplitCoordinatorExampleSmoke
 swift build --target InnoRouterAppShellExampleSmoke
 swift build --target InnoRouterModalExampleSmoke
+swift build --target InnoRouterMacrosExampleSmoke
 swift build --target InnoRouterNavigationEffects
 swift build --target InnoRouterDeepLinkEffects
 swift build --target InnoRouterEffects

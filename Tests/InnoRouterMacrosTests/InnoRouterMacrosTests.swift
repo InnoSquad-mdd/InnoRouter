@@ -39,7 +39,7 @@ final class RoutableMacroTests: XCTestCase {
                 case settings
 
                 public enum Cases {
-                        public static let home = CasePath<Self, Void>(
+                        public static let home = CasePath<HomeRoute, Void>(
                             embed: { _ in
                                 .home
                             },
@@ -50,7 +50,7 @@ final class RoutableMacroTests: XCTestCase {
                                 return nil
                             }
                         )
-                        public static let settings = CasePath<Self, Void>(
+                        public static let settings = CasePath<HomeRoute, Void>(
                             embed: { _ in
                                 .settings
                             },
@@ -64,11 +64,11 @@ final class RoutableMacroTests: XCTestCase {
                 }
 
                 public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                    casePath.extract(from: self) != nil
+                    casePath.extract(self) != nil
                 }
 
                 public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                    casePath.extract(from: self)
+                    casePath.extract(self)
                 }
             }
 
@@ -98,7 +98,7 @@ final class RoutableMacroTests: XCTestCase {
                 case detail(id: String)
 
                 public enum Cases {
-                        public static let list = CasePath<Self, Void>(
+                        public static let list = CasePath<ProductRoute, Void>(
                             embed: { _ in
                                 .list
                             },
@@ -109,7 +109,7 @@ final class RoutableMacroTests: XCTestCase {
                                 return nil
                             }
                         )
-                        public static let detail = CasePath<Self, String>(
+                        public static let detail = CasePath<ProductRoute, String>(
                             embed: { value in
                                 .detail(id: value)
                             },
@@ -123,11 +123,11 @@ final class RoutableMacroTests: XCTestCase {
                 }
 
                 public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                    casePath.extract(from: self) != nil
+                    casePath.extract(self) != nil
                 }
 
                 public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                    casePath.extract(from: self)
+                    casePath.extract(self)
                 }
             }
 
@@ -157,7 +157,7 @@ final class RoutableMacroTests: XCTestCase {
                 case edit(userId: String, section: Int)
 
                 public enum Cases {
-                        public static let main = CasePath<Self, Void>(
+                        public static let main = CasePath<ProfileRoute, Void>(
                             embed: { _ in
                                 .main
                             },
@@ -168,7 +168,7 @@ final class RoutableMacroTests: XCTestCase {
                                 return nil
                             }
                         )
-                        public static let edit = CasePath<Self, (String, Int)>(
+                        public static let edit = CasePath<ProfileRoute, (String, Int)>(
                             embed: { value in
                                 .edit(userId: value.0, section: value.1)
                             },
@@ -182,11 +182,11 @@ final class RoutableMacroTests: XCTestCase {
                 }
 
                 public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                    casePath.extract(from: self) != nil
+                    casePath.extract(self) != nil
                 }
 
                 public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                    casePath.extract(from: self)
+                    casePath.extract(self)
                 }
             }
 
@@ -243,7 +243,7 @@ final class CasePathableMacroTests: XCTestCase {
                 case profile(userId: String)
 
                 public enum Cases {
-                        public static let home = CasePath<Self, Void>(
+                        public static let home = CasePath<Destination, Void>(
                             embed: { _ in
                                 .home
                             },
@@ -254,7 +254,7 @@ final class CasePathableMacroTests: XCTestCase {
                                 return nil
                             }
                         )
-                        public static let profile = CasePath<Self, String>(
+                        public static let profile = CasePath<Destination, String>(
                             embed: { value in
                                 .profile(userId: value)
                             },
@@ -268,11 +268,11 @@ final class CasePathableMacroTests: XCTestCase {
                 }
 
                 public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                    casePath.extract(from: self) != nil
+                    casePath.extract(self) != nil
                 }
 
                 public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                    casePath.extract(from: self)
+                    casePath.extract(self)
                 }
             }
             """,

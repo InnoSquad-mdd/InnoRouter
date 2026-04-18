@@ -56,10 +56,12 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
         let cases = enumDecl.memberBlock.members
             .compactMap { $0.decl.as(EnumCaseDeclSyntax.self) }
             .flatMap { $0.elements }
-        
+
         guard !cases.isEmpty else {
             return []
         }
+
+        let enumName = enumDecl.name.text
         
         // Cases enum 생성
         var casesMembers: [String] = []
@@ -114,7 +116,7 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
                 }.joined(separator: ", ")
                 
                 casesMembers.append("""
-                        public static let \(caseName) = CasePath<Self, \(tupleType)>(
+                        public static let \(caseName) = CasePath<\(enumName), \(tupleType)>(
                             embed: { value in .\(caseName)(\(embedArgs)) },
                             extract: { if case .\(caseName)(\(extractBindings)) = $0 { return \(returnValue) }; return nil }
                         )
@@ -122,7 +124,7 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
             } else {
                 // Associated value가 없는 case
                 casesMembers.append("""
-                        public static let \(caseName) = CasePath<Self, Void>(
+                        public static let \(caseName) = CasePath<\(enumName), Void>(
                             embed: { _ in .\(caseName) },
                             extract: { if case .\(caseName) = $0 { return () }; return nil }
                         )
@@ -139,14 +141,14 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
         // is 메서드 생성
         let isMethod: DeclSyntax = """
             public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                casePath.extract(from: self) != nil
+                casePath.extract(self) != nil
             }
             """
-        
+
         // subscript 생성
         let subscriptDecl: DeclSyntax = """
             public subscript<Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                casePath.extract(from: self)
+                casePath.extract(self)
             }
             """
         

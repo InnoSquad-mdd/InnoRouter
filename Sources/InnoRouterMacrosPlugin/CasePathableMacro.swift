@@ -46,11 +46,13 @@ public struct CasePathableMacro: MemberMacro {
         let cases = enumDecl.memberBlock.members
             .compactMap { $0.decl.as(EnumCaseDeclSyntax.self) }
             .flatMap { $0.elements }
-        
+
         guard !cases.isEmpty else {
             return []
         }
-        
+
+        let enumName = enumDecl.name.text
+
         var casesMembers: [String] = []
         
         for enumCase in cases {
@@ -80,14 +82,14 @@ public struct CasePathableMacro: MemberMacro {
                 }.joined(separator: ", ")
                 
                 casesMembers.append("""
-                        public static let \(caseName) = CasePath<Self, \(tupleType)>(
+                        public static let \(caseName) = CasePath<\(enumName), \(tupleType)>(
                             embed: { value in .\(caseName)(\(embedArgs)) },
                             extract: { if case .\(caseName)(\(extractBindings)) = $0 { return \(returnValue) }; return nil }
                         )
                 """)
             } else {
                 casesMembers.append("""
-                        public static let \(caseName) = CasePath<Self, Void>(
+                        public static let \(caseName) = CasePath<\(enumName), Void>(
                             embed: { _ in .\(caseName) },
                             extract: { if case .\(caseName) = $0 { return () }; return nil }
                         )
@@ -103,13 +105,13 @@ public struct CasePathableMacro: MemberMacro {
         
         let isMethod: DeclSyntax = """
             public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                casePath.extract(from: self) != nil
+                casePath.extract(self) != nil
             }
             """
-        
+
         let subscriptDecl: DeclSyntax = """
             public subscript<Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                casePath.extract(from: self)
+                casePath.extract(self)
             }
             """
         

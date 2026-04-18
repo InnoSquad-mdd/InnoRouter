@@ -23,7 +23,7 @@ import Foundation
 /// let route = casePath.embed("123")  // Route.detail(id: "123")
 ///
 /// // Extract: enum → value?
-/// casePath.extract(from: route)      // Optional("123")
+/// casePath.extract(route)            // Optional("123")
 /// ```
 public struct CasePath<Root, Value>: Sendable {
     
