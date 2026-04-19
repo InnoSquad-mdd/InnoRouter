@@ -216,5 +216,13 @@ let package = Package(
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
             ]
         ),
+        .testTarget(
+            name: "InnoRouterMacrosBehaviorTests",
+            dependencies: [
+                "InnoRouterMacros",
+                "InnoRouterCore",
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
     ]
 )
