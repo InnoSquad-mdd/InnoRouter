@@ -31,7 +31,13 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         initial: RouteStack<R> = .init(),
         configuration: NavigationStoreConfiguration<R> = .init()
     ) {
-        let telemetrySink = NavigationStoreTelemetrySink<R>(logger: configuration.logger)
+        let publicRecorder = Self.makePublicTelemetryRecorder(
+            onMiddlewareMutation: configuration.onMiddlewareMutation
+        )
+        let telemetrySink = NavigationStoreTelemetrySink<R>(
+            logger: configuration.logger,
+            recorder: publicRecorder
+        )
         let middlewareRegistry = NavigationMiddlewareRegistry(
             registrations: configuration.middlewares,
             telemetrySink: telemetrySink
@@ -62,9 +68,13 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         nonPrefixAssertionHandler: @escaping @MainActor @Sendable ([R], [R]) -> Void,
         telemetryRecorder: NavigationStoreTelemetryRecorder<R>? = nil
     ) {
+        let publicRecorder = Self.makePublicTelemetryRecorder(
+            onMiddlewareMutation: configuration.onMiddlewareMutation
+        )
+        let combinedRecorder = Self.combineRecorders(telemetryRecorder, publicRecorder)
         let telemetrySink = NavigationStoreTelemetrySink(
             logger: configuration.logger,
-            recorder: telemetryRecorder
+            recorder: combinedRecorder
         )
         let middlewareRegistry = NavigationMiddlewareRegistry(
             registrations: configuration.middlewares,
@@ -80,6 +90,59 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.pathReconciler = NavigationPathReconciler()
+    }
+
+    // MARK: - Public telemetry adapters
+
+    private static func makePublicTelemetryRecorder(
+        onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)?
+    ) -> NavigationStoreTelemetryRecorder<R>? {
+        guard let onMiddlewareMutation else { return nil }
+        return { @MainActor event in
+            switch event {
+            case .middlewareMutation(let action, let metadata, let index):
+                onMiddlewareMutation(
+                    MiddlewareMutationEvent(
+                        action: Self.publicAction(for: action),
+                        metadata: metadata,
+                        index: index
+                    )
+                )
+            case .pathMismatch:
+                break
+            }
+        }
+    }
+
+    private static func combineRecorders(
+        _ primary: NavigationStoreTelemetryRecorder<R>?,
+        _ secondary: NavigationStoreTelemetryRecorder<R>?
+    ) -> NavigationStoreTelemetryRecorder<R>? {
+        switch (primary, secondary) {
+        case (nil, nil):
+            return nil
+        case (let primary?, nil):
+            return primary
+        case (nil, let secondary?):
+            return secondary
+        case (let primary?, let secondary?):
+            return { event in
+                primary(event)
+                secondary(event)
+            }
+        }
+    }
+
+    private static func publicAction(
+        for action: NavigationStoreTelemetryEvent<R>.MiddlewareMutation
+    ) -> MiddlewareMutationEvent<R>.Action {
+        switch action {
+        case .added: return .added
+        case .inserted: return .inserted
+        case .removed: return .removed
+        case .replaced: return .replaced
+        case .moved: return .moved
+        }
     }
 
     @discardableResult

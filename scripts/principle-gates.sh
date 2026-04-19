@@ -27,6 +27,13 @@ swift build --target InnoRouterNavigationEffects
 swift build --target InnoRouterDeepLinkEffects
 swift build --target InnoRouterEffects
 
+echo "[principle-gates] Building human-facing example targets"
+swift build --target InnoRouterStandaloneExample
+swift build --target InnoRouterCoordinatorExample
+swift build --target InnoRouterDeepLinkExample
+swift build --target InnoRouterSplitCoordinatorExample
+swift build --target InnoRouterAppShellExample
+
 echo "[principle-gates] Checking Nav* public symbols"
 if rg -n "public .*\\bNav[A-Z]" Sources; then
   echo "[principle-gates] Failed: legacy Nav* public symbols found"

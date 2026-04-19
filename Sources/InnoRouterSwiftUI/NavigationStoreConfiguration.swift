@@ -54,6 +54,12 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
     public let onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)?
     /// Called after a transaction execution commits or rolls back.
     public let onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)?
+    /// Called after a successful middleware mutation (`add`/`insert`/`remove`/`replace`/`move`).
+    ///
+    /// Invalid mutations — for example, `replaceMiddleware(...)` with an unknown
+    /// handle — never fire this callback. Use this to surface registry churn to
+    /// analytics or diagnostic pipelines without reaching for `@testable import`.
+    public let onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)?
 
     /// Creates a navigation store configuration.
     public init(
@@ -64,7 +70,8 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         logger: Logger? = nil,
         onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)? = nil,
         onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)? = nil,
-        onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)? = nil
+        onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)? = nil,
+        onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)? = nil
     ) {
         self.engine = engine
         self.middlewares = middlewares
@@ -74,5 +81,6 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         self.onChange = onChange
         self.onBatchExecuted = onBatchExecuted
         self.onTransactionExecuted = onTransactionExecuted
+        self.onMiddlewareMutation = onMiddlewareMutation
     }
 }

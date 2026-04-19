@@ -1,0 +1,117 @@
+// MARK: - NavigationStoreMiddlewareObservabilityTests.swift
+// InnoRouterTests - Public middleware mutation observation hook
+// Copyright © 2025 Inno Squad. All rights reserved.
+
+import Testing
+import Foundation
+import Synchronization
+import InnoRouter
+import InnoRouterSwiftUI
+
+// MARK: - Local fixtures
+
+private enum ObsRoute: Route {
+    case a
+    case b
+}
+
+@MainActor
+private func noopMiddleware() -> AnyNavigationMiddleware<ObsRoute> {
+    AnyNavigationMiddleware(willExecute: { command, _ in .proceed(command) })
+}
+
+// MARK: - Suite
+
+@Suite("NavigationStore Middleware Observability Tests")
+struct NavigationStoreMiddlewareObservabilityTests {
+
+    @Test("onMiddlewareMutation fires for each successful mutator call")
+    @MainActor
+    func onMiddlewareMutationFiresForEachMutator() {
+        let events = Mutex<[MiddlewareMutationEvent<ObsRoute>]>([])
+        let store = NavigationStore<ObsRoute>(
+            configuration: NavigationStoreConfiguration<ObsRoute>(
+                onMiddlewareMutation: { event in
+                    events.withLock { $0.append(event) }
+                }
+            )
+        )
+
+        let first = store.addMiddleware(noopMiddleware(), debugName: "first")
+        let second = store.insertMiddleware(noopMiddleware(), at: 0, debugName: "second")
+        _ = store.replaceMiddleware(first, with: noopMiddleware(), debugName: "first-replaced")
+        #expect(store.moveMiddleware(second, to: 1))
+        _ = store.removeMiddleware(first)
+
+        let captured = events.withLock { $0 }
+        let actions = captured.map(\.action)
+        #expect(actions == [.added, .inserted, .replaced, .moved, .removed])
+    }
+
+    @Test("onMiddlewareMutation never fires for invalid mutations")
+    @MainActor
+    func onMiddlewareMutationDoesNotFireForInvalidMutations() {
+        let events = Mutex<[MiddlewareMutationEvent<ObsRoute>]>([])
+        let store = NavigationStore<ObsRoute>(
+            configuration: NavigationStoreConfiguration<ObsRoute>(
+                onMiddlewareMutation: { event in
+                    events.withLock { $0.append(event) }
+                }
+            )
+        )
+
+        let stranger = NavigationMiddlewareHandle()
+        #expect(store.removeMiddleware(stranger) == nil)
+        #expect(store.replaceMiddleware(stranger, with: noopMiddleware()) == false)
+        #expect(store.moveMiddleware(stranger, to: 0) == false)
+
+        let captured = events.withLock { $0 }
+        #expect(captured.isEmpty)
+    }
+
+    @Test("event payload carries the mutated handle and debug name")
+    @MainActor
+    func eventPayloadContainsHandleAndDebugName() {
+        let events = Mutex<[MiddlewareMutationEvent<ObsRoute>]>([])
+        let store = NavigationStore<ObsRoute>(
+            configuration: NavigationStoreConfiguration<ObsRoute>(
+                onMiddlewareMutation: { event in
+                    events.withLock { $0.append(event) }
+                }
+            )
+        )
+
+        let handle = store.addMiddleware(noopMiddleware(), debugName: "analytics")
+
+        let captured = events.withLock { $0 }
+        #expect(captured.count == 1)
+        let event = captured[0]
+        #expect(event.action == .added)
+        #expect(event.metadata.handle == handle)
+        #expect(event.metadata.debugName == "analytics")
+        #expect(event.index == 0)
+    }
+
+    @Test("event index reflects clamping for insert and move")
+    @MainActor
+    func eventIndexReflectsClamping() {
+        let events = Mutex<[MiddlewareMutationEvent<ObsRoute>]>([])
+        let store = NavigationStore<ObsRoute>(
+            configuration: NavigationStoreConfiguration<ObsRoute>(
+                onMiddlewareMutation: { event in
+                    events.withLock { $0.append(event) }
+                }
+            )
+        )
+
+        _ = store.addMiddleware(noopMiddleware())
+        _ = store.insertMiddleware(noopMiddleware(), at: -10, debugName: "head")
+        let tail = store.addMiddleware(noopMiddleware(), debugName: "tail")
+        _ = store.moveMiddleware(tail, to: 99)
+
+        let captured = events.withLock { $0 }
+        // Order: added(0), inserted(0 clamped), added(2), moved(2 clamped to count-1).
+        let indexes = captured.map(\.index)
+        #expect(indexes == [0, 0, 2, 2])
+    }
+}

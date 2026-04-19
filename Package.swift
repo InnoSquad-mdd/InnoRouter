@@ -126,6 +126,54 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
+        // MARK: - Example Build Gates (human-facing Examples/*.swift)
+        //
+        // Per-file targets so that every example — the same source the README points
+        // at — participates in `swift build`. Without this, macro-generated code in
+        // `Examples/` is never exercised by a consumer site, so latent generator bugs
+        // stay invisible until end-users hit them. The per-file split mirrors
+        // `ExamplesSmoke/` because several examples reuse names like `HomeRoute`.
+        .target(
+            name: "InnoRouterStandaloneExample",
+            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            path: "Examples",
+            exclude: ["CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift"],
+            sources: ["StandaloneExample.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterCoordinatorExample",
+            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            path: "Examples",
+            exclude: ["StandaloneExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift"],
+            sources: ["CoordinatorExample.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterDeepLinkExample",
+            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            path: "Examples",
+            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift"],
+            sources: ["DeepLinkExample.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterSplitCoordinatorExample",
+            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            path: "Examples",
+            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "AppShellExample.swift"],
+            sources: ["SplitCoordinatorExample.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterAppShellExample",
+            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            path: "Examples",
+            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift"],
+            sources: ["AppShellExample.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
         // MARK: - Example Smoke Targets
         .target(
             name: "InnoRouterStandaloneExampleSmoke",
