@@ -20,9 +20,7 @@ public extension DeepLinkCoordinating {
 
         case .plan(let plan):
             pendingDeepLink = nil
-            for command in plan.commands {
-                _ = store.execute(command)
-            }
+            store.executeBatch(plan.commands, stopOnFailure: false)
         }
     }
 
@@ -41,9 +39,7 @@ public extension DeepLinkCoordinating {
 
         // Safe to clear first: we iterate on the local `pendingDeepLink` constant, not the stored property.
         self.pendingDeepLink = nil
-        for command in pendingDeepLink.plan.commands {
-            _ = store.execute(command)
-        }
+        store.executeBatch(pendingDeepLink.plan.commands, stopOnFailure: false)
         return true
     }
 
