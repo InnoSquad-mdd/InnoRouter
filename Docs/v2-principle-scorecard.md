@@ -51,7 +51,8 @@ The repository now treats documentation as a first-class artifact:
 - Typed failures stay in normal control flow.
 - Middleware cancellation reasons are explicit.
 - Deep-link matcher diagnostics catch ambiguity without changing precedence.
-- Modal routing now has lightweight lifecycle observability without inheriting stack-level middleware complexity.
+- Modal routing exposes the same middleware surface as navigation (`ModalMiddleware`, `AnyModalMiddleware`, CRUD API, `onMiddlewareMutation`, `onCommandIntercepted`), so gating and analytics hooks compose symmetrically across both authorities.
+- `FlowStore<R>` represents push + sheet + cover progression as a single `[RouteStep<R>]` value, delegating execution to the existing `NavigationStore` + `ModalStore` without removing their individual authorities.
 - Human-facing examples and smoke fixtures are intentionally separated.
 
 ## Remaining trade-offs

@@ -310,6 +310,8 @@ Keep those as feature-local or coordinator-local presentation state.
 - `onPresented`
 - `onDismissed`
 - `onQueueChanged`
+- `onMiddlewareMutation`
+- `onCommandIntercepted`
 
 `ModalDismissalReason` distinguishes:
 
@@ -317,7 +319,20 @@ Keep those as feature-local or coordinator-local presentation state.
 - `.dismissAll`
 - `.systemDismiss`
 
-Unlike `NavigationStore`, modal routing intentionally does not expose middleware.
+### Modal middleware
+
+`ModalStore` exposes the same middleware surface as `NavigationStore`:
+
+- `ModalMiddleware` / `AnyModalMiddleware<M>` with `willExecute` / `didExecute`.
+- `ModalInterception` lets middleware `.proceed(command)` (including
+  rewritten commands) or `.cancel(reason:)` with a
+  `ModalCancellationReason`.
+- `ModalStore.addMiddleware` / `insertMiddleware` / `removeMiddleware` /
+  `replaceMiddleware` / `moveMiddleware` — handle-based CRUD matching
+  navigation.
+- `execute(_:) -> ModalExecutionResult<M>` routes all `.present`,
+  `.dismissCurrent`, and `.dismissAll` commands through the registry.
+- `ModalMiddlewareMutationEvent` surfaces registry churn for analytics.
 
 ## Split navigation
 
@@ -566,14 +581,46 @@ swift test
 ./scripts/build-docc-site.sh --version preview
 ```
 
+## Flow stack
+
+`FlowStore<R>` represents a unified push + sheet + cover flow as a
+single array of `RouteStep<R>` values. It owns an inner
+`NavigationStore<R>` and `ModalStore<R>`, delegating to each while
+enforcing invariants (one trailing modal at most, modal always at the
+tail, middleware rollbacks reconcile the path).
+
+Typical usage:
+
+```swift
+let flow = FlowStore<AppRoute>()
+
+flow.send(.push(.home))
+flow.send(.push(.detail(id)))
+flow.send(.presentSheet(.share))   // tail modal
+flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
+```
+
+- `FlowHost` composes `ModalHost` over `NavigationHost` and injects an
+  `AnyFlowIntentDispatcher<R>` for `@EnvironmentFlowIntent(Route.self)`
+  dispatch.
+- `FlowStoreConfiguration` composes `NavigationStoreConfiguration` and
+  `ModalStoreConfiguration`, adding `onPathChanged` and
+  `onIntentRejected`.
+- `FlowRejectionReason` surfaces invariant violations
+  (`pushBlockedByModalTail`, `invalidResetPath`,
+  `middlewareRejected(debugName:)`).
+
 ## Roadmap
 
 Potential next steps for a future major release:
 
-- [ ] Modal middleware (medium priority)
-  Add a middleware-style policy layer to `ModalStore` for auth gating, deduplication, and coordinated presentation rules.
-- [ ] Composite navigation plans (low priority)
-  Explore a unified plan model that can express stack and modal transitions together, such as “dismiss modal, then push route” as one higher-level transition.
+- [ ] Composite deep-link plans
+  Extend `DeepLinkPipeline` to emit `FlowPlan<R>` directly so URL
+  handling can seed combined push + modal flows in one value-level
+  step.
+- [ ] `Codable` route stacks + `FlowPlan` persistence
+  Opt-in state restoration so a `FlowStore.path` snapshot can be
+  persisted and replayed at launch.
 
 ## License
 
