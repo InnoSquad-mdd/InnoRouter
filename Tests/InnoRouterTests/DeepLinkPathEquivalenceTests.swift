@@ -43,10 +43,15 @@ private extension DeepLinkPathEquivalenceTests {
 
 @MainActor
 private final class ExecutionRecorder {
+    struct MiddlewareOutcome: Equatable {
+        let command: NavigationCommand<TestRoute>
+        let result: NavigationResult<TestRoute>
+    }
+
     private(set) var changeCount = 0
     private(set) var batchResults: [NavigationBatchResult<TestRoute>] = []
     private(set) var willExecuteCommands: [NavigationCommand<TestRoute>] = []
-    private(set) var didExecuteOutcomes: [String] = []
+    private(set) var didExecuteOutcomes: [MiddlewareOutcome] = []
 
     func configuration(
         cancelPredicate: (@MainActor @Sendable (NavigationCommand<TestRoute>) -> Bool)? = nil
@@ -60,7 +65,7 @@ private final class ExecutionRecorder {
                 return .proceed(command)
             },
             didExecute: { [weak self] command, result, _ in
-                self?.didExecuteOutcomes.append("\(command):\(result)")
+                self?.didExecuteOutcomes.append(.init(command: command, result: result))
                 return result
             }
         )
@@ -87,6 +92,8 @@ struct DeepLinkPathEquivalenceTests {
         .push(.detail(id: "123")),
         .push(.settings)
     ]
+    static let expectedPath: [TestRoute] = [.home, .detail(id: "123"), .settings]
+    static let expectedBatchResults: [NavigationResult<TestRoute>] = [.success, .success, .success]
     static let url = URL(string: "myapp://myapp.com/link")!
 
     private static func pipeline(
@@ -128,6 +135,8 @@ struct DeepLinkPathEquivalenceTests {
 
         #expect(umbrellaRecorder.changeCount == 1)
         #expect(effectsRecorder.changeCount == 1)
+        #expect(umbrella.store.state.path == Self.expectedPath)
+        #expect(effectsStore.state.path == Self.expectedPath)
         #expect(umbrella.store.state.path == effectsStore.state.path)
     }
 
@@ -155,6 +164,13 @@ struct DeepLinkPathEquivalenceTests {
         #expect(umbrellaRecorder.willExecuteCommands == effectsRecorder.willExecuteCommands)
         #expect(umbrellaRecorder.didExecuteOutcomes == effectsRecorder.didExecuteOutcomes)
         #expect(umbrellaRecorder.willExecuteCommands == Self.planCommands)
+        #expect(
+            umbrellaRecorder.didExecuteOutcomes == [
+                .init(command: .replace([.home]), result: .success),
+                .init(command: .push(.detail(id: "123")), result: .success),
+                .init(command: .push(.settings), result: .success),
+            ]
+        )
     }
 
     // MARK: onBatchExecuted parity
@@ -183,8 +199,14 @@ struct DeepLinkPathEquivalenceTests {
 
         let umbrellaBatch = umbrellaRecorder.batchResults[0]
         let effectsBatch = effectsRecorder.batchResults[0]
+        #expect(umbrellaBatch.requestedCommands == Self.planCommands)
+        #expect(effectsBatch.requestedCommands == Self.planCommands)
         #expect(umbrellaBatch.requestedCommands == effectsBatch.requestedCommands)
+        #expect(umbrellaBatch.executedCommands == Self.planCommands)
+        #expect(effectsBatch.executedCommands == Self.planCommands)
         #expect(umbrellaBatch.executedCommands == effectsBatch.executedCommands)
+        #expect(umbrellaBatch.results == Self.expectedBatchResults)
+        #expect(effectsBatch.results == Self.expectedBatchResults)
         #expect(umbrellaBatch.results == effectsBatch.results)
         #expect(umbrellaBatch.hasStoppedOnFailure == false)
         #expect(effectsBatch.hasStoppedOnFailure == false)
@@ -273,9 +295,25 @@ struct DeepLinkPathEquivalenceTests {
         effectsAuthState.withLock { $0 = true }
         _ = handler.resumePendingDeepLink()
 
+        #expect(umbrellaRecorder.changeCount == 1)
+        #expect(effectsRecorder.changeCount == 1)
+        #expect(umbrellaRecorder.batchResults.count == 1)
+        #expect(effectsRecorder.batchResults.count == 1)
+
+        let umbrellaBatch = umbrellaRecorder.batchResults[0]
+        let effectsBatch = effectsRecorder.batchResults[0]
+        #expect(umbrellaBatch.requestedCommands == Self.planCommands)
+        #expect(effectsBatch.requestedCommands == Self.planCommands)
+        #expect(umbrellaBatch.executedCommands == Self.planCommands)
+        #expect(effectsBatch.executedCommands == Self.planCommands)
+        #expect(umbrellaBatch.results == Self.expectedBatchResults)
+        #expect(effectsBatch.results == Self.expectedBatchResults)
+        #expect(umbrella.store.state.path == Self.expectedPath)
+        #expect(effectsStore.state.path == Self.expectedPath)
+
         #expect(umbrellaRecorder.changeCount == effectsRecorder.changeCount)
         #expect(umbrellaRecorder.batchResults.count == effectsRecorder.batchResults.count)
-        #expect(umbrellaRecorder.batchResults.first?.results == effectsRecorder.batchResults.first?.results)
+        #expect(umbrellaBatch.results == effectsBatch.results)
         #expect(umbrella.store.state.path == effectsStore.state.path)
         #expect(umbrella.pendingDeepLink == nil)
         #expect(!handler.hasPendingDeepLink)
