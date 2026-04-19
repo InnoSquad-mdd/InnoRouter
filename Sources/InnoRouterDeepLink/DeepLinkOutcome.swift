@@ -9,7 +9,7 @@ import InnoRouterCore
 /// (stack state, `pendingDeepLink`) to reconstruct what actually happened. The
 /// same pipeline — `DeepLinkPipeline.decide(for:)` — already emits a
 /// fine-grained `DeepLinkDecision`, so the Umbrella surface now mirrors those
-/// possibilities plus the two resume-specific cases (`noPendingDeepLink`).
+/// possibilities plus the resume-specific case (`noPendingDeepLink`).
 ///
 /// The five common cases share payload types with
 /// `DeepLinkEffectHandler.Result`, so callers that migrate between Effects and
