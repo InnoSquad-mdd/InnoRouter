@@ -273,7 +273,11 @@ struct DeepLinkPathEquivalenceTests {
         #expect(umbrellaRecorder.batchResults.isEmpty)
 
         umbrellaAuthState.withLock { $0 = true }
-        #expect(umbrella.resumePendingDeepLinkIfPossible() == true)
+        if case .executed = umbrella.resumePendingDeepLinkIfPossible() {
+            // expected
+        } else {
+            Issue.record("expected .executed outcome from resumePendingDeepLinkIfPossible")
+        }
 
         let effectsAuthState = Mutex(false)
         let effectsRecorder = ExecutionRecorder()

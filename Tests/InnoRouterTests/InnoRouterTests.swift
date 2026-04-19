@@ -1954,9 +1954,54 @@ struct CoordinatorDeepLinkTests {
         )
         let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
 
-        coordinator.handleDeepLink(URL(string: "myapp://myapp.com/anything")!)
+        let outcome = coordinator.handleDeepLink(URL(string: "myapp://myapp.com/anything")!)
 
+        guard case .executed(let plan, _) = outcome else {
+            Issue.record("expected .executed, got \(outcome)")
+            return
+        }
+        #expect(plan.commands == [.push(.settings)])
         #expect(coordinator.store.state.path.last == .settings)
+        #expect(coordinator.pendingDeepLink == nil)
+    }
+
+    @Test("handleDeepLink returns .rejected for disallowed scheme")
+    @MainActor
+    func testHandleDeepLinkReturnsRejectedForDisallowedScheme() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            allowedSchemes: ["myapp"],
+            resolve: { _ in .settings }
+        )
+        let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
+
+        let outcome = coordinator.handleDeepLink(URL(string: "https://other.com/secure")!)
+
+        guard case .rejected(let reason) = outcome else {
+            Issue.record("expected .rejected, got \(outcome)")
+            return
+        }
+        #expect(reason == .schemeNotAllowed(actualScheme: "https"))
+        #expect(coordinator.store.state.path.isEmpty)
+        #expect(coordinator.pendingDeepLink == nil)
+    }
+
+    @Test("handleDeepLink returns .unhandled for unresolved URL")
+    @MainActor
+    func testHandleDeepLinkReturnsUnhandledForUnresolvedURL() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in nil }
+        )
+        let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
+        let url = URL(string: "myapp://myapp.com/nowhere")!
+
+        let outcome = coordinator.handleDeepLink(url)
+
+        guard case .unhandled(let unhandledURL) = outcome else {
+            Issue.record("expected .unhandled, got \(outcome)")
+            return
+        }
+        #expect(unhandledURL == url)
+        #expect(coordinator.store.state.path.isEmpty)
         #expect(coordinator.pendingDeepLink == nil)
     }
 
@@ -2019,13 +2064,21 @@ struct CoordinatorDeepLinkTests {
         coordinator.handleDeepLink(URL(string: "myapp://myapp.com/secure")!)
 
         let denied = await coordinator.resumePendingDeepLinkIfAllowed { _ in false }
-        #expect(denied == false)
+        if case .pending = denied {
+            // expected
+        } else {
+            Issue.record("expected .pending after denied authorization, got \(denied)")
+        }
         #expect(coordinator.pendingDeepLink != nil)
         #expect(coordinator.store.state.path.isEmpty)
 
         authState.withLock { $0 = true }
         let resumed = await coordinator.resumePendingDeepLinkIfAllowed { _ in true }
-        #expect(resumed == true)
+        if case .executed = resumed {
+            // expected
+        } else {
+            Issue.record("expected .executed after authorization, got \(resumed)")
+        }
         #expect(coordinator.pendingDeepLink == nil)
         #expect(coordinator.store.state.path == [.home, .settings])
     }
@@ -2051,7 +2104,11 @@ struct CoordinatorDeepLinkTests {
             return false
         }
 
-        #expect(resumed == false)
+        guard case .pending(let current) = resumed else {
+            Issue.record("expected .pending after stale identity, got \(resumed)")
+            return
+        }
+        #expect(current.route == .home)
         #expect(coordinator.pendingDeepLink?.route == .home)
         #expect(coordinator.store.state.path.isEmpty)
     }

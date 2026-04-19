@@ -467,6 +467,17 @@ Key API:
 - `resumePendingDeepLink()`
 - `resumePendingDeepLinkIfAllowed(_:)`
 
+### Umbrella `DeepLinkCoordinating`
+
+Coordinators that adopt `DeepLinkCoordinating` get the same typed-outcome
+surface through `DeepLinkCoordinationOutcome<Route>`. Pipeline refusals
+(`rejected`, `unhandled`) and resume states (`pending`, `executed`,
+`noPendingDeepLink`) are all observable without peeking at stack state.
+
+- `handleDeepLink(_:) -> DeepLinkCoordinationOutcome<Route>`
+- `resumePendingDeepLinkIfPossible() -> DeepLinkCoordinationOutcome<Route>`
+- `resumePendingDeepLinkIfAllowed(_:) async -> DeepLinkCoordinationOutcome<Route>`
+
 ## `Examples` vs `ExamplesSmoke`
 
 The repository intentionally separates documentation examples from CI examples.
