@@ -56,10 +56,12 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
         let cases = enumDecl.memberBlock.members
             .compactMap { $0.decl.as(EnumCaseDeclSyntax.self) }
             .flatMap { $0.elements }
-        
+
         guard !cases.isEmpty else {
             return []
         }
+
+        let enumName = enumDecl.name.text
         
         // Cases enum 생성
         var casesMembers: [String] = []
@@ -69,6 +71,22 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
             
             if let params = enumCase.parameterClause?.parameters, !params.isEmpty {
                 // Associated value가 있는 case
+                func bindingName(for param: EnumCaseParameterSyntax, index: Int) -> String {
+                    if let firstName = param.firstName?.text, firstName != "_" {
+                        return firstName
+                    }
+
+                    return param.secondName?.text ?? "v\(index)"
+                }
+
+                func emittedLabel(for param: EnumCaseParameterSyntax) -> String? {
+                    guard let firstName = param.firstName?.text, firstName != "_" else {
+                        return nil
+                    }
+
+                    return firstName
+                }
+
                 let paramTypes = params.map { param -> String in
                     param.type.trimmedDescription
                 }.joined(separator: ", ")
@@ -77,27 +95,18 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
                 
                 // Extract 로직
                 let extractBindings = params.enumerated().map { idx, param -> String in
-                    let label = param.firstName?.text
-                    if let label = label {
-                        return "let \(label)"
-                    } else {
-                        return "let v\(idx)"
-                    }
+                    "let \(bindingName(for: param, index: idx))"
                 }.joined(separator: ", ")
                 
                 let extractReturn = params.enumerated().map { idx, param -> String in
-                    if let label = param.firstName?.text {
-                        return label
-                    } else {
-                        return "v\(idx)"
-                    }
+                    bindingName(for: param, index: idx)
                 }.joined(separator: ", ")
                 
                 let returnValue = params.count == 1 ? extractReturn : "(\(extractReturn))"
                 
                 // Embed 로직
                 let embedArgs = params.enumerated().map { idx, param -> String in
-                    let label = param.firstName?.text
+                    let label = emittedLabel(for: param)
                     if params.count == 1 {
                         if let label = label {
                             return "\(label): value"
@@ -114,7 +123,7 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
                 }.joined(separator: ", ")
                 
                 casesMembers.append("""
-                        public static let \(caseName) = CasePath<Self, \(tupleType)>(
+                        public static let \(caseName) = CasePath<\(enumName), \(tupleType)>(
                             embed: { value in .\(caseName)(\(embedArgs)) },
                             extract: { if case .\(caseName)(\(extractBindings)) = $0 { return \(returnValue) }; return nil }
                         )
@@ -122,7 +131,7 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
             } else {
                 // Associated value가 없는 case
                 casesMembers.append("""
-                        public static let \(caseName) = CasePath<Self, Void>(
+                        public static let \(caseName) = CasePath<\(enumName), Void>(
                             embed: { _ in .\(caseName) },
                             extract: { if case .\(caseName) = $0 { return () }; return nil }
                         )
@@ -139,14 +148,14 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
         // is 메서드 생성
         let isMethod: DeclSyntax = """
             public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                casePath.extract(from: self) != nil
+                casePath.extract(self) != nil
             }
             """
-        
+
         // subscript 생성
         let subscriptDecl: DeclSyntax = """
             public subscript<Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                casePath.extract(from: self)
+                casePath.extract(self)
             }
             """
         

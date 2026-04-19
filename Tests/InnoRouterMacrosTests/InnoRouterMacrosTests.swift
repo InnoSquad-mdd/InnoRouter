@@ -2,11 +2,9 @@
 // InnoRouter Macros Tests
 // Copyright © 2025 Inno Squad. All rights reserved.
 
-import SwiftSyntax
-import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
-import XCTest
+import Testing
 
 #if canImport(InnoRouterMacrosPlugin)
 @testable import InnoRouterMacrosPlugin
@@ -21,8 +19,9 @@ func makeTestMacros() -> [String: Macro.Type] {
 
 // MARK: - Routable Macro Tests
 
-final class RoutableMacroTests: XCTestCase {
-    
+@Suite("Routable Macro Tests")
+struct RoutableMacroTests {
+    @Test("Basic enum expansion")
     func testRoutableBasicEnum() throws {
         #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
@@ -39,7 +38,7 @@ final class RoutableMacroTests: XCTestCase {
                 case settings
 
                 public enum Cases {
-                        public static let home = CasePath<Self, Void>(
+                        public static let home = CasePath<HomeRoute, Void>(
                             embed: { _ in
                                 .home
                             },
@@ -50,7 +49,7 @@ final class RoutableMacroTests: XCTestCase {
                                 return nil
                             }
                         )
-                        public static let settings = CasePath<Self, Void>(
+                        public static let settings = CasePath<HomeRoute, Void>(
                             embed: { _ in
                                 .settings
                             },
@@ -64,11 +63,11 @@ final class RoutableMacroTests: XCTestCase {
                 }
 
                 public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                    casePath.extract(from: self) != nil
+                    casePath.extract(self) != nil
                 }
 
                 public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                    casePath.extract(from: self)
+                    casePath.extract(self)
                 }
             }
 
@@ -78,10 +77,11 @@ final class RoutableMacroTests: XCTestCase {
             macros: makeTestMacros()
         )
         #else
-        throw XCTSkip("Macros not available")
+        throw Skip("Macros not available")
         #endif
     }
-    
+
+    @Test("Associated values expansion")
     func testRoutableWithAssociatedValues() throws {
         #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
@@ -98,7 +98,7 @@ final class RoutableMacroTests: XCTestCase {
                 case detail(id: String)
 
                 public enum Cases {
-                        public static let list = CasePath<Self, Void>(
+                        public static let list = CasePath<ProductRoute, Void>(
                             embed: { _ in
                                 .list
                             },
@@ -109,7 +109,7 @@ final class RoutableMacroTests: XCTestCase {
                                 return nil
                             }
                         )
-                        public static let detail = CasePath<Self, String>(
+                        public static let detail = CasePath<ProductRoute, String>(
                             embed: { value in
                                 .detail(id: value)
                             },
@@ -123,11 +123,11 @@ final class RoutableMacroTests: XCTestCase {
                 }
 
                 public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                    casePath.extract(from: self) != nil
+                    casePath.extract(self) != nil
                 }
 
                 public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                    casePath.extract(from: self)
+                    casePath.extract(self)
                 }
             }
 
@@ -137,10 +137,11 @@ final class RoutableMacroTests: XCTestCase {
             macros: makeTestMacros()
         )
         #else
-        throw XCTSkip("Macros not available")
+        throw Skip("Macros not available")
         #endif
     }
-    
+
+    @Test("Multiple associated values expansion")
     func testRoutableWithMultipleAssociatedValues() throws {
         #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
@@ -157,7 +158,7 @@ final class RoutableMacroTests: XCTestCase {
                 case edit(userId: String, section: Int)
 
                 public enum Cases {
-                        public static let main = CasePath<Self, Void>(
+                        public static let main = CasePath<ProfileRoute, Void>(
                             embed: { _ in
                                 .main
                             },
@@ -168,7 +169,7 @@ final class RoutableMacroTests: XCTestCase {
                                 return nil
                             }
                         )
-                        public static let edit = CasePath<Self, (String, Int)>(
+                        public static let edit = CasePath<ProfileRoute, (String, Int)>(
                             embed: { value in
                                 .edit(userId: value.0, section: value.1)
                             },
@@ -182,11 +183,11 @@ final class RoutableMacroTests: XCTestCase {
                 }
 
                 public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                    casePath.extract(from: self) != nil
+                    casePath.extract(self) != nil
                 }
 
                 public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                    casePath.extract(from: self)
+                    casePath.extract(self)
                 }
             }
 
@@ -196,11 +197,106 @@ final class RoutableMacroTests: XCTestCase {
             macros: makeTestMacros()
         )
         #else
-        throw XCTSkip("Macros not available")
+        throw Skip("Macros not available")
         #endif
     }
-    
-    func testRoutableOnlyAppliestoEnum() throws {
+
+    @Test("Underscore external label expansion")
+    func testRoutableWithUnderscoreExternalLabel() throws {
+        #if canImport(InnoRouterMacrosPlugin)
+        assertMacroExpansion(
+            """
+            @Routable
+            enum DetailRoute {
+                case detail(_ id: String)
+            }
+            """,
+            expandedSource: """
+            enum DetailRoute {
+                case detail(_ id: String)
+
+                public enum Cases {
+                        public static let detail = CasePath<DetailRoute, String>(
+                            embed: { value in
+                                .detail(value)
+                            },
+                            extract: {
+                                if case .detail(let id) = $0 {
+                                    return id
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension DetailRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
+        #else
+        throw Skip("Macros not available")
+        #endif
+    }
+
+    @Test("Mixed labels expansion")
+    func testRoutableWithMixedLabels() throws {
+        #if canImport(InnoRouterMacrosPlugin)
+        assertMacroExpansion(
+            """
+            @Routable
+            enum MixedRoute {
+                case edit(_ id: String, section: Int)
+            }
+            """,
+            expandedSource: """
+            enum MixedRoute {
+                case edit(_ id: String, section: Int)
+
+                public enum Cases {
+                        public static let edit = CasePath<MixedRoute, (String, Int)>(
+                            embed: { value in
+                                .edit(value.0, section: value.1)
+                            },
+                            extract: {
+                                if case .edit(let id, let section) = $0 {
+                                    return (id, section)
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension MixedRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
+        #else
+        throw Skip("Macros not available")
+        #endif
+    }
+
+    @Test("Rejects non-enum declarations")
+    func testRoutableOnlyAppliesToEnum() throws {
         #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
@@ -218,15 +314,16 @@ final class RoutableMacroTests: XCTestCase {
             macros: makeTestMacros()
         )
         #else
-        throw XCTSkip("Macros not available")
+        throw Skip("Macros not available")
         #endif
     }
 }
 
 // MARK: - CasePathable Macro Tests
 
-final class CasePathableMacroTests: XCTestCase {
-    
+@Suite("CasePathable Macro Tests")
+struct CasePathableMacroTests {
+    @Test("Basic enum expansion")
     func testCasePathableBasicEnum() throws {
         #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
@@ -243,7 +340,7 @@ final class CasePathableMacroTests: XCTestCase {
                 case profile(userId: String)
 
                 public enum Cases {
-                        public static let home = CasePath<Self, Void>(
+                        public static let home = CasePath<Destination, Void>(
                             embed: { _ in
                                 .home
                             },
@@ -254,7 +351,7 @@ final class CasePathableMacroTests: XCTestCase {
                                 return nil
                             }
                         )
-                        public static let profile = CasePath<Self, String>(
+                        public static let profile = CasePath<Destination, String>(
                             embed: { value in
                                 .profile(userId: value)
                             },
@@ -268,21 +365,66 @@ final class CasePathableMacroTests: XCTestCase {
                 }
 
                 public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
-                    casePath.extract(from: self) != nil
+                    casePath.extract(self) != nil
                 }
 
                 public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
-                    casePath.extract(from: self)
+                    casePath.extract(self)
                 }
             }
             """,
             macros: makeTestMacros()
         )
         #else
-        throw XCTSkip("Macros not available")
+        throw Skip("Macros not available")
         #endif
     }
-    
+
+    @Test("Underscore external label expansion")
+    func testCasePathableWithUnderscoreExternalLabel() throws {
+        #if canImport(InnoRouterMacrosPlugin)
+        assertMacroExpansion(
+            """
+            @CasePathable
+            enum Destination {
+                case profile(_ userId: String)
+            }
+            """,
+            expandedSource: """
+            enum Destination {
+                case profile(_ userId: String)
+
+                public enum Cases {
+                        public static let profile = CasePath<Destination, String>(
+                            embed: { value in
+                                .profile(value)
+                            },
+                            extract: {
+                                if case .profile(let userId) = $0 {
+                                    return userId
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+        #else
+        throw Skip("Macros not available")
+        #endif
+    }
+
+    @Test("Rejects non-enum declarations")
     func testCasePathableOnlyAppliesToEnum() throws {
         #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
@@ -301,7 +443,7 @@ final class CasePathableMacroTests: XCTestCase {
             macros: makeTestMacros()
         )
         #else
-        throw XCTSkip("Macros not available")
+        throw Skip("Macros not available")
         #endif
     }
 }
