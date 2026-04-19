@@ -6,7 +6,7 @@ import Testing
 import Foundation
 import Synchronization
 import InnoRouter
-import InnoRouterSwiftUI
+@testable import InnoRouterSwiftUI
 
 // MARK: - Local fixtures
 
@@ -113,5 +113,44 @@ struct NavigationStoreMiddlewareObservabilityTests {
         // Order: added(0), inserted(0 clamped), added(2), moved(2 clamped to count-1).
         let indexes = captured.map(\.index)
         #expect(indexes == [0, 0, 2, 2])
+    }
+
+    @Test("internal telemetry recorder and public callback both receive middleware mutations")
+    @MainActor
+    func internalTelemetryRecorderAndPublicCallbackBothReceiveMutations() {
+        let internalEvents = Mutex<[NavigationStoreTelemetryEvent<ObsRoute>]>([])
+        let publicEvents = Mutex<[MiddlewareMutationEvent<ObsRoute>]>([])
+        let store = NavigationStore<ObsRoute>(
+            configuration: NavigationStoreConfiguration<ObsRoute>(
+                onMiddlewareMutation: { event in
+                    publicEvents.withLock { $0.append(event) }
+                }
+            ),
+            nonPrefixAssertionHandler: { _, _ in },
+            telemetryRecorder: { event in
+                internalEvents.withLock { $0.append(event) }
+            }
+        )
+
+        let handle = store.addMiddleware(noopMiddleware(), debugName: "combined")
+
+        let telemetry = internalEvents.withLock { $0 }
+        #expect(telemetry.count == 1)
+        guard case .middlewareMutation(let action, let metadata, let index) = telemetry[0] else {
+            Issue.record("Expected middleware mutation telemetry event")
+            return
+        }
+        #expect(action == .added)
+        #expect(metadata.handle == handle)
+        #expect(metadata.debugName == "combined")
+        #expect(index == 0)
+
+        let published = publicEvents.withLock { $0 }
+        #expect(published.count == 1)
+        let event = published[0]
+        #expect(event.action == .added)
+        #expect(event.metadata.handle == handle)
+        #expect(event.metadata.debugName == "combined")
+        #expect(event.index == 0)
     }
 }

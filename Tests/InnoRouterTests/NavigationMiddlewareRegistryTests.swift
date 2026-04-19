@@ -163,11 +163,11 @@ struct NavigationMiddlewareRegistryTests {
     func moveToNegativeIndexClampsToZero() {
         let (registry, _) = makeRegistryWithCollector()
         let first = registry.add(noopMiddleware(), debugName: "first")
-        _ = registry.add(noopMiddleware(), debugName: "second")
+        let second = registry.add(noopMiddleware(), debugName: "second")
         let third = registry.add(noopMiddleware(), debugName: "third")
 
         #expect(registry.move(third, to: -42))
-        #expect(registry.handles == [third, first, registry.handles[2]])
+        #expect(registry.handles == [third, first, second])
     }
 
     @Test("move to large index clamps to count minus one")
@@ -219,13 +219,15 @@ struct NavigationMiddlewareRegistryTests {
     func handleUniquenessAcrossMutations() {
         let (registry, _) = makeRegistryWithCollector()
         var seen: Set<NavigationMiddlewareHandle> = []
+        var handles: [NavigationMiddlewareHandle] = []
         for _ in 0..<8 {
             let handle = registry.add(noopMiddleware())
             #expect(!seen.contains(handle))
             seen.insert(handle)
+            handles.append(handle)
         }
         _ = registry.insert(noopMiddleware(), at: 0)
-        _ = registry.remove(seen.randomElement()!)
+        _ = registry.remove(handles[3])
         #expect(Set(registry.handles).count == registry.handles.count)
     }
 
