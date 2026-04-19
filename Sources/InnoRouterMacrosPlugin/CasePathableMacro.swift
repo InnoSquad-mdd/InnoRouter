@@ -59,21 +59,37 @@ public struct CasePathableMacro: MemberMacro {
             let caseName = enumCase.name.text
             
             if let params = enumCase.parameterClause?.parameters, !params.isEmpty {
+                func bindingName(for param: EnumCaseParameterSyntax, index: Int) -> String {
+                    if let firstName = param.firstName?.text, firstName != "_" {
+                        return firstName
+                    }
+
+                    return param.secondName?.text ?? "v\(index)"
+                }
+
+                func emittedLabel(for param: EnumCaseParameterSyntax) -> String? {
+                    guard let firstName = param.firstName?.text, firstName != "_" else {
+                        return nil
+                    }
+
+                    return firstName
+                }
+
                 let paramTypes = params.map { $0.type.trimmedDescription }.joined(separator: ", ")
                 let tupleType = params.count == 1 ? paramTypes : "(\(paramTypes))"
                 
                 let extractBindings = params.enumerated().map { idx, param -> String in
-                    param.firstName?.text ?? "v\(idx)"
+                    bindingName(for: param, index: idx)
                 }.map { "let \($0)" }.joined(separator: ", ")
                 
                 let extractReturn = params.enumerated().map { idx, param -> String in
-                    param.firstName?.text ?? "v\(idx)"
+                    bindingName(for: param, index: idx)
                 }.joined(separator: ", ")
                 
                 let returnValue = params.count == 1 ? extractReturn : "(\(extractReturn))"
                 
                 let embedArgs = params.enumerated().map { idx, param -> String in
-                    let label = param.firstName?.text
+                    let label = emittedLabel(for: param)
                     if params.count == 1 {
                         return label.map { "\($0): value" } ?? "value"
                     } else {
