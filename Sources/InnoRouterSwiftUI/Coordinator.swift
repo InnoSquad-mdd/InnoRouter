@@ -9,8 +9,14 @@ public enum NavigationIntent<R: Route>: Sendable, Equatable {
     case backTo(R)
     case backToRoot
     case resetTo([R])
+    /// Replaces the entire navigation stack with the supplied routes, using
+    /// full-route `Equatable` comparison rather than `resetTo`'s legacy name.
     case replaceStack([R])
+    /// Pops back to the matching route when the current stack already contains
+    /// an equal route; otherwise pushes the supplied route.
     case backOrPush(R)
+    /// Pushes the route only when the current stack does not already contain
+    /// an equal route anywhere in the stack.
     case pushUniqueRoot(R)
 }
 

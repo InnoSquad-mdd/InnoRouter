@@ -126,6 +126,8 @@ final class ModalStoreTelemetrySink<M: Route> {
         switch command {
         case .present(let presentation):
             return "present(\(routeSummary(for: presentation.route)), \(presentation.style))"
+        case .replaceCurrent(let presentation):
+            return "replaceCurrent(\(routeSummary(for: presentation.route)), \(presentation.style))"
         case .dismissCurrent(let reason):
             return "dismissCurrent(\(reason))"
         case .dismissAll:

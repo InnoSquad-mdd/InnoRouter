@@ -326,9 +326,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     /// A binding that reflects the top-of-stack route when it matches the given case.
     ///
     /// Writing a non-nil value pushes the embedded route through the regular command
-    /// pipeline, so middleware and telemetry observe the push. Writing `nil` pops the
-    /// top route only when it currently matches the case — other stack states are left
-    /// untouched.
+    /// pipeline when the active destination is a different case. When the top
+    /// route already matches the case, the binding replaces that top route in
+    /// place instead of pushing a duplicate screen. Writing `nil` pops the top
+    /// route only when it currently matches the case — other stack states are
+    /// left untouched.
     public func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> {
         Binding(
             get: { [weak self] in
@@ -337,7 +339,15 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             set: { [weak self] newValue in
                 guard let self else { return }
                 if let value = newValue {
-                    _ = self.execute(.push(casePath.embed(value)))
+                    let route = casePath.embed(value)
+                    if let currentRoute = self.state.path.last,
+                       casePath.extract(currentRoute) != nil {
+                        guard currentRoute != route else { return }
+                        let replacementPath = Array(self.state.path.dropLast()) + [route]
+                        _ = self.execute(.replace(replacementPath))
+                    } else {
+                        _ = self.execute(.push(route))
+                    }
                 } else if self.state.path.last.flatMap(casePath.extract) != nil {
                     _ = self.execute(.pop)
                 }

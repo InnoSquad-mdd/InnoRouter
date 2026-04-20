@@ -15,10 +15,10 @@ public protocol ChildCoordinator: AnyObject {
     associatedtype Result: Sendable
 
     /// Called by the child to report a successful completion.
-    var onFinish: (@MainActor (Result) -> Void)? { get set }
+    var onFinish: (@MainActor @Sendable (Result) -> Void)? { get set }
 
     /// Called by the child to report cancellation or user-driven dismissal.
-    var onCancel: (@MainActor () -> Void)? { get set }
+    var onCancel: (@MainActor @Sendable () -> Void)? { get set }
 }
 
 public extension Coordinator {
@@ -30,6 +30,9 @@ public extension Coordinator {
     /// Task resolves. This API covers **result propagation only**; the
     /// child's view lifecycle is deliberately not automated.
     ///
+    /// Reusing the same child instance is unsupported. This method fails
+    /// fast when callbacks have already been installed on `child`.
+    ///
     /// Callbacks are installed synchronously before the returned Task
     /// begins awaiting, so it is safe for the child to fire `onFinish`
     /// or `onCancel` at any point after this call — even before the
@@ -39,6 +42,10 @@ public extension Coordinator {
     func push<Child: ChildCoordinator>(
         child: Child
     ) -> Task<Child.Result?, Never> {
+        precondition(
+            child.onFinish == nil && child.onCancel == nil,
+            "Cannot push the same ChildCoordinator instance more than once."
+        )
         let (stream, continuation) = AsyncStream<Child.Result?>.makeStream()
         child.onFinish = { result in
             continuation.yield(result)

@@ -26,8 +26,8 @@ store layer:
 - A `Coordinator` (parent) decides **when** to instantiate a child
   coordinator and **when** to pop / dismiss the child's view.
 - The child signals completion through two `@MainActor` callbacks —
-  `onFinish(Result)` and `onCancel()` — which are assigned by the
-  parent at `push(child:)` time.
+  `onFinish(Result)` and `onCancel()` — stored as `@Sendable`
+  closures and assigned by the parent at `push(child:)` time.
 - The parent awaits a `Task<Result?, Never>` and drives the follow-up
   navigation itself (pop, mark onboarding complete, rerun a query, …).
 
@@ -51,6 +51,8 @@ store layer:
    returned `Task` resolves.
 2. Parent calls `parent.push(child:)` which installs the `onFinish` /
    `onCancel` callbacks on the child and returns `Task<Result?, Never>`.
+   Re-installing callbacks on the same child instance is unsupported
+   and fails fast.
 3. The child renders its own `CoordinatorHost` / `FlowHost` inside
    the parent's view tree — typically as a pushed route, or a modal
    step — using its own store. The parent is **not** responsible for
@@ -84,8 +86,8 @@ store layer:
 @MainActor
 public protocol ChildCoordinator: AnyObject {
     associatedtype Result: Sendable
-    var onFinish: (@MainActor (Result) -> Void)? { get set }
-    var onCancel: (@MainActor () -> Void)? { get set }
+    var onFinish: (@MainActor @Sendable (Result) -> Void)? { get set }
+    var onCancel: (@MainActor @Sendable () -> Void)? { get set }
 }
 
 public extension Coordinator {
