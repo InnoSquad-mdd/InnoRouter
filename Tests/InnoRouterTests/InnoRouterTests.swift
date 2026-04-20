@@ -688,6 +688,115 @@ struct NavigationIntentTests {
 
         #expect(store.state.path.isEmpty)
     }
+
+    @Test("NavigationStore send replaceStack overwrites path via replace command")
+    @MainActor
+    func testSendReplaceStack() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.replaceStack([.settings]))
+
+        #expect(seenCommands == [.replace([.settings])])
+        #expect(store.state.path == [.settings])
+    }
+
+    @Test("NavigationStore send backOrPush pops to existing route")
+    @MainActor
+    func testSendBackOrPushWhenRouteExists() throws {
+        let store = try NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "123"), .settings]
+        )
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.backOrPush(.detail(id: "123")))
+
+        #expect(seenCommands == [.popTo(.detail(id: "123"))])
+        #expect(store.state.path == [.home, .detail(id: "123")])
+    }
+
+    @Test("NavigationStore send backOrPush pushes when route is absent")
+    @MainActor
+    func testSendBackOrPushWhenRouteMissing() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home])
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.backOrPush(.settings))
+
+        #expect(seenCommands == [.push(.settings)])
+        #expect(store.state.path == [.home, .settings])
+    }
+
+    @Test("NavigationStore send pushUniqueRoot pushes when absent")
+    @MainActor
+    func testSendPushUniqueRootWhenAbsent() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home])
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.pushUniqueRoot(.settings))
+
+        #expect(seenCommands == [.push(.settings)])
+        #expect(store.state.path == [.home, .settings])
+    }
+
+    @Test("NavigationStore send pushUniqueRoot is a no-op when present")
+    @MainActor
+    func testSendPushUniqueRootWhenPresent() throws {
+        let store = try NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "123"), .settings]
+        )
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.pushUniqueRoot(.detail(id: "123")))
+
+        #expect(seenCommands.isEmpty)
+        #expect(store.state.path == [.home, .detail(id: "123"), .settings])
+    }
 }
 
 // MARK: - NavigationPathBinding Tests

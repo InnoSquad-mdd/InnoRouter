@@ -299,6 +299,18 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             _ = execute(.popToRoot)
         case .resetTo(let routes):
             _ = execute(.replace(routes))
+        case .replaceStack(let routes):
+            _ = execute(.replace(routes))
+        case .backOrPush(let route):
+            if state.path.contains(route) {
+                _ = execute(.popTo(route))
+            } else {
+                _ = execute(.push(route))
+            }
+        case .pushUniqueRoot(let route):
+            if !state.path.contains(route) {
+                _ = execute(.push(route))
+            }
         }
     }
 

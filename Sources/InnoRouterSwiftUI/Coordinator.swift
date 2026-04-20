@@ -9,6 +9,9 @@ public enum NavigationIntent<R: Route>: Sendable, Equatable {
     case backTo(R)
     case backToRoot
     case resetTo([R])
+    case replaceStack([R])
+    case backOrPush(R)
+    case pushUniqueRoot(R)
 }
 
 @MainActor
