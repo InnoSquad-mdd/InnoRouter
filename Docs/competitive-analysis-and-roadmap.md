@@ -31,7 +31,7 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | Typed route | ✅ `Route` protocol | ✅ `StackState<Elem>` | ✅ `@CasePathable` enum | ✅ `Route<Screen>` | ✅ (inherits TCA) | ⚠ DSL, not value-typed | ⚠ closure-based | ❌ URL string |
 | Unified push + sheet + cover stack | ✅ `FlowStore<R>` + `[RouteStep<R>]` | ❌ nested presents | ❌ | ✅ **single array** | ✅ | ⚠ | ⚠ | ⚠ |
 | Middleware / interception | ✅ willExecute/didExecute + cancel **on both Navigation and Modal** | ✅ reducer composition | ❌ | ❌ | ✅ (via TCA) | ❌ | ❌ | ❌ |
-| Deep link pipeline | ✅ Matcher + Pipeline + AuthPolicy + Outcome | ⚠ hand-hydrate | ❌ | ✅ rebuild path | ✅ | ⚠ manual | ❌ | ✅ URL-first |
+| Deep link pipeline | ✅ Matcher + Pipeline + AuthPolicy + Outcome **+ composite `FlowDeepLinkPipeline` (push + modal tail)** | ⚠ hand-hydrate | ❌ | ✅ rebuild path | ✅ | ⚠ manual | ❌ | ✅ URL-first, no modal tail |
 | Public observability hooks | ✅ onChange / Batch / Transaction / MiddlewareMutation **+ unified `store.events` AsyncStream** | ✅ TestStore covers it | ⚠ `observe { }` | ❌ | ✅ | ❌ | ❌ | ❌ |
 | Codable state restoration | ✅ opt-in `Codable` + `StatePersistence<R>` | ✅ `StackState: Codable` | ❌ | ✅ | ✅ | ⚠ | ❌ | ⚠ |
 | Batch + Transaction split | ✅ two models | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -163,34 +163,40 @@ Unlocks: flow-level deep links, restoration, replay. Next gap is
 serialisation (Codable `RouteStep` / `FlowPlan`) and pipeline
 integration — tracked under P0-3 and P2-2.
 
-#### P0-3 Deep-link path rehydration + `FlowPlan` integration
+#### P0-3 Deep-link path rehydration + `FlowPlan` integration — **Shipped**
 
-`DeepLinkPipeline` currently resolves a URL into a single
-`NavigationPlan` containing `[NavigationCommand<R>]`. Two shortcomings:
+A URL can now rehydrate a push prefix plus a modal terminal step
+atomically through `FlowStore.apply(_:)`. InnoRouter becomes the
+only surveyed framework that covers both multi-segment paths **and**
+modal-terminal URLs in a typed pipeline.
 
-1. URLs like `myapp://home/detail/123/comments/456` should map
-   type-safely to
-   `[push(.home), push(.detail("123")), push(.comments("456"))]` —
-   today this requires a hand-rolled matcher per depth.
-2. With `FlowStore<R>` landed, deep links cannot target modal tails.
-   `NavigationPlan` only carries push commands, so a URL cannot open
-   a sheet/cover as its terminal step.
+Shape (landed):
 
-Shape:
+- `FlowDeepLinkMapping<R>` / `FlowDeepLinkMatcher<R>` in
+  `InnoRouterDeepLink` — each handler returns a full `FlowPlan<R>`,
+  so multi-segment URLs are explicit at the mapping site (no trie,
+  no per-segment chaining) and modal-terminal URLs fall out
+  naturally (`FlowPlan(steps: [.sheet(.privacy)])`).
+- `FlowDeepLinkDecision<R>` + `FlowPendingDeepLink<R>` parallel the
+  push-only `DeepLinkDecision` / `PendingDeepLink`. Kept as
+  separate types so adding the flow surface didn't break
+  exhaustive switches over the existing enum.
+- `FlowDeepLinkPipeline<R>` composes scheme / host validation,
+  the matcher, and `DeepLinkAuthenticationPolicy<R>` (reused
+  verbatim from the push-only pipeline). Auth policy keys off the
+  plan's **primary** (first) route.
+- `FlowDeepLinkEffectHandler<R>` in `InnoRouterDeepLinkEffects`
+  drives a `FlowPlanApplier<R>` — new Core protocol that
+  `FlowStore` already satisfies through its `apply(_:)` method.
+  Keeps the effects module out of SwiftUI's dependency graph.
+- Pending-replay loop mirrors the push-only handler:
+  `resumePendingDeepLink()` / async `resumePendingDeepLinkIfAllowed`
+  re-consult the authentication policy when the gate probably opens.
 
-- `DeepLinkPathResolver<R>`: segment list → `[NavigationCommand<R>]`.
-  Trie-based matching or a chain of per-segment resolvers.
-- Extend `DeepLinkDecision` with a `.flowPlan(FlowPlan<R>)` case
-  alongside `.plan(NavigationPlan<R>)`, or introduce a
-  `FlowDeepLinkPipeline` that returns `FlowPlan<R>` directly.
-- Wire `FlowStore.apply(_ plan:)` into `DeepLinkEffectHandler` so a
-  URL can hydrate a whole push + sheet sequence in one call.
-- Prerequisite: `RouteStep` / `FlowPlan` `Codable` conformance
-  (currently scoped under P2-2 — **promote to P0-3 prerequisite**).
-
-Unlocks: genuine path-based deep links competitive with LinkNavigator,
-plus modal-terminating URLs that the `FlowStore` can rehydrate
-atomically.
+Unlocks: composite deep links competitive with LinkNavigator (plus
+modal-terminal URLs, which LinkNavigator can't express), so URL
+handling + scene-phase restoration + offline replay all funnel
+through a single `FlowPlan` pipeline.
 
 ### P1 — Meaningful feature gap
 
@@ -343,7 +349,30 @@ Shape (landed):
 - `InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md` —
   host-less test harness tour with `FlowTestStore`.
 
-### P3 — Nice to have
+### P3 — Polish / Nice to have
+
+#### Shipped
+
+- **P3-1 Parent Task cancellation → `ChildCoordinator.parentDidCancel`**
+  — `push(child:)` now routes Task cancellation through
+  `withTaskCancellationHandler`, calling a new `parentDidCancel()`
+  protocol requirement on the main actor. Default implementation
+  is an empty no-op so existing conformances keep building.
+  Directional: `parentDidCancel` is parent → child, `onCancel`
+  stays child → parent. Store-level cancellation remains an app
+  concern; `parentDidCancel` is the framework's cancellation
+  entry point.
+- **P3-2 FlowIntent named-intent parity** — `.replaceStack([R])`
+  (drops modal tail, then resets push prefix), `.backOrPush(R)`
+  (pops to an existing stack route; otherwise behaves like `.push`,
+  including modal-tail rejection), `.pushUniqueRoot(R)` (silent
+  no-op when stack root matches; otherwise dispatches as `.push`).
+  Semantics deliberately honour the modal-tail invariant instead
+  of silently blending — the variants that couldn't fit without
+  changing that contract (`replaceStackPreservingModal`, etc.)
+  were left as app policy.
+
+#### Still open
 
 - **Macro diagnostics**: `@Routable` error messages and FixIts.
 - **Command algebra extensions**: `.whenCancelled(then:)`, `.throttle`,
@@ -360,7 +389,7 @@ Shape (landed):
 |---|---|---|---|---|
 | P0 | NavigationTestStore / ModalTestStore / FlowTestStore (`InnoRouterTesting`) | positioning-decisive | large | **shipped** |
 | P0 | Unified FlowStack (push + sheet + cover) | positioning | medium–large | **shipped (#12 + 47467b50)** |
-| P0 | Deep link path rehydration + `FlowPlan` pipeline | deep-link selling point | medium | open |
+| P0 | Deep link path rehydration + `FlowDeepLinkPipeline` | deep-link selling point | medium | **shipped** |
 | P1 | Coordinator composition (`ChildCoordinator` + `push(child:)`) | coordinator UX | medium | **shipped (#14)** |
 | P1 | Typed destination bindings (`binding(case:)`) | ergonomics | small | **shipped (#14)** |
 | P1 | Named stack intents (`replaceStack`/`backOrPush`/`pushUniqueRoot`) | ergonomics | small | **shipped (#14)** |
@@ -369,42 +398,35 @@ Shape (landed):
 | P2 | `Codable` (`RouteStack` / `RouteStep` / `FlowPlan`) + `StatePersistence` | real-app requirement | medium | **shipped** |
 | P2 | UIKit escape hatch | adoption path | large | open |
 | P2 | DocC walkthroughs (5 tutorial articles) | learning curve | small–medium | **shipped** |
+| P3 | Parent Task cancellation (`parentDidCancel`) | coordinator UX polish | small | **shipped** |
+| P3 | FlowIntent named-intent parity (`.replaceStack`/`.backOrPush`/`.pushUniqueRoot`) | ergonomics parity | small | **shipped** |
 | P3 | Macro diagnostics, algebra, plugin, PBT | polish | small | open |
 
 ## 6. Suggested next work
 
-With the P2 quality-of-life cluster (P2-1 unified telemetry stream,
-P2-2 Codable + `StatePersistence`, P2-4 DocC walkthroughs) shipped,
-the backlog reduces to two remaining items:
+With P0-3 (composite deep-link rehydration), P3-1 (parent Task
+cancellation), and P3-2 (FlowIntent named-intent parity) all shipped,
+the P0/P1 backlog is **empty**. One item remains in P2, plus P3
+polish:
 
-- **P0-3 Deep-link rehydration for flows** — now unblocked by the
-  shipped P2-2 Codable surface. Build `DeepLinkPathResolver` +
-  `FlowDeepLinkPipeline` + `DeepLinkEffectHandler` wiring so URLs
-  can terminate on a modal step and rehydrate through
-  `FlowStore.apply`. The shipped `FlowTestStore` and
-  `FlowStore.events` surfaces cover regression at the intent
-  boundary.
 - **P2-3 UIKit escape hatch** — large, separable investment that
   requires a product-level decision (SwiftUI-only positioning vs
-  cross-surface). Defer until the decision lands.
+  cross-surface). Defer until the decision lands. If
+  SwiftUI-only stays the position, remove the entry from the
+  roadmap and mark the framework "complete" for v3.
 
-P3 polish items (macro diagnostics, command algebra extensions,
-`NavigationPlugin` protocol, property-based tests) remain
-opportunistic fill-ins.
+P3 polish items still open: macro diagnostics, command algebra
+(`.whenCancelled` / `.throttle` / `.debounce`), `NavigationPlugin`
+protocol, property-based tests. Each is a single-PR opportunistic
+fill-in.
 
-**Ergonomics cluster (small, compatible, ship opportunistically)**:
-P1-2 typed destination bindings + P1-3 named stack intents. Each is a
-single-file PR and collectively raises the daily-use bar. Best landed
-as fill-in work between the larger tracks.
-
-**Largest remaining architectural decision**: P1-1 coordinator
-composition — parent/child finish propagation touches the `Coordinator`
-protocol shape. Worth a short design note before implementation so the
-`FlowStore` ↔ coordinator handoff story stays consistent.
+At this point the primary investment direction shifts from gap
+closure to **polish + evangelism** (example apps, case studies,
+community onboarding).
 
 ## 7. Sources
 
-- InnoRouter repo, `main @ d1d89920` (2026-04-20).
+- InnoRouter repo, `main @ a42c5da0` (2026-04-21).
 - [pointfreeco/swift-composable-architecture](https://github.com/pointfreeco/swift-composable-architecture)
 - [pointfreeco/swift-navigation](https://github.com/pointfreeco/swift-navigation)
 - [johnpatrickmorgan/FlowStacks](https://github.com/johnpatrickmorgan/FlowStacks)

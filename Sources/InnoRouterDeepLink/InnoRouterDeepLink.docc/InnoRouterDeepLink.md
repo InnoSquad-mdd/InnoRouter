@@ -15,6 +15,8 @@ This module owns:
 - ``DeepLinkDecision``
 - ``PendingDeepLink``
 - ``NavigationPlan``
+- ``FlowDeepLinkMatcher`` + ``FlowDeepLinkPipeline`` for composite
+  flows (push prefix + modal terminal step).
 
 The key idea is that deep links are not executed ad hoc. They are matched, validated, authorized, and planned first.
 
@@ -25,7 +27,11 @@ The key idea is that deep links are not executed ad hoc. They are matched, valid
 - <doc:Matcher-and-Diagnostics>
 - <doc:Pipeline-and-Pending-Deep-Links>
 
-### Key Types
+### Tutorials
+
+- <doc:Tutorial-FlowDeepLinkPipeline>
+
+### Push-only pipeline
 
 - ``DeepLinkMatcher``
 - ``DeepLinkMatcherConfiguration``
@@ -34,3 +40,11 @@ The key idea is that deep links are not executed ad hoc. They are matched, valid
 - ``DeepLinkDecision``
 - ``PendingDeepLink``
 - ``NavigationPlan``
+
+### Composite (push + modal) pipeline
+
+- ``FlowDeepLinkMatcher``
+- ``FlowDeepLinkMapping``
+- ``FlowDeepLinkPipeline``
+- ``FlowDeepLinkDecision``
+- ``FlowPendingDeepLink``

@@ -384,6 +384,28 @@ child can fire them at any point, including before the parent's
 `await`. See [`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md)
 for the design rationale.
 
+Parent `Task` cancellation propagates to the child through
+`ChildCoordinator.parentDidCancel()` (default empty no-op). Override
+it to tear down transient state — dismiss sheets, cancel in-flight
+requests, release temporary stores — when the parent view is
+dismissed:
+
+```swift
+final class SignUpCoordinator: ChildCoordinator {
+    typealias Result = UserID
+    var onFinish: (@MainActor @Sendable (UserID) -> Void)?
+    var onCancel: (@MainActor @Sendable () -> Void)?
+
+    func parentDidCancel() {
+        signUpAPIClient.cancelActiveRequests()
+    }
+}
+```
+
+`parentDidCancel` is directional (parent → child). It does not
+invoke `onCancel` (which stays child → parent); the two hooks are
+orthogonal.
+
 ## Named navigation intents
 
 High-frequency intents compose from existing `NavigationCommand`
@@ -452,6 +474,47 @@ Typical flow:
 - parameter shadowing
 
 Diagnostics do not change declaration-order precedence. They help catch authoring mistakes without silently changing runtime behavior.
+
+### Composite deep links (push + modal tail)
+
+`FlowDeepLinkPipeline` extends the push-only pipeline so a single URL
+can rehydrate a push prefix **plus** a modal terminal step in one
+atomic `FlowStore.apply(_:)`:
+
+```swift
+let matcher = FlowDeepLinkMatcher<AppRoute> {
+    FlowDeepLinkMapping("/home/detail/:id") { params in
+        guard let id = params.firstValue(forName: "id") else { return nil }
+        return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
+    }
+    FlowDeepLinkMapping("/onboarding/privacy") { _ in
+        FlowPlan(steps: [.sheet(.privacyPolicy)])
+    }
+}
+
+let pipeline = FlowDeepLinkPipeline(
+    allowedSchemes: ["myapp"],
+    allowedHosts: ["app"],
+    matcher: matcher,
+    authenticationPolicy: .required(
+        shouldRequireAuthentication: { _ in true },
+        isAuthenticated: { SessionStore.shared.isAuthenticated }
+    )
+)
+
+let handler = FlowDeepLinkEffectHandler(pipeline: pipeline, applier: flowStore)
+
+FlowHost(store: flowStore, destination: destination) { RootView() }
+    .onOpenURL { _ = handler.handle($0) }
+```
+
+Each `FlowDeepLinkMapping` handler returns a **complete** `FlowPlan`,
+so multi-segment URLs are explicit at the declaration site. The
+pipeline reuses `DeepLinkAuthenticationPolicy` + `PendingDeepLink`
+semantics from the push-only pipeline for symmetric authentication
+deferral and replay. See
+[`Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md`](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md)
+for the full walk-through.
 
 ## Middleware
 
@@ -792,18 +855,18 @@ the `events` stream is an additional channel, not a replacement.
 
 ## Roadmap
 
-Remaining items tracked in
-[`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md):
+Tracked in
+[`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md).
+The P0/P1 backlog is now empty. One P2 item remains:
 
-- [ ] **P0-3 Deep-link path rehydration** — `DeepLinkPathResolver`
-      + `FlowDeepLinkPipeline` + `DeepLinkEffectHandler` so a URL
-      can terminate on a modal step and rehydrate through
-      `FlowStore.apply`. Now unblocked by the shipped
-      `StatePersistence` / `Codable` surface.
 - [ ] **P2-3 UIKit escape hatch** — bidirectional binding between
       `NavigationStore` and `UINavigationController` for
       incremental UIKit adoption. Separate product decision
-      required.
+      required (SwiftUI-only positioning vs multi-surface).
+
+P3 polish items (macro diagnostics, command algebra extensions,
+`NavigationPlugin` protocol, property-based tests) stay
+opportunistic fill-ins.
 
 ## License
 
