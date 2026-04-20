@@ -1,0 +1,99 @@
+// MARK: - FlowPlanApplicationTests.swift
+// InnoRouterTests - FlowStore.apply(_ plan:)
+// Copyright © 2026 Inno Squad. All rights reserved.
+
+import Testing
+import Foundation
+import Synchronization
+import InnoRouter
+@testable import InnoRouterSwiftUI
+
+private enum FlowPlanRoute: Route {
+    case start
+    case second
+    case sheetStep
+    case coverStep
+    case queuedStep
+}
+
+@Suite("FlowPlan Application Tests")
+struct FlowPlanApplicationTests {
+
+    @Test("apply seeds stack and modal tail from a valid plan")
+    @MainActor
+    func applyValidPlan() {
+        let store = FlowStore<FlowPlanRoute>()
+        let plan = FlowPlan<FlowPlanRoute>(steps: [
+            .push(.start),
+            .push(.second),
+            .sheet(.sheetStep)
+        ])
+
+        store.apply(plan)
+
+        #expect(store.path == plan.steps)
+        #expect(store.navigationStore.state.path == [.start, .second])
+        #expect(store.modalStore.currentPresentation?.route == .sheetStep)
+    }
+
+    @Test("apply with invalid plan emits invalidResetPath rejection")
+    @MainActor
+    func applyInvalidPlanRejected() {
+        let rejections = Mutex<[FlowRejectionReason]>([])
+        let store = FlowStore<FlowPlanRoute>(
+            configuration: .init(
+                onIntentRejected: { _, reason in
+                    rejections.withLock { $0.append(reason) }
+                }
+            )
+        )
+        let invalid = FlowPlan<FlowPlanRoute>(steps: [
+            .sheet(.sheetStep),
+            .push(.second)
+        ])
+
+        store.apply(invalid)
+
+        #expect(store.path.isEmpty)
+        #expect(rejections.withLock { $0 } == [.invalidResetPath])
+    }
+
+    @Test("apply with empty plan clears stack and modal")
+    @MainActor
+    func applyEmptyPlanClears() {
+        let store = FlowStore<FlowPlanRoute>()
+        store.send(.push(.start))
+        store.send(.presentSheet(.sheetStep))
+
+        store.apply(FlowPlan<FlowPlanRoute>())
+
+        #expect(store.path.isEmpty)
+        #expect(store.navigationStore.state.path.isEmpty)
+        #expect(store.modalStore.currentPresentation == nil)
+    }
+
+    @Test("apply supports cover tail too")
+    @MainActor
+    func applyCoverTailPlan() {
+        let store = FlowStore<FlowPlanRoute>()
+        store.apply(FlowPlan<FlowPlanRoute>(steps: [.push(.start), .cover(.coverStep)]))
+
+        #expect(store.modalStore.currentPresentation?.style == .fullScreenCover)
+        #expect(store.modalStore.currentPresentation?.route == .coverStep)
+    }
+
+    @Test("apply clears queued presentations when target modal tail already matches current modal")
+    @MainActor
+    func applyClearsStaleQueuedPresentations() {
+        let store = FlowStore<FlowPlanRoute>()
+        store.send(.push(.start))
+        store.send(.presentSheet(.sheetStep))
+        store.send(.presentSheet(.queuedStep))
+
+        store.apply(FlowPlan<FlowPlanRoute>(steps: [.push(.start), .sheet(.sheetStep)]))
+
+        #expect(store.path == [.push(.start), .sheet(.sheetStep)])
+        #expect(store.modalStore.currentPresentation?.route == .sheetStep)
+        #expect(store.modalStore.queuedPresentations.isEmpty)
+    }
+}

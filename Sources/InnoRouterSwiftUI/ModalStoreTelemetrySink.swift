@@ -77,6 +77,62 @@ final class ModalStoreTelemetrySink<M: Route> {
         )
     }
 
+    func recordMiddlewareMutation(
+        _ action: ModalStoreTelemetryEvent<M>.MiddlewareMutation,
+        metadata: ModalMiddlewareMetadata,
+        index: Int?
+    ) {
+        recorder?(
+            .middlewareMutation(action: action, metadata: metadata, index: index)
+        )
+
+        guard let logger else { return }
+        logger.notice(
+            """
+            modal middleware mutation \
+            action=\(action.rawValue, privacy: .public) \
+            handle=\(metadata.handle.logValue, privacy: .public) \
+            debugName=\(metadata.debugName ?? "nil", privacy: .public) \
+            index=\(String(index ?? -1), privacy: .public)
+            """
+        )
+    }
+
+    func recordCommandIntercepted(
+        command: ModalCommand<M>,
+        outcome: ModalStoreTelemetryEvent<M>.InterceptionOutcomeKind,
+        cancellationReason: ModalCancellationReason<M>?
+    ) {
+        recorder?(
+            .commandIntercepted(
+                command: command,
+                outcome: outcome,
+                cancellationReason: cancellationReason
+            )
+        )
+
+        guard let logger else { return }
+        logger.notice(
+            """
+            modal command intercepted \
+            command=\(Self.commandSummary(for: command), privacy: .public) \
+            outcome=\(outcome.rawValue, privacy: .public) \
+            cancellation=\(cancellationReason.map { String(describing: $0) } ?? "nil", privacy: .public)
+            """
+        )
+    }
+
+    private static func commandSummary(for command: ModalCommand<M>) -> String {
+        switch command {
+        case .present(let presentation):
+            return "present(\(routeSummary(for: presentation.route)), \(presentation.style))"
+        case .dismissCurrent(let reason):
+            return "dismissCurrent(\(reason))"
+        case .dismissAll:
+            return "dismissAll"
+        }
+    }
+
     private static func routeSummary(for route: M) -> String {
         let description = String(describing: route)
         return description

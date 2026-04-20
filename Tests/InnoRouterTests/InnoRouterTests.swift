@@ -2822,7 +2822,11 @@ struct ModalStoreTests {
         store.dismissCurrent()
         store.dismissAll()
 
-        let events = recorder.withLock { $0 }
+        let events = recorder.withLock { $0 }.filter { event in
+            if case .commandIntercepted = event { return false }
+            if case .middlewareMutation = event { return false }
+            return true
+        }
         #expect(events.count == 7)
 
         switch events[0] {
