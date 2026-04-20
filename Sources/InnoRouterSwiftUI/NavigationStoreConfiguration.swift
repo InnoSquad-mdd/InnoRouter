@@ -60,6 +60,16 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
     /// handle — never fire this callback. Use this to surface registry churn to
     /// analytics or diagnostic pipelines without reaching for `@testable import`.
     public let onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)?
+    /// Called whenever the configured `pathMismatchPolicy` resolves a path
+    /// reconciliation divergence (e.g. SwiftUI swipe-back races, non-prefix
+    /// path replacements). Successful prefix reductions do not fire this
+    /// callback; only policy-driven resolutions do.
+    ///
+    /// Use this to surface path-binding instability to analytics or diagnostics
+    /// without reaching for `@testable import`. Test harnesses such as
+    /// `NavigationTestStore` subscribe to this hook internally to assert path
+    /// mismatch handling.
+    public let onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)?
 
     /// Creates a navigation store configuration.
     public init(
@@ -71,7 +81,8 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)? = nil,
         onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)? = nil,
         onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)? = nil,
-        onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)? = nil
+        onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)? = nil,
+        onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)? = nil
     ) {
         self.engine = engine
         self.middlewares = middlewares
@@ -82,5 +93,6 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         self.onBatchExecuted = onBatchExecuted
         self.onTransactionExecuted = onTransactionExecuted
         self.onMiddlewareMutation = onMiddlewareMutation
+        self.onPathMismatch = onPathMismatch
     }
 }

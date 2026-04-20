@@ -155,6 +155,7 @@ DOCC_MODULES=(
   "InnoRouterNavigationEffects|Sources/InnoRouterNavigationEffects/InnoRouterNavigationEffects.docc|navigation-effects|InnoRouterNavigationEffects|com.innosquad.innorouter.docs.navigationeffects"
   "InnoRouterDeepLinkEffects|Sources/InnoRouterDeepLinkEffects/InnoRouterDeepLinkEffects.docc|deeplink-effects|InnoRouterDeepLinkEffects|com.innosquad.innorouter.docs.deeplinkeffects"
   "InnoRouterMacros|Sources/InnoRouterMacros/InnoRouterMacros.docc|macros|InnoRouterMacros|com.innosquad.innorouter.docs.macros"
+  "InnoRouterTesting|Sources/InnoRouterTesting/InnoRouterTesting.docc|testing|InnoRouterTesting|com.innosquad.innorouter.docs.testing"
 )
 
 temp_root="$(mktemp -d "${TMPDIR:-/tmp}/innorouter-docc.XXXXXX")"
@@ -192,10 +193,14 @@ build_bin_dir="$(swift build --show-bin-path)"
 modules_dir="$build_bin_dir/Modules"
 module_cache_dir="$build_bin_dir/ModuleCache"
 sdk_path="$(xcrun --show-sdk-path)"
+# Platform frameworks directory holds Testing.framework + its subpackages,
+# which InnoRouterTesting imports for Swift Testing integration.
+platform_frameworks_dir="$(xcode-select -p)/Platforms/MacOSX.platform/Developer/Library/Frameworks"
 
 [[ -d "$modules_dir" ]] || die "failed to locate build modules directory"
 [[ -d "$module_cache_dir" ]] || die "failed to locate module cache directory"
 [[ -n "$sdk_path" ]] || die "failed to locate SDK path"
+[[ -d "$platform_frameworks_dir" ]] || die "failed to locate platform frameworks directory: $platform_frameworks_dir"
 
 target_triple="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["target"]["triple"])')"
 resource_dir="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["paths"]["runtimeResourcePath"])')"
@@ -220,6 +225,7 @@ extract_module_symbols() {
   "$swift_symbolgraph_extract_bin" \
     -module-name "$target" \
     -I "$modules_dir" \
+    -F "$platform_frameworks_dir" \
     -target "$target_triple" \
     -module-cache-path "$module_cache_dir" \
     -sdk "$sdk_path" \
@@ -319,6 +325,7 @@ render_version_portal() {
       <a class="card" href="./navigation-effects/"><strong>InnoRouterNavigationEffects</strong><p>App-boundary command, batch, transaction, and guarded execution helpers.</p></a>
       <a class="card" href="./deeplink-effects/"><strong>InnoRouterDeepLinkEffects</strong><p>Deep-link effect execution, typed outcomes, and pending resume helpers.</p></a>
       <a class="card" href="./macros/"><strong>InnoRouterMacros</strong><p>@Routable and @CasePathable for concise route declarations and extraction.</p></a>
+      <a class="card" href="./testing/"><strong>InnoRouterTesting</strong><p>Host-less assertion test stores for NavigationStore, ModalStore, and FlowStore.</p></a>
     </div>
     <a class="back" href="../">Back to documentation portal</a>
   </main>

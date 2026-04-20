@@ -32,7 +32,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         configuration: NavigationStoreConfiguration<R> = .init()
     ) {
         let publicRecorder = Self.makePublicTelemetryRecorder(
-            onMiddlewareMutation: configuration.onMiddlewareMutation
+            onMiddlewareMutation: configuration.onMiddlewareMutation,
+            onPathMismatch: configuration.onPathMismatch
         )
         let telemetrySink = NavigationStoreTelemetrySink<R>(
             logger: configuration.logger,
@@ -69,7 +70,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         telemetryRecorder: NavigationStoreTelemetryRecorder<R>? = nil
     ) {
         let publicRecorder = Self.makePublicTelemetryRecorder(
-            onMiddlewareMutation: configuration.onMiddlewareMutation
+            onMiddlewareMutation: configuration.onMiddlewareMutation,
+            onPathMismatch: configuration.onPathMismatch
         )
         let combinedRecorder = Self.combineRecorders(telemetryRecorder, publicRecorder)
         let telemetrySink = NavigationStoreTelemetrySink(
@@ -95,22 +97,53 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     // MARK: - Public telemetry adapters
 
     private static func makePublicTelemetryRecorder(
-        onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)?
+        onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)?,
+        onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)?
     ) -> NavigationStoreTelemetryRecorder<R>? {
-        guard let onMiddlewareMutation else { return nil }
+        if onMiddlewareMutation == nil && onPathMismatch == nil {
+            return nil
+        }
         return { @MainActor event in
             switch event {
             case .middlewareMutation(let action, let metadata, let index):
-                onMiddlewareMutation(
+                onMiddlewareMutation?(
                     MiddlewareMutationEvent(
                         action: Self.publicAction(for: action),
                         metadata: metadata,
                         index: index
                     )
                 )
-            case .pathMismatch:
-                break
+            case .pathMismatch(let policy, let resolution, let oldPath, let newPath):
+                onPathMismatch?(
+                    NavigationPathMismatchEvent(
+                        policy: Self.publicPolicy(for: policy),
+                        resolution: Self.publicResolution(for: resolution),
+                        oldPath: oldPath,
+                        newPath: newPath
+                    )
+                )
             }
+        }
+    }
+
+    private static func publicPolicy(
+        for policy: NavigationStoreTelemetryEvent<R>.PathMismatchPolicy
+    ) -> NavigationPathMismatchEvent<R>.Policy {
+        switch policy {
+        case .replace: return .replace
+        case .assertAndReplace: return .assertAndReplace
+        case .ignore: return .ignore
+        case .custom: return .custom
+        }
+    }
+
+    private static func publicResolution(
+        for resolution: NavigationStoreTelemetryEvent<R>.PathMismatchResolution
+    ) -> NavigationPathMismatchEvent<R>.Resolution {
+        switch resolution {
+        case .single(let command): return .single(command)
+        case .batch(let commands): return .batch(commands)
+        case .ignore: return .ignore
         }
     }
 

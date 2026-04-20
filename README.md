@@ -610,6 +610,69 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
   (`pushBlockedByModalTail`, `invalidResetPath`,
   `middlewareRejected(debugName:)`).
 
+## Host-less testing (`InnoRouterTesting`)
+
+`InnoRouterTesting` is a shippable Swift-Testing-native assertion
+harness that wraps `NavigationStore`, `ModalStore`, and `FlowStore`.
+Tests no longer need `@testable import InnoRouterSwiftUI` or
+hand-rolled `Mutex<[Event]>` collectors — every public observation
+callback is buffered into a FIFO queue, and tests drain it with
+TCA-style `receive(...)` calls.
+
+Add the product to the test target only:
+
+```swift
+// Package.swift
+.testTarget(
+    name: "AppTests",
+    dependencies: [
+        .product(name: "InnoRouter", package: "InnoRouter"),
+        .product(name: "InnoRouterTesting", package: "InnoRouter"),
+    ]
+)
+```
+
+Then author tests against the production intents:
+
+```swift
+import Testing
+import InnoRouter
+import InnoRouterTesting
+
+@Test
+@MainActor
+func pushHomeThenDetail() {
+    let store = NavigationTestStore<AppRoute>()
+
+    store.send(.go(.home))
+    store.receiveChange { _, new in new.path == [.home] }
+
+    store.executeBatch([.push(.detail("42"))])
+    store.receiveChange { _, new in new.path == [.home, .detail("42")] }
+    store.receiveBatch { $0.isSuccess }
+
+    store.expectNoMoreEvents()
+}
+```
+
+What the harness covers:
+
+- **`NavigationTestStore<R>`** — `onChange`, `onBatchExecuted`,
+  `onTransactionExecuted`, `onMiddlewareMutation`, and
+  `onPathMismatch`. Forwards `send`, `execute`, `executeBatch`,
+  `executeTransaction` to the underlying store unchanged.
+- **`ModalTestStore<M>`** — `onPresented`, `onDismissed`,
+  `onQueueChanged`, `onCommandIntercepted`, `onMiddlewareMutation`.
+- **`FlowTestStore<R>`** — FlowStore-level
+  `onPathChanged` + `onIntentRejected`, plus `.navigation(...)` and
+  `.modal(...)` wrappers around the inner store emissions on a
+  single queue. One test can assert the complete chain triggered by
+  a single `FlowIntent`, including middleware cancellation paths.
+
+Exhaustivity defaults to `.strict`: any unasserted event at store
+deinit fires a Swift Testing issue. Use `.off` for incremental
+migrations from legacy test fixtures.
+
 ## Roadmap
 
 Potential next steps for a future major release:
