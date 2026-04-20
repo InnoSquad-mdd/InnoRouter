@@ -729,17 +729,81 @@ Exhaustivity defaults to `.strict`: any unasserted event at store
 deinit fires a Swift Testing issue. Use `.off` for incremental
 migrations from legacy test fixtures.
 
+## State restoration
+
+Routes that opt into `Codable` get round-trippable `RouteStack`,
+`RouteStep`, and `FlowPlan` values for free:
+
+```swift
+enum AppRoute: Route, Codable {
+    case home
+    case detail(String)
+    case settings
+}
+
+let persistence = StatePersistence<AppRoute>()
+
+// On scene background / checkpoint:
+let data = try persistence.encode(FlowPlan(steps: flowStore.path))
+try data.write(to: restorationURL, options: .atomic)
+
+// On launch:
+if let data = try? Data(contentsOf: restorationURL) {
+    flowStore.apply(try persistence.decode(data))
+}
+```
+
+`StatePersistence<R: Route & Codable>` wraps a `JSONEncoder` and
+`JSONDecoder` (both configurable) and stops at the `Data`
+boundary — file URLs, `UserDefaults`, iCloud, and scene-phase
+hooks are app concerns. Errors propagate as the underlying
+`EncodingError` / `DecodingError` so callers can distinguish
+schema drift from I/O failures.
+
+## Unified observation stream
+
+Every store publishes a single `events: AsyncStream` that covers
+the complete observation surface — stack changes, batch /
+transaction completions, path-mismatch resolutions,
+middleware-registry mutations, modal present / dismiss / queue
+updates, command interceptions, and flow-level path or
+intent-rejection signals.
+
+```swift
+Task {
+    for await event in flowStore.events {
+        switch event {
+        case .navigation(.changed(_, let to)):
+            analytics.track("nav_path", to.path)
+        case .modal(.commandIntercepted(_, .cancelled(let reason))):
+            Log.warning("modal cancelled: \(reason)")
+        case .intentRejected(let intent, let reason):
+            Log.info("flow rejected \(intent) because \(reason)")
+        default:
+            continue
+        }
+    }
+}
+```
+
+Individual `onChange`, `onPresented`, `onCommandIntercepted`, etc.
+callbacks on each `*Configuration` type remain source-compatible;
+the `events` stream is an additional channel, not a replacement.
+
 ## Roadmap
 
-Potential next steps for a future major release:
+Remaining items tracked in
+[`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md):
 
-- [ ] Composite deep-link plans
-  Extend `DeepLinkPipeline` to emit `FlowPlan<R>` directly so URL
-  handling can seed combined push + modal flows in one value-level
-  step.
-- [ ] `Codable` route stacks + `FlowPlan` persistence
-  Opt-in state restoration so a `FlowStore.path` snapshot can be
-  persisted and replayed at launch.
+- [ ] **P0-3 Deep-link path rehydration** — `DeepLinkPathResolver`
+      + `FlowDeepLinkPipeline` + `DeepLinkEffectHandler` so a URL
+      can terminate on a modal step and rehydrate through
+      `FlowStore.apply`. Now unblocked by the shipped
+      `StatePersistence` / `Codable` surface.
+- [ ] **P2-3 UIKit escape hatch** — bidirectional binding between
+      `NavigationStore` and `UINavigationController` for
+      incremental UIKit adoption. Separate product decision
+      required.
 
 ## License
 
