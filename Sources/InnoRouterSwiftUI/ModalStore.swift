@@ -501,6 +501,32 @@ public final class ModalStore<M: Route> {
         )
     }
 
+    /// A binding that reflects the current presentation when it matches the given case.
+    ///
+    /// Writing a non-nil value presents the embedded route through the regular command
+    /// pipeline with the supplied style, so middleware and telemetry observe the
+    /// presentation. Writing `nil` dismisses the current presentation only when it
+    /// currently matches the case.
+    public func binding<Value>(
+        case casePath: CasePath<M, Value>,
+        style: ModalPresentationStyle = .sheet
+    ) -> Binding<Value?> {
+        Binding(
+            get: { [weak self] in
+                guard let route = self?.currentPresentation?.route else { return nil }
+                return casePath.extract(route)
+            },
+            set: { [weak self] newValue in
+                guard let self else { return }
+                if let value = newValue {
+                    self.present(casePath.embed(value), style: style)
+                } else if let route = self.currentPresentation?.route, casePath.extract(route) != nil {
+                    self.dismissCurrent()
+                }
+            }
+        )
+    }
+
     private func promoteNextPresentationIfNeeded() {
         guard currentPresentation == nil, !queuedPresentations.isEmpty else { return }
         let oldQueue = queuedPresentations
