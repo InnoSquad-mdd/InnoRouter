@@ -367,6 +367,62 @@ Recommended division:
 - `TabCoordinator`: shell/tab selection state
 - `FlowCoordinator`: local step progression inside a destination
 
+### Child coordinator chaining
+
+`ChildCoordinator` lets a parent coordinator await a finish value inline
+through `parent.push(child:) -> Task<Child.Result?, Never>`:
+
+```swift
+let signupResult = await parentCoordinator.push(child: SignUpCoordinator())
+if let user = signupResult {
+    parentCoordinator.handle(.go(.home(user)))
+}
+```
+
+Callbacks (`onFinish`, `onCancel`) are installed synchronously so the
+child can fire them at any point, including before the parent's
+`await`. See [`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md)
+for the design rationale.
+
+## Named navigation intents
+
+High-frequency intents compose from existing `NavigationCommand`
+primitives:
+
+- `NavigationIntent.replaceStack([R])` — reset the stack to the given
+  routes in one observable step.
+- `NavigationIntent.backOrPush(R)` — pop to `route` if it already
+  exists in the stack, otherwise push it.
+- `NavigationIntent.pushUniqueRoot(R)` — push only if the current
+  root doesn't already match.
+
+These route through the normal `send` → `execute` pipeline so middleware
+and telemetry observe them identically to direct `NavigationCommand`
+calls.
+
+## Case-typed destination bindings
+
+`NavigationStore` and `ModalStore` expose `binding(case:)` helpers keyed
+by the `CasePath` emitted by `@Routable` / `@CasePathable`:
+
+```swift
+struct DetailSheet: View {
+    @Environment(\.navigationStore) private var store: NavigationStore<AppRoute>
+
+    var body: some View {
+        SomeDetailView()
+            .sheet(item: store.binding(case: \AppRoute.detail)) { detail in
+                DetailView(detail: detail)
+            }
+    }
+}
+```
+
+Bindings route every set through the existing command pipeline so
+middleware and telemetry observe them exactly as they do direct
+`execute(...)` calls. `ModalStore.binding(case:style:)` is scoped per
+presentation style (`.sheet` / `.fullScreenCover`).
+
 ## Deep-link model
 
 Deep links are handled as plans, not hidden side effects.

@@ -40,7 +40,8 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | Swift 6 strict concurrency | ✅ **enforced per module** | ✅ | ✅ | ⚠ in progress | ⚠ | ❌ | ✅ | ✅ |
 | iOS floor | **18+** | 13+ / 17+ for Observation | 13+ | 16+ | 13+ | 14+ | 17+ | 16+ |
 | Cross-surface (UIKit / AppKit) | ❌ SwiftUI only | ⚠ | ✅ **4 products** | ❌ | ⚠ | ⚠ | ❌ | ❌ |
-| Coordinator composition (child → parent) | ⚠ protocol only | ✅ reducer `forEach` | ❌ | ✅ | ✅ | ✅ | ⚠ | ⚠ |
+| Coordinator composition (child → parent) | ✅ `ChildCoordinator` + `parent.push(child:) -> Task<Result?>` | ✅ reducer `forEach` | ❌ | ✅ | ✅ | ✅ | ⚠ | ⚠ |
+| Case-typed destination bindings | ✅ `store.binding(case:)` on Nav + Modal | ⚠ via `@Presents` | ✅ `@CasePathable` | ⚠ | ⚠ | ❌ | ❌ | ❌ |
 
 ## 3. Head-to-head takeaways
 
@@ -74,8 +75,12 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 ### vs TCACoordinators — 498★
 - **Lead**: no TCA dependency, lower learning curve,
   `DeepLinkCoordinationOutcome` surfaces coordinator-level observability.
-- **Lag**: built-in coordinator-composition primitives (child → parent
-  chain, "back to root across coordinators") are absent.
+  `ChildCoordinator` + `parent.push(child:) -> Task<Result?, Never>`
+  (#14) now provides child → parent finish chaining with inline
+  `await` on the child result.
+- **Lag (narrowed)**: "back to root across coordinators" still
+  requires manual cleanup. Remaining P3 item: `Task` cancellation
+  propagation parent → child.
 
 ### vs Stinsen — 960★ (legacy)
 - **Lead**: every axis. NavigationStack-era, Observation, Sendable,
@@ -188,32 +193,58 @@ atomically.
 
 ### P1 — Meaningful feature gap
 
-#### P1-1 Coordinator composition primitives
+#### P1-1 Coordinator composition primitives — **Shipped (#14)**
 
-Child coordinators cannot cleanly report finish/cancel to a parent.
-This is FlowStacks' and TCACoordinators' daily ergonomics.
+Child coordinators can now cleanly report finish/cancel back to a
+parent, closing the FlowStacks / TCACoordinators ergonomics gap.
 
-Shape:
+Shape (landed):
 
-- `ChildCoordinator<Parent, Result>` with `onFinish(Result)` callback.
-- `parent.push(child:)` returning `Task<Result>` for async await on
-  child completion.
+- `ChildCoordinator` protocol in `InnoRouterSwiftUI` with associated
+  `Result` type + `onFinish` / `onCancel` callback hooks.
+- `Coordinator.push(child:) -> Task<Child.Result?, Never>` lets a
+  parent `await` the child's finish value inline. Callbacks are
+  installed synchronously through `AsyncStream.makeStream()` so the
+  child can fire `onFinish` at any point (including before the
+  parent's `await`), avoiding a `@MainActor` re-entrancy deadlock.
+- Design rationale in `Docs/design-child-coordinator-handoff.md`.
 
-#### P1-2 Typed destination bindings
+Remaining gap (tracked as P3): `Task` cancellation propagation from
+parent → child.
 
-`@CasePathable` exists, but public `.sheet(item:)`-style helpers per
-enum case are not provided on the store.
+#### P1-2 Typed destination bindings — **Shipped (#14)**
 
-Shape:
+`@CasePathable` now has `.sheet(item:)`-style helpers per enum case
+exposed on both stores.
+
+Shape (landed):
 
 - `NavigationStore<R>.binding(case: CasePath<R, Detail>) -> Binding<Detail?>`.
-- Mirror for `ModalStore`.
+- `ModalStore<M>.binding(case:style:)` mirror scoped per presentation
+  style.
+- `CasePath` moved from `InnoRouterMacros` to `InnoRouterCore` so the
+  binding API lives with the stores. Existing
+  `import InnoRouterMacros` consumers are unaffected — Macros keeps
+  `@_exported import InnoRouterCore`.
+- Bindings route every mutation through the existing command
+  pipeline so middleware and telemetry observe them exactly as with
+  direct `execute(...)`.
 
-#### P1-3 Named stack intents
+#### P1-3 Named stack intents — **Shipped (#14)**
 
-Add `NavigationIntent.replaceStack([R])`, `.backOrPush(R)`,
-`.pushUniqueRoot(R)`, and similar high-frequency intents. These
-currently require hand-composed commands.
+High-frequency intents compose from existing
+`NavigationCommand` primitives with no engine changes.
+
+Shape (landed):
+
+- `NavigationIntent.replaceStack([R])` — composes `.replace(routes)`.
+- `NavigationIntent.backOrPush(R)` — composes `.popTo(route)` with
+  fallback to `.push(route)`.
+- `NavigationIntent.pushUniqueRoot(R)` — dedupes when the current
+  root already matches, otherwise pushes.
+- `FlowIntent` parallels were intentionally skipped —
+  `FlowIntent` is a higher-level abstraction with modal-step
+  invariants, so low-level stack intents don't map 1:1.
 
 #### P1-4 `ModalStore` middleware — **Shipped**
 
@@ -283,9 +314,9 @@ is the reference for style.
 | P0 | NavigationTestStore / ModalTestStore / FlowTestStore (`InnoRouterTesting`) | positioning-decisive | large | **shipped** |
 | P0 | Unified FlowStack (push + sheet + cover) | positioning | medium–large | **shipped (#12 + 47467b50)** |
 | P0 | Deep link path rehydration + `FlowPlan` pipeline | deep-link selling point | medium | open |
-| P1 | Coordinator composition | coordinator UX | medium | open |
-| P1 | Typed destination bindings | ergonomics | small | open |
-| P1 | Named stack intents | ergonomics | small | open |
+| P1 | Coordinator composition (`ChildCoordinator` + `push(child:)`) | coordinator UX | medium | **shipped (#14)** |
+| P1 | Typed destination bindings (`binding(case:)`) | ergonomics | small | **shipped (#14)** |
+| P1 | Named stack intents (`replaceStack`/`backOrPush`/`pushUniqueRoot`) | ergonomics | small | **shipped (#14)** |
 | P1 | ModalStore middleware | symmetry | small | **shipped (#12)** |
 | P2 | Unified telemetry stream | analytics unification | small | open |
 | P2 | `Codable` (`RouteStack` / `RouteStep` / `FlowPlan`) + restoration | real-app requirement | medium | open (prereq for P0-3) |
