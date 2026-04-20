@@ -534,3 +534,9 @@ public final class FlowStore<R: Route> {
 private final class FlowStoreLink<R: Route> {
     weak var owner: FlowStore<R>?
 }
+
+// MARK: - FlowPlanApplier conformance
+
+extension FlowStore: FlowPlanApplier {
+    public typealias RouteType = R
+}

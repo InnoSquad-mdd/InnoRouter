@@ -1,0 +1,167 @@
+// MARK: - FlowDeepLinkEffectHandler.swift
+// InnoRouterDeepLinkEffects - composite URL → FlowStore.apply bridge
+// Copyright © 2026 Inno Squad. All rights reserved.
+
+import Foundation
+@_exported import InnoRouterCore
+@_exported import InnoRouterDeepLink
+
+/// Bridges ``FlowDeepLinkPipeline`` output into a ``FlowPlanApplier``
+/// (typically a `FlowStore`) so a single URL rehydrates a push +
+/// modal flow atomically.
+///
+/// Parallels ``DeepLinkEffectHandler`` for push-only pipelines —
+/// push-only callers keep their existing handler untouched, and
+/// FlowStore-driven callers opt into this type for composite
+/// URL support.
+@MainActor
+public final class FlowDeepLinkEffectHandler<R: Route> {
+    public enum Result: Sendable, Equatable {
+        /// URL matched and the plan was applied. The resulting flow
+        /// path is attached for caller inspection / logging.
+        case executed(plan: FlowPlan<R>, path: [RouteStep<R>])
+        /// Authentication gate deferred the URL; caller should replay
+        /// via ``resumePendingIfAllowed(_:)``.
+        case pending(FlowPendingDeepLink<R>)
+        /// URL rejected by scheme or host validation.
+        case rejected(reason: DeepLinkRejectionReason)
+        /// No mapping handled the URL.
+        case unhandled(url: URL)
+        /// String input could not be parsed as a URL.
+        case invalidURL(input: String)
+        /// The supplied effect carried no URL.
+        case missingDeepLinkURL
+        /// `resumePendingDeepLink` was called but nothing was queued.
+        case noPendingDeepLink
+    }
+
+    public private(set) var pendingDeepLink: FlowPendingDeepLink<R>?
+    public let pipeline: FlowDeepLinkPipeline<R>
+    private let applier: any FlowPlanApplier<R>
+
+    public init(
+        pipeline: FlowDeepLinkPipeline<R>,
+        applier: any FlowPlanApplier<R>
+    ) {
+        self.pipeline = pipeline
+        self.applier = applier
+    }
+
+    /// Processes a URL through the pipeline and applies the outcome.
+    @discardableResult
+    public func handle(_ url: URL) -> Result {
+        switch pipeline.decide(for: url) {
+        case .rejected(let reason):
+            return .rejected(reason: reason)
+        case .unhandled(let unhandledURL):
+            return .unhandled(url: unhandledURL)
+        case .pending(let pending):
+            self.pendingDeepLink = pending
+            return .pending(pending)
+        case .flowPlan(let plan):
+            self.pendingDeepLink = nil
+            applier.apply(plan)
+            let path = Self.path(for: plan, using: applier)
+            return .executed(plan: plan, path: path)
+        }
+    }
+
+    @discardableResult
+    public func handle(_ urlString: String) -> Result {
+        guard let url = URL(string: urlString) else {
+            return .invalidURL(input: urlString)
+        }
+        return handle(url)
+    }
+
+    /// Replays a previously deferred pending deep link by
+    /// re-consulting the authentication policy. If the gate now
+    /// permits it, the plan is applied.
+    @discardableResult
+    public func resumePendingDeepLink() -> Result {
+        guard let pending = pendingDeepLink else {
+            return .noPendingDeepLink
+        }
+        guard canResume(pending) else {
+            return .pending(pending)
+        }
+        self.pendingDeepLink = nil
+        applier.apply(pending.plan)
+        let path = Self.path(for: pending.plan, using: applier)
+        return .executed(plan: pending.plan, path: path)
+    }
+
+    /// Async variant: allows the caller to await a live
+    /// authentication probe (e.g. a token refresh) before
+    /// re-evaluating the gate.
+    @discardableResult
+    public func resumePendingDeepLinkIfAllowed(
+        _ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async -> Bool
+    ) async -> Result {
+        guard let pending = pendingDeepLink else {
+            return .noPendingDeepLink
+        }
+        let captured = pending
+        let isAuthorized = await authorize(captured)
+
+        guard self.pendingDeepLink == captured else {
+            if let current = self.pendingDeepLink {
+                return .pending(current)
+            }
+            return .noPendingDeepLink
+        }
+
+        guard isAuthorized else {
+            return .pending(captured)
+        }
+        return resumePendingDeepLink()
+    }
+
+    public var hasPendingDeepLink: Bool {
+        pendingDeepLink != nil
+    }
+
+    public func clearPendingDeepLink() {
+        pendingDeepLink = nil
+    }
+
+    // MARK: - Internals
+
+    private func canResume(_ pending: FlowPendingDeepLink<R>) -> Bool {
+        switch pipeline.authenticationPolicy {
+        case .notRequired:
+            return true
+        case .required(let shouldRequireAuthentication, let isAuthenticated):
+            if !shouldRequireAuthentication(pending.primaryRoute) {
+                return true
+            }
+            return isAuthenticated()
+        }
+    }
+
+    private static func path(
+        for plan: FlowPlan<R>,
+        using applier: any FlowPlanApplier<R>
+    ) -> [RouteStep<R>] {
+        // The applier is expected to honour FlowStore invariants,
+        // which means the applied path equals the plan's steps when
+        // no middleware rewrites occurred. Concrete conformers
+        // (FlowStore) can expose their own post-apply path snapshot
+        // via their `path` property — here we fall back to the
+        // plan's canonical steps for callers that only need the
+        // declarative view.
+        plan.steps
+    }
+}
+
+/// Convenience initializer bridging `FlowPlanApplier` through any
+/// `FlowDeepLinkEffect` source (e.g. an InnoFlow effect wrapper).
+public extension FlowDeepLinkEffectHandler {
+    @discardableResult
+    func handle<E: DeepLinkEffect>(_ effect: E) -> Result {
+        guard let url = effect.deepLinkURL else {
+            return .missingDeepLinkURL
+        }
+        return handle(url)
+    }
+}
