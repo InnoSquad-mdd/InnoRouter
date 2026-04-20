@@ -259,6 +259,20 @@ public final class ModalStore<M: Route> {
         _ = execute(.present(presentation))
     }
 
+    public func replaceCurrent(_ route: M, style: ModalPresentationStyle) {
+        let replacement: ModalPresentation<M>
+        if let currentPresentation {
+            replacement = ModalPresentation(
+                id: currentPresentation.id,
+                route: route,
+                style: style
+            )
+        } else {
+            replacement = ModalPresentation(route: route, style: style)
+        }
+        _ = execute(.replaceCurrent(replacement))
+    }
+
     public func dismissCurrent() {
         dismissCurrent(reason: .dismiss)
     }
@@ -359,6 +373,8 @@ public final class ModalStore<M: Route> {
         switch command {
         case .present(let presentation):
             return applyPresent(presentation)
+        case .replaceCurrent(let presentation):
+            return applyReplaceCurrent(presentation)
         case .dismissCurrent(let reason):
             return applyDismissCurrent(reason: reason)
         case .dismissAll:
@@ -373,6 +389,8 @@ public final class ModalStore<M: Route> {
         switch command {
         case .present(let presentation):
             return previewPresent(presentation, on: snapshot)
+        case .replaceCurrent(let presentation):
+            return previewReplaceCurrent(presentation, on: snapshot)
         case .dismissCurrent(let reason):
             return previewDismissCurrent(reason: reason, on: snapshot)
         case .dismissAll:
@@ -438,6 +456,27 @@ public final class ModalStore<M: Route> {
         )
     }
 
+    private func previewReplaceCurrent(
+        _ presentation: ModalPresentation<M>,
+        on snapshot: ModalStateSnapshot
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        guard let currentPresentation = snapshot.currentPresentation else {
+            return (.noop, snapshot)
+        }
+
+        guard currentPresentation != presentation else {
+            return (.noop, snapshot)
+        }
+
+        return (
+            .executed(.replaceCurrent(presentation)),
+            Self.makeSnapshot(
+                currentPresentation: presentation,
+                queuedPresentations: snapshot.queuedPresentations
+            )
+        )
+    }
+
     private func applyPresent(_ presentation: ModalPresentation<M>) -> ModalExecutionResult<M> {
         if currentPresentation == nil {
             currentPresentation = presentation
@@ -452,6 +491,19 @@ public final class ModalStore<M: Route> {
             onQueueChanged?(oldQueue, queuedPresentations)
             return .queued(presentation)
         }
+    }
+
+    private func applyReplaceCurrent(_ presentation: ModalPresentation<M>) -> ModalExecutionResult<M> {
+        guard let currentPresentation else {
+            return .noop
+        }
+
+        guard currentPresentation != presentation else {
+            return .noop
+        }
+
+        self.currentPresentation = presentation
+        return .executed(.replaceCurrent(presentation))
     }
 
     private func applyDismissCurrent(reason: ModalDismissalReason) -> ModalExecutionResult<M> {
@@ -501,6 +553,51 @@ public final class ModalStore<M: Route> {
         )
     }
 
+    /// A binding that reflects the current presentation when it matches the
+    /// given case and presentation style.
+    ///
+    /// Writing a non-nil value presents the embedded route through the regular command
+    /// pipeline with the supplied style, so middleware and telemetry observe the
+    /// presentation. When the active presentation already matches the same case
+    /// and style, the binding replaces it in place rather than queueing a
+    /// duplicate presentation. Writing `nil` dismisses the current presentation
+    /// only when both the case and style match.
+    public func binding<Value>(
+        case casePath: CasePath<M, Value>,
+        style: ModalPresentationStyle = .sheet
+    ) -> Binding<Value?> {
+        Binding(
+            get: { [weak self] in
+                guard let presentation = self?.currentPresentation,
+                      presentation.style == style else { return nil }
+                return casePath.extract(presentation.route)
+            },
+            set: { [weak self] newValue in
+                guard let self else { return }
+                if let value = newValue {
+                    let route = casePath.embed(value)
+                    if let currentPresentation = self.currentPresentation,
+                       currentPresentation.style == style,
+                       casePath.extract(currentPresentation.route) != nil {
+                        let replacement = ModalPresentation(
+                            id: currentPresentation.id,
+                            route: route,
+                            style: style
+                        )
+                        guard replacement != currentPresentation else { return }
+                        _ = self.execute(.replaceCurrent(replacement))
+                    } else {
+                        self.present(route, style: style)
+                    }
+                } else if let currentPresentation = self.currentPresentation,
+                          currentPresentation.style == style,
+                          casePath.extract(currentPresentation.route) != nil {
+                    self.dismissCurrent(reason: .systemDismiss)
+                }
+            }
+        )
+    }
+
     private func promoteNextPresentationIfNeeded() {
         guard currentPresentation == nil, !queuedPresentations.isEmpty else { return }
         let oldQueue = queuedPresentations
@@ -517,6 +614,9 @@ public final class ModalStore<M: Route> {
         case .executed(.present(let presentation)):
             telemetrySink.recordPresented(presentation)
             onPresented?(presentation)
+
+        case .executed(.replaceCurrent):
+            break
 
         case .executed(.dismissCurrent(let reason)):
             guard let dismissedPresentation = preview.stateBefore.currentPresentation else { return }

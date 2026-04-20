@@ -688,6 +688,421 @@ struct NavigationIntentTests {
 
         #expect(store.state.path.isEmpty)
     }
+
+    @Test("NavigationStore send replaceStack overwrites path via replace command")
+    @MainActor
+    func testSendReplaceStack() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.replaceStack([.settings]))
+
+        #expect(seenCommands == [.replace([.settings])])
+        #expect(store.state.path == [.settings])
+    }
+
+    @Test("NavigationStore send backOrPush pops to existing route")
+    @MainActor
+    func testSendBackOrPushWhenRouteExists() throws {
+        let store = try NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "123"), .settings]
+        )
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.backOrPush(.detail(id: "123")))
+
+        #expect(seenCommands == [.popTo(.detail(id: "123"))])
+        #expect(store.state.path == [.home, .detail(id: "123")])
+    }
+
+    @Test("NavigationStore send backOrPush pushes when route is absent")
+    @MainActor
+    func testSendBackOrPushWhenRouteMissing() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home])
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.backOrPush(.settings))
+
+        #expect(seenCommands == [.push(.settings)])
+        #expect(store.state.path == [.home, .settings])
+    }
+
+    @Test("NavigationStore send pushUniqueRoot pushes when absent")
+    @MainActor
+    func testSendPushUniqueRootWhenAbsent() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home])
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.pushUniqueRoot(.settings))
+
+        #expect(seenCommands == [.push(.settings)])
+        #expect(store.state.path == [.home, .settings])
+    }
+
+    @Test("NavigationStore send pushUniqueRoot is a no-op when present")
+    @MainActor
+    func testSendPushUniqueRootWhenPresent() throws {
+        let store = try NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "123"), .settings]
+        )
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.send(.pushUniqueRoot(.detail(id: "123")))
+
+        #expect(seenCommands.isEmpty)
+        #expect(store.state.path == [.home, .detail(id: "123"), .settings])
+    }
+}
+
+// MARK: - Typed Case Binding Tests
+
+private let testRouteDetailCase = CasePath<TestRoute, String>(
+    embed: { TestRoute.detail(id: $0) },
+    extract: { route in
+        if case .detail(let id) = route { return id }
+        return nil
+    }
+)
+
+private let testModalProfileCase = CasePath<TestModalRoute, Void>(
+    embed: { _ in TestModalRoute.profile },
+    extract: { route in
+        if case .profile = route { return () }
+        return nil
+    }
+)
+
+private enum TestBoundModalRoute: Route {
+    case profile(id: String)
+    case onboarding
+}
+
+private let testBoundModalProfileCase = CasePath<TestBoundModalRoute, String>(
+    embed: { TestBoundModalRoute.profile(id: $0) },
+    extract: { route in
+        if case .profile(let id) = route { return id }
+        return nil
+    }
+)
+
+@Suite("Typed Case Binding Tests")
+struct TypedCaseBindingTests {
+    @Test("NavigationStore binding(case:) extracts when case matches top")
+    @MainActor
+    func testNavigationBindingExtracts() throws {
+        let store = try NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "42")]
+        )
+
+        let binding = store.binding(case: testRouteDetailCase)
+
+        #expect(binding.wrappedValue == "42")
+    }
+
+    @Test("NavigationStore binding(case:) returns nil when case does not match")
+    @MainActor
+    func testNavigationBindingReturnsNilForMismatch() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home, .settings])
+
+        let binding = store.binding(case: testRouteDetailCase)
+
+        #expect(binding.wrappedValue == nil)
+    }
+
+    @Test("NavigationStore binding(case:) push routes through middleware")
+    @MainActor
+    func testNavigationBindingPushUsesCommandPipeline() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home])
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.binding(case: testRouteDetailCase).wrappedValue = "99"
+
+        #expect(seenCommands == [.push(.detail(id: "99"))])
+        #expect(store.state.path == [.home, .detail(id: "99")])
+    }
+
+    @Test("NavigationStore binding(case:) rewrites matching top instead of pushing duplicate")
+    @MainActor
+    func testNavigationBindingRewritesMatchingTop() throws {
+        let store = try NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "42")]
+        )
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.binding(case: testRouteDetailCase).wrappedValue = "99"
+
+        #expect(seenCommands == [.replace([.home, .detail(id: "99")])])
+        #expect(store.state.path == [.home, .detail(id: "99")])
+    }
+
+    @Test("NavigationStore binding(case:) same value is a no-op")
+    @MainActor
+    func testNavigationBindingSameValueIsNoOp() throws {
+        let store = try NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "42")]
+        )
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.binding(case: testRouteDetailCase).wrappedValue = "42"
+
+        #expect(seenCommands.isEmpty)
+        #expect(store.state.path == [.home, .detail(id: "42")])
+    }
+
+    @Test("NavigationStore binding(case:) nil pops only when case matches top")
+    @MainActor
+    func testNavigationBindingNilPopsWhenCaseMatches() throws {
+        let store = try NavigationStore<TestRoute>(
+            initialPath: [.home, .detail(id: "42")]
+        )
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.binding(case: testRouteDetailCase).wrappedValue = nil
+
+        #expect(seenCommands == [.pop])
+        #expect(store.state.path == [.home])
+    }
+
+    @Test("NavigationStore binding(case:) nil is a no-op when case differs")
+    @MainActor
+    func testNavigationBindingNilNoOpForMismatch() throws {
+        let store = try NavigationStore<TestRoute>(initialPath: [.home, .settings])
+        var seenCommands: [NavigationCommand<TestRoute>] = []
+
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.binding(case: testRouteDetailCase).wrappedValue = nil
+
+        #expect(seenCommands.isEmpty)
+        #expect(store.state.path == [.home, .settings])
+    }
+
+    @Test("ModalStore binding(case:) extracts when current presentation matches")
+    @MainActor
+    func testModalBindingExtracts() {
+        let store = ModalStore<TestModalRoute>()
+        store.present(.profile, style: .sheet)
+
+        let binding = store.binding(case: testModalProfileCase)
+
+        #expect(binding.wrappedValue != nil)
+    }
+
+    @Test("ModalStore binding(case:style:) returns nil when style does not match")
+    @MainActor
+    func testModalBindingReturnsNilForStyleMismatch() {
+        let store = ModalStore<TestModalRoute>()
+        store.present(.profile, style: .fullScreenCover)
+
+        let binding = store.binding(case: testModalProfileCase, style: .sheet)
+
+        #expect(binding.wrappedValue == nil)
+    }
+
+    @Test("ModalStore binding(case:) present routes through command pipeline")
+    @MainActor
+    func testModalBindingPresentEmitsCommand() {
+        let store = ModalStore<TestModalRoute>()
+        var seenCommands: [ModalCommand<TestModalRoute>] = []
+
+        store.addMiddleware(
+            AnyModalMiddleware(
+                willExecute: { command, _, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.binding(case: testModalProfileCase, style: .sheet).wrappedValue = ()
+
+        #expect(seenCommands.count == 1)
+        #expect(store.currentPresentation?.route == .profile)
+    }
+
+    @Test("ModalStore binding(case:style:) updates matching presentation without queueing")
+    @MainActor
+    func testModalBindingMatchingUpdateUsesReplaceCurrent() {
+        let store = ModalStore<TestBoundModalRoute>()
+        store.present(.profile(id: "42"), style: .sheet)
+        let originalID = store.currentPresentation?.id
+        var seenCommands: [ModalCommand<TestBoundModalRoute>] = []
+
+        store.addMiddleware(
+            AnyModalMiddleware(
+                willExecute: { command, _, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.binding(case: testBoundModalProfileCase, style: .sheet).wrappedValue = "99"
+
+        let expectedPresentation = ModalPresentation(
+            id: originalID!,
+            route: TestBoundModalRoute.profile(id: "99"),
+            style: .sheet
+        )
+        #expect(seenCommands == [.replaceCurrent(expectedPresentation)])
+        #expect(store.currentPresentation == expectedPresentation)
+        #expect(store.queuedPresentations.isEmpty)
+    }
+
+    @Test("ModalStore binding(case:style:) same value is a no-op")
+    @MainActor
+    func testModalBindingSameValueIsNoOp() {
+        let store = ModalStore<TestBoundModalRoute>()
+        store.present(.profile(id: "42"), style: .sheet)
+        let originalPresentation = store.currentPresentation
+        var seenCommands: [ModalCommand<TestBoundModalRoute>] = []
+
+        store.addMiddleware(
+            AnyModalMiddleware(
+                willExecute: { command, _, _ in
+                    seenCommands.append(command)
+                    return .proceed(command)
+                }
+            )
+        )
+
+        store.binding(case: testBoundModalProfileCase, style: .sheet).wrappedValue = "42"
+
+        #expect(seenCommands.isEmpty)
+        #expect(store.currentPresentation == originalPresentation)
+        #expect(store.queuedPresentations.isEmpty)
+    }
+
+    @Test("ModalStore binding(case:) nil dismisses when case matches current")
+    @MainActor
+    func testModalBindingNilDismissesWhenMatching() {
+        let store = ModalStore<TestModalRoute>()
+        store.present(.profile, style: .sheet)
+
+        store.binding(case: testModalProfileCase).wrappedValue = nil
+
+        #expect(store.currentPresentation == nil)
+    }
+
+    @Test("ModalStore binding(case:style:) nil uses systemDismiss reason")
+    @MainActor
+    func testModalBindingNilUsesSystemDismissReason() {
+        let dismissed = Mutex<[(ModalPresentation<TestModalRoute>, ModalDismissalReason)]>([])
+        let store = ModalStore<TestModalRoute>(
+            configuration: .init(
+                onDismissed: { presentation, reason in
+                    dismissed.withLock { $0.append((presentation, reason)) }
+                }
+            )
+        )
+        store.present(.profile, style: .sheet)
+
+        store.binding(case: testModalProfileCase, style: .sheet).wrappedValue = nil
+
+        #expect(dismissed.withLock(\.count) == 1)
+        #expect(dismissed.withLock(\.first)?.0.route == .profile)
+        #expect(dismissed.withLock(\.first)?.1 == .systemDismiss)
+    }
+
+    @Test("ModalStore binding(case:style:) nil ignores mismatched style")
+    @MainActor
+    func testModalBindingNilIgnoresStyleMismatch() {
+        let store = ModalStore<TestModalRoute>()
+        store.present(.profile, style: .fullScreenCover)
+
+        store.binding(case: testModalProfileCase, style: .sheet).wrappedValue = nil
+
+        #expect(store.currentPresentation?.route == .profile)
+        #expect(store.currentPresentation?.style == .fullScreenCover)
+    }
 }
 
 // MARK: - NavigationPathBinding Tests
@@ -2885,6 +3300,42 @@ struct ModalStoreTests {
             Issue.record("Expected dismissAll event seventh")
         }
     }
+
+    @Test("Telemetry recorder captures replaceCurrent as an intercept without lifecycle events")
+    @MainActor
+    func testModalTelemetryRecorderReplaceCurrent() {
+        let recorder = Mutex<[ModalStoreTelemetryEvent<TestBoundModalRoute>]>([])
+        let store = ModalStore<TestBoundModalRoute>(
+            configuration: .init(
+                logger: Logger(subsystem: "InnoRouterTests", category: "ModalStore")
+            ),
+            telemetryRecorder: { event in
+                recorder.withLock { $0.append(event) }
+            }
+        )
+
+        store.present(.profile(id: "42"), style: .sheet)
+        recorder.withLock { $0.removeAll() }
+
+        store.replaceCurrent(.profile(id: "99"), style: .sheet)
+
+        let events = recorder.withLock { $0 }
+        #expect(events.count == 1)
+
+        guard case .commandIntercepted(let command, let outcome, let cancellationReason) = events[0] else {
+            Issue.record("Expected replaceCurrent to emit only a commandIntercepted event")
+            return
+        }
+
+        #expect(outcome == .executed)
+        #expect(cancellationReason == nil)
+        guard case .replaceCurrent(let presentation) = command else {
+            Issue.record("Expected replaceCurrent command, got \(command)")
+            return
+        }
+        #expect(presentation.route == .profile(id: "99"))
+        #expect(presentation.style == .sheet)
+    }
 }
 
 // MARK: - NavigationEnvironmentStorage Tests
@@ -3199,5 +3650,158 @@ struct TabCoordinatorTests {
         #expect(coordinator.tabBadges.isEmpty)
         #expect(coordinator.badge(for: TestTab.inbox) == nil)
         #expect(coordinator.badge(for: TestTab.settings) == nil)
+    }
+}
+
+// MARK: - ChildCoordinator Tests
+
+@Suite("ChildCoordinator Tests")
+struct ChildCoordinatorTests {
+    private static func builtExecutable(named name: String) -> URL? {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let buildDirectory = root.appending(path: ".build")
+        guard let enumerator = FileManager.default.enumerator(
+            at: buildDirectory,
+            includingPropertiesForKeys: [.isRegularFileKey, .isExecutableKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return nil
+        }
+
+        for case let fileURL as URL in enumerator {
+            guard fileURL.lastPathComponent == name else {
+                continue
+            }
+
+            guard fileURL.pathExtension.isEmpty, !fileURL.path.contains(".dSYM/") else {
+                continue
+            }
+
+            let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .isExecutableKey])
+            if values?.isRegularFile == true, values?.isExecutable == true {
+                return fileURL
+            }
+        }
+
+        return nil
+    }
+
+    @MainActor
+    final class ParentTestCoordinator: Coordinator {
+        typealias RouteType = TestRoute
+        typealias Destination = EmptyView
+
+        let store = NavigationStore<TestRoute>()
+
+        @ViewBuilder
+        func destination(for route: TestRoute) -> EmptyView {
+            EmptyView()
+        }
+    }
+
+    @MainActor
+    final class OnboardingChild: ChildCoordinator {
+        typealias Result = String
+
+        var onFinish: (@MainActor @Sendable (String) -> Void)?
+        var onCancel: (@MainActor @Sendable () -> Void)?
+    }
+
+    @Test("push(child:) resumes Task with the finish result")
+    @MainActor
+    func testFinishResumesTask() async {
+        let parent = ParentTestCoordinator()
+        let child = OnboardingChild()
+
+        let task = parent.push(child: child)
+        child.onFinish?("welcome")
+
+        let result = await task.value
+        #expect(result == "welcome")
+    }
+
+    @Test("push(child:) resumes Task with nil on cancel")
+    @MainActor
+    func testCancelResumesTaskWithNil() async {
+        let parent = ParentTestCoordinator()
+        let child = OnboardingChild()
+
+        let task = parent.push(child: child)
+        child.onCancel?()
+
+        let result = await task.value
+        #expect(result == nil)
+    }
+
+    @Test("push(child:) ignores cancel after finish")
+    @MainActor
+    func testCancelAfterFinishIsIgnored() async {
+        let parent = ParentTestCoordinator()
+        let child = OnboardingChild()
+
+        let task = parent.push(child: child)
+        child.onFinish?("final")
+        child.onCancel?()
+
+        let result = await task.value
+        #expect(result == "final")
+    }
+
+    @Test("push(child:) ignores finish after cancel")
+    @MainActor
+    func testFinishAfterCancelIsIgnored() async {
+        let parent = ParentTestCoordinator()
+        let child = OnboardingChild()
+
+        let task = parent.push(child: child)
+        child.onCancel?()
+        child.onFinish?("late")
+
+        let result = await task.value
+        #expect(result == nil)
+    }
+
+    @Test("push(child:) installs finish and cancel callbacks on the child")
+    @MainActor
+    func testPushInstallsCallbacks() {
+        let parent = ParentTestCoordinator()
+        let child = OnboardingChild()
+
+        #expect(child.onFinish == nil)
+        #expect(child.onCancel == nil)
+
+        _ = parent.push(child: child)
+
+        #expect(child.onFinish != nil)
+        #expect(child.onCancel != nil)
+    }
+
+    @Test("push(child:) fails fast when the same child instance is reused")
+    func testPushRejectsSameChildInstanceReuse() throws {
+        guard let executableURL = Self.builtExecutable(named: "ChildCoordinatorFailFastProbe") else {
+            Issue.record("Expected ChildCoordinatorFailFastProbe executable to be built")
+            return
+        }
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        let process = Process()
+        process.executableURL = executableURL
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        process.waitUntilExit()
+
+        let stderrOutput = String(
+            data: stderr.fileHandleForReading.readDataToEndOfFile(),
+            encoding: .utf8
+        ) ?? ""
+
+        #expect(process.terminationStatus != 0)
+        #expect(stderrOutput.contains("Cannot push the same ChildCoordinator instance more than once."))
     }
 }

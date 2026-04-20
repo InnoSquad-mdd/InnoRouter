@@ -134,6 +134,33 @@ struct ModalStoreInterceptionTests {
         #expect(store.queuedPresentations.count == 1)
     }
 
+    @Test("cancel on .replaceCurrent preserves current presentation")
+    @MainActor
+    func cancelReplaceCurrentPreservesState() {
+        let cancelGate = Mutex<Bool>(false)
+        let middleware = AnyModalMiddleware<InterceptRoute>(
+            willExecute: { command, _, _ in
+                if case .replaceCurrent = command, cancelGate.withLock({ $0 }) {
+                    return .cancel(.middleware(debugName: "no-replace", command: command))
+                }
+                return .proceed(command)
+            }
+        )
+        let store = ModalStore<InterceptRoute>(
+            configuration: .init(
+                middlewares: [.init(middleware: middleware, debugName: "no-replace")]
+            )
+        )
+        store.present(.login, style: .sheet)
+        let originalID = store.currentPresentation?.id
+        cancelGate.withLock { $0 = true }
+
+        store.replaceCurrent(.profile, style: .sheet)
+
+        #expect(store.currentPresentation?.route == .login)
+        #expect(store.currentPresentation?.id == originalID)
+    }
+
     @Test("participant discipline: didExecute only runs for middlewares that proceeded")
     @MainActor
     func participantDiscipline() {
@@ -180,26 +207,34 @@ struct ModalStoreInterceptionTests {
     @Test("executed outcome surfaces via onCommandIntercepted")
     @MainActor
     func executedOutcomeSurfaces() {
-        let intercepted = Mutex<[ModalExecutionResult<InterceptRoute>]>([])
+        let intercepted = Mutex<[(ModalCommand<InterceptRoute>, ModalExecutionResult<InterceptRoute>)]>([])
         let store = ModalStore<InterceptRoute>(
             configuration: .init(
-                onCommandIntercepted: { _, result in
-                    intercepted.withLock { $0.append(result) }
+                onCommandIntercepted: { command, result in
+                    intercepted.withLock { $0.append((command, result)) }
                 }
             )
         )
 
         store.present(.login, style: .sheet)
+        store.replaceCurrent(.profile, style: .sheet)
         store.present(.profile, style: .sheet)
         store.dismissCurrent()
         store.dismissAll()
 
         let results = intercepted.withLock { $0 }
-        #expect(results.count == 4)
+        #expect(results.count == 5)
 
-        if case .executed = results[0] {} else { Issue.record("expected executed for first present, got \(results[0])") }
-        if case .queued = results[1] {} else { Issue.record("expected queued for second present, got \(results[1])") }
-        if case .executed = results[2] {} else { Issue.record("expected executed for dismissCurrent, got \(results[2])") }
-        if case .executed = results[3] {} else { Issue.record("expected executed for dismissAll, got \(results[3])") }
+        if case .executed = results[0].1 {} else { Issue.record("expected executed for first present, got \(results[0].1)") }
+        if case .replaceCurrent(let presentation) = results[1].0 {
+            #expect(presentation.route == .profile)
+            #expect(presentation.style == .sheet)
+        } else {
+            Issue.record("expected replaceCurrent command second, got \(results[1].0)")
+        }
+        if case .executed = results[1].1 {} else { Issue.record("expected executed for replaceCurrent, got \(results[1].1)") }
+        if case .queued = results[2].1 {} else { Issue.record("expected queued for second present, got \(results[2].1)") }
+        if case .executed = results[3].1 {} else { Issue.record("expected executed for dismissCurrent, got \(results[3].1)") }
+        if case .executed = results[4].1 {} else { Issue.record("expected executed for dismissAll, got \(results[4].1)") }
     }
 }

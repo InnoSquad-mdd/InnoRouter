@@ -131,6 +131,12 @@ let package = Package(
             path: "Sources/NavigationEnvironmentFailFastProbe",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .executableTarget(
+            name: "ChildCoordinatorFailFastProbe",
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
+            path: "Sources/ChildCoordinatorFailFastProbe",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
 
         // MARK: - Example Build Gates (human-facing Examples/*.swift)
         //

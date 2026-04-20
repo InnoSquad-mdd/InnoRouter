@@ -332,6 +332,18 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             _ = execute(.popToRoot)
         case .resetTo(let routes):
             _ = execute(.replace(routes))
+        case .replaceStack(let routes):
+            _ = execute(.replace(routes))
+        case .backOrPush(let route):
+            if state.path.contains(route) {
+                _ = execute(.popTo(route))
+            } else {
+                _ = execute(.push(route))
+            }
+        case .pushUniqueRoot(let route):
+            if !state.path.contains(route) {
+                _ = execute(.push(route))
+            }
         }
     }
 
@@ -340,6 +352,38 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             get: { self.state.path },
             set: { newPath in
                 self.reconcileNavigationPath(with: newPath)
+            }
+        )
+    }
+
+    /// A binding that reflects the top-of-stack route when it matches the given case.
+    ///
+    /// Writing a non-nil value pushes the embedded route through the regular command
+    /// pipeline when the active destination is a different case. When the top
+    /// route already matches the case, the binding replaces that top route in
+    /// place instead of pushing a duplicate screen. Writing `nil` pops the top
+    /// route only when it currently matches the case — other stack states are
+    /// left untouched.
+    public func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> {
+        Binding(
+            get: { [weak self] in
+                self?.state.path.last.flatMap(casePath.extract)
+            },
+            set: { [weak self] newValue in
+                guard let self else { return }
+                if let value = newValue {
+                    let route = casePath.embed(value)
+                    if let currentRoute = self.state.path.last,
+                       casePath.extract(currentRoute) != nil {
+                        guard currentRoute != route else { return }
+                        let replacementPath = Array(self.state.path.dropLast()) + [route]
+                        _ = self.execute(.replace(replacementPath))
+                    } else {
+                        _ = self.execute(.push(route))
+                    }
+                } else if self.state.path.last.flatMap(casePath.extract) != nil {
+                    _ = self.execute(.pop)
+                }
             }
         )
     }
