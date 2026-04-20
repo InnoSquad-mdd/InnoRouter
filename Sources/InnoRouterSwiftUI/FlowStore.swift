@@ -86,7 +86,8 @@ public final class FlowStore<R: Route> {
             onChange: composedNavOnChange,
             onBatchExecuted: configuration.navigation.onBatchExecuted,
             onTransactionExecuted: configuration.navigation.onTransactionExecuted,
-            onMiddlewareMutation: configuration.navigation.onMiddlewareMutation
+            onMiddlewareMutation: configuration.navigation.onMiddlewareMutation,
+            onPathMismatch: configuration.navigation.onPathMismatch
         )
 
         let modalConfig = ModalStoreConfiguration<R>(
@@ -265,7 +266,14 @@ public final class FlowStore<R: Route> {
         to newStack: RouteStack<R>
     ) {
         guard !isApplyingInternalMutation else { return }
-        syncPathFromStores(from: path)
+        syncPath(
+            from: path,
+            projection: FlowProjection(
+                pushRoutes: newStack.path,
+                currentPresentation: modalStore.currentPresentation,
+                queuedPresentations: modalStore.queuedPresentations
+            )
+        )
     }
 
     private func handleModalStoreDismissal(
@@ -304,7 +312,14 @@ public final class FlowStore<R: Route> {
     }
 
     private func syncPathFromStores(from oldPath: [RouteStep<R>]) {
-        path = currentProjection.path
+        syncPath(from: oldPath, projection: currentProjection)
+    }
+
+    private func syncPath(
+        from oldPath: [RouteStep<R>],
+        projection: FlowProjection
+    ) {
+        path = projection.path
         emitPathChangedIfNeeded(from: oldPath)
     }
 

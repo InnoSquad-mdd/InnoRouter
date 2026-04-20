@@ -10,6 +10,7 @@ This scorecard maps the current implementation to SwiftUI philosophy, SOLID, typ
 | SwiftUI authority | Stack, split-detail, and modal surfaces are separated by host/store responsibility | `Sources/InnoRouterSwiftUI` | Enforced |
 | Deep-link planning | URL matching and policy flow are explicit, typed, and replay-friendly | `Sources/InnoRouterDeepLink` | Enforced |
 | App boundary effects | Navigation-only effects and deep-link effects are split cleanly | `Sources/InnoRouterNavigationEffects`, `Sources/InnoRouterDeepLinkEffects` | Enforced |
+| Host-less testability | `NavigationTestStore`, `ModalTestStore`, and `FlowTestStore` expose a shippable Swift Testing harness over the public observation surface | `Sources/InnoRouterTesting` | Enforced |
 | Documentation | README and DocC coexist; module-level docs live beside sources | `README.md`, `Sources/*/*.docc` | Enforced |
 | Release discipline | Semver tags, DocC publishing, and GitHub Releases share one flow | `.github/workflows/release.yml`, `RELEASING.md` | Enforced |
 
@@ -53,6 +54,8 @@ The repository now treats documentation as a first-class artifact:
 - Deep-link matcher diagnostics catch ambiguity without changing precedence.
 - Modal routing exposes the same middleware surface as navigation (`ModalMiddleware`, `AnyModalMiddleware`, CRUD API, `onMiddlewareMutation`, `onCommandIntercepted`), so gating and analytics hooks compose symmetrically across both authorities.
 - `FlowStore<R>` represents push + sheet + cover progression as a single `[RouteStep<R>]` value, delegating execution to the existing `NavigationStore` + `ModalStore` without removing their individual authorities.
+- `InnoRouterTesting` ships `NavigationTestStore` / `ModalTestStore` / `FlowTestStore` as a shippable Swift-Testing-native harness with TCA-style strict exhaustivity, so consumers no longer need `@testable import` to assert routing behaviour.
+- `NavigationStoreConfiguration.onPathMismatch` surfaces path-reconciliation telemetry publicly, completing the set of public observation hooks.
 - Human-facing examples and smoke fixtures are intentionally separated.
 
 ## Remaining trade-offs

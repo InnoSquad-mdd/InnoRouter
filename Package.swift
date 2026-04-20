@@ -55,6 +55,12 @@ let package = Package(
             name: "InnoRouterMacros",
             targets: ["InnoRouterMacros"]
         ),
+
+        // MARK: - Test Harness
+        .library(
+            name: "InnoRouterTesting",
+            targets: ["InnoRouterTesting"]
+        ),
     ],
     dependencies: [
         // Swift Syntax for Macros
@@ -239,6 +245,17 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         
+        // MARK: - Test Harness Target
+        //
+        // Ships `NavigationTestStore`, `ModalTestStore`, and `FlowTestStore` so
+        // consumers can assert navigation/modal/flow events host-lessly without
+        // `@testable import`. Swift-Testing native (`Issue.record`).
+        .target(
+            name: "InnoRouterTesting",
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
         // MARK: - Macro Implementation (Compiler Plugin)
         .macro(
             name: "InnoRouterMacrosPlugin",
@@ -269,6 +286,15 @@ let package = Package(
             dependencies: [
                 "InnoRouterMacros",
                 "InnoRouterCore",
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "InnoRouterTestingTests",
+            dependencies: [
+                "InnoRouterTesting",
+                "InnoRouter",
+                "InnoRouterSwiftUI",
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),

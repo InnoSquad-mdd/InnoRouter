@@ -176,6 +176,30 @@ struct FlowStoreDelegationTests {
         #expect(changes.withLock { $0 } == 2)
     }
 
+    @Test("inner navigation onPathMismatch still fires and flow path stays in sync")
+    @MainActor
+    func userNavOnPathMismatchStillFires() {
+        let mismatches = Mutex<[NavigationPathMismatchEvent<FlowDelegationRoute>]>([])
+        let config = FlowStoreConfiguration<FlowDelegationRoute>(
+            navigation: .init(
+                onPathMismatch: { event in
+                    mismatches.withLock { $0.append(event) }
+                }
+            )
+        )
+        let store = FlowStore<FlowDelegationRoute>(configuration: config)
+
+        store.send(.push(.home))
+        store.navigationStore.pathBinding.wrappedValue = [.detail]
+
+        let captured = mismatches.withLock { $0 }
+        #expect(captured.count == 1)
+        #expect(captured.first?.oldPath == [.home])
+        #expect(captured.first?.newPath == [.detail])
+        #expect(store.navigationStore.state.path == [.detail])
+        #expect(store.path == [.push(.detail)])
+    }
+
     @Test("inner modal onPresented still fires when caller supplies a hook")
     @MainActor
     func userModalOnPresentedStillFires() {
