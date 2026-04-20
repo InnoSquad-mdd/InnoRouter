@@ -15,20 +15,22 @@ private enum ExhaustivityRoute: Route {
 @Suite("TestStore Exhaustivity Tests")
 struct TestStoreExhaustivityTests {
 
-    @Test(".strict deinit with unasserted events records an issue")
+    @Test(".strict finish with unasserted events records an issue")
     @MainActor
-    func strictDeinitFailsWithUnassertedEvents() {
+    func strictFinishFailsWithUnassertedEvents() {
         withKnownIssue {
             let store = NavigationTestStore<ExhaustivityRoute>()
             store.send(.go(.a)) // enqueues a .changed event
-            // No receive, no finish — deinit should fire Issue.record.
-            store.finish() // run the check now so withKnownIssue observes it
+            // Swift Testing currently reports isolated-deinit issues as
+            // belonging to an unknown test, so trigger the same strict
+            // exhaustivity path via finish() inside withKnownIssue.
+            store.finish()
         }
     }
 
-    @Test(".off deinit with unasserted events does not record an issue")
+    @Test(".off finish with unasserted events does not record an issue")
     @MainActor
-    func offDeinitDoesNotFail() {
+    func offFinishDoesNotFail() {
         let store = NavigationTestStore<ExhaustivityRoute>(exhaustivity: .off)
         store.send(.go(.a))
         store.finish() // should be silent under .off

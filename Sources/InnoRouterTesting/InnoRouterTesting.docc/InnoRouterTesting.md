@@ -50,10 +50,6 @@ store.store.modalStore.addMiddleware(BlockSheetMiddleware(), debugName: "BlockSh
 store.skipReceivedEvents()  // drop middleware-mutation events
 
 store.send(.presentSheet(.onboarding))
-store.receiveModal { event in
-    if case .commandIntercepted(_, .cancelled) = event { return true }
-    return false
-}
 store.receiveIntentRejected(
     intent: .presentSheet(.onboarding),
     reason: .middlewareRejected(debugName: "BlockSheet")

@@ -45,13 +45,13 @@ struct TestStoreFailureReportingTests {
         }
     }
 
-    @Test("ModalTestStore: receiveIntercepted on wrong case fires an issue")
+    @Test("ModalTestStore: receiveDismissed on wrong case fires an issue")
     @MainActor
-    func modalReceiveInterceptedWrongCaseFires() {
+    func modalReceiveDismissedWrongCaseFires() {
         withKnownIssue {
             let store = ModalTestStore<FailRoute>(exhaustivity: .off)
             store.present(.a)
-            // First queued event is .commandIntercepted; receiveDismissed expects .dismissed.
+            // First queued event is .presented; receiveDismissed expects .dismissed.
             store.receiveDismissed()
         }
     }

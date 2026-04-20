@@ -9,8 +9,9 @@ import InnoRouterSwiftUI
 ///
 /// `NavigationTestStore` wraps a private `NavigationStore<R>` and mirrors
 /// its public execution surface (`send`, `execute`, `executeBatch`,
-/// `executeTransaction`, middleware CRUD). It transparently subscribes to
-/// every public observation callback (`onChange`, `onBatchExecuted`,
+/// `executeTransaction`). Middleware registry APIs remain available through
+/// the wrapped `store` escape hatch. It transparently subscribes to every
+/// public observation callback (`onChange`, `onBatchExecuted`,
 /// `onTransactionExecuted`, `onMiddlewareMutation`, `onPathMismatch`),
 /// buffers the emitted events, and exposes a TCA `TestStore`-style
 /// `receive(...)` API for consuming them in order.
@@ -36,7 +37,6 @@ public final class NavigationTestStore<R: Route> {
     private let queue: TestEventQueue<NavigationTestEvent<R>>
     private var exhaustivity: TestExhaustivity
     private var hasFinished: Bool
-    private var finishContext: (fileID: String, filePath: String, line: Int, column: Int)?
 
     // MARK: - Init
 
@@ -89,10 +89,10 @@ public final class NavigationTestStore<R: Route> {
         // onto the MainActor executor.
         if !hasFinished {
             performExhaustivityCheck(
-                fileID: finishContext?.fileID ?? #fileID,
-                filePath: finishContext?.filePath ?? #filePath,
-                line: finishContext?.line ?? #line,
-                column: finishContext?.column ?? #column
+                fileID: #fileID,
+                filePath: #filePath,
+                line: #line,
+                column: #column
             )
         }
     }

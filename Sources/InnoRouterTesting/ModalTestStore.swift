@@ -13,10 +13,11 @@ import InnoRouterSwiftUI
 /// events are buffered into a FIFO queue and consumed by `receive(...)`
 /// calls in test-authored order.
 ///
-/// The event order reflects the production store's real emission order:
-/// `onCommandIntercepted` fires once per `execute(_:)`, then — if the
-/// command mutated state — the relevant `onPresented` / `onDismissed` /
-/// `onQueueChanged` callbacks follow.
+/// The event order reflects the production store's real emission order.
+/// Executed commands may emit `onPresented` / `onDismissed` /
+/// `onQueueChanged` while applying the command, before the final
+/// `onCommandIntercepted` callback. Cancelled commands emit only
+/// `onCommandIntercepted`.
 ///
 /// See `TestExhaustivity` for strictness modes.
 @MainActor

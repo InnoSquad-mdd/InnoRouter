@@ -107,4 +107,34 @@ struct FlowTestStoreTests {
         #expect(store.store.modalStore.currentPresentation == nil)
         store.expectNoMoreEvents()
     }
+
+    @Test("Navigation path mismatch surfaces through FlowTestStore in FIFO order")
+    @MainActor
+    func navigationPathMismatchEmitsNavigationThenPathChange() {
+        let store = FlowTestStore<FlowRoute>()
+
+        store.send(.push(.landing))
+        store.skipReceivedEvents()
+
+        store.store.navigationStore.pathBinding.wrappedValue = [.details]
+
+        store.receiveNavigation { event in
+            if case .pathMismatch(let mismatch) = event {
+                return mismatch.oldPath == [.landing] && mismatch.newPath == [.details]
+            }
+            return false
+        }
+        store.receiveNavigation { event in
+            if case .changed(let old, let new) = event {
+                return old.path == [.landing] && new.path == [.details]
+            }
+            return false
+        }
+        store.receivePathChanged { old, new in
+            old == [.push(.landing)] && new == [.push(.details)]
+        }
+        #expect(store.path == [.push(.details)])
+        #expect(store.store.navigationStore.state.path == [.details])
+        store.expectNoMoreEvents()
+    }
 }

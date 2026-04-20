@@ -193,14 +193,27 @@ build_bin_dir="$(swift build --show-bin-path)"
 modules_dir="$build_bin_dir/Modules"
 module_cache_dir="$build_bin_dir/ModuleCache"
 sdk_path="$(xcrun --show-sdk-path)"
+sdk_platform_path="$(xcrun --show-sdk-platform-path 2>/dev/null || true)"
 # Platform frameworks directory holds Testing.framework + its subpackages,
 # which InnoRouterTesting imports for Swift Testing integration.
-platform_frameworks_dir="$(xcode-select -p)/Platforms/MacOSX.platform/Developer/Library/Frameworks"
+# Resolve it from the active SDK platform when available, but don't fail in
+# Command Line Tools-only environments where no Platforms directory exists.
+platform_frameworks_dir=""
+if [[ -n "$sdk_platform_path" ]]; then
+  candidate_platform_frameworks_dir="$sdk_platform_path/Developer/Library/Frameworks"
+  if [[ -d "$candidate_platform_frameworks_dir" ]]; then
+    platform_frameworks_dir="$candidate_platform_frameworks_dir"
+  fi
+fi
+
+framework_search_args=()
+if [[ -n "$platform_frameworks_dir" ]]; then
+  framework_search_args=(-F "$platform_frameworks_dir")
+fi
 
 [[ -d "$modules_dir" ]] || die "failed to locate build modules directory"
 [[ -d "$module_cache_dir" ]] || die "failed to locate module cache directory"
 [[ -n "$sdk_path" ]] || die "failed to locate SDK path"
-[[ -d "$platform_frameworks_dir" ]] || die "failed to locate platform frameworks directory: $platform_frameworks_dir"
 
 target_triple="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["target"]["triple"])')"
 resource_dir="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["paths"]["runtimeResourcePath"])')"
@@ -225,7 +238,7 @@ extract_module_symbols() {
   "$swift_symbolgraph_extract_bin" \
     -module-name "$target" \
     -I "$modules_dir" \
-    -F "$platform_frameworks_dir" \
+    "${framework_search_args[@]}" \
     -target "$target_triple" \
     -module-cache-path "$module_cache_dir" \
     -sdk "$sdk_path" \
