@@ -26,6 +26,13 @@ The guiding rule is simple: views emit intent, stores own transition authority, 
 - <doc:Split-Modal-and-Composition>
 - <doc:Coordinators-and-Environment-Intent>
 
+### Tutorials
+
+- <doc:Tutorial-LoginOnboarding>
+- <doc:Tutorial-DeepLinkReconciliation>
+- <doc:Tutorial-MiddlewareComposition>
+- <doc:Tutorial-MigratingFromNestedHosts>
+
 ### Key Types
 
 - ``NavigationStore``
