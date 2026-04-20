@@ -19,6 +19,42 @@ public enum FlowIntent<R: Route>: Sendable, Equatable {
     /// Replace the flow path with the supplied steps, subject to the
     /// FlowStore invariants (at most one modal step, and only at the tail).
     case reset([RouteStep<R>])
+
+    /// Replace the navigation push prefix with `routes` and **drop any
+    /// active modal tail**.
+    ///
+    /// Mirrors `NavigationIntent.replaceStack([R])` on the flow surface.
+    /// Because the flow's modal invariant forbids modal steps in any
+    /// non-tail position, a "replace stack" operation can't preserve
+    /// a modal by definition — any active modal is dismissed as part
+    /// of the reset.
+    ///
+    /// Equivalent to `.reset(routes.map(RouteStep.push))` but
+    /// communicates intent at the call site.
+    case replaceStack([R])
+
+    /// If `route` already exists in the current navigation push
+    /// prefix, pop back to it. Otherwise, behave like `.push(route)`.
+    ///
+    /// Mirrors `NavigationIntent.backOrPush(R)`. When a modal tail is
+    /// active:
+    ///
+    /// - `route` in nav stack: pops to it (the existing modal is
+    ///   independently managed — the nav pop does not touch it, so
+    ///   callers that want the modal dismissed first should
+    ///   `.dismiss` explicitly).
+    /// - `route` absent: rejected with `.pushBlockedByModalTail`,
+    ///   matching `.push` semantics.
+    case backOrPush(R)
+
+    /// If the current navigation stack's **root** is already `route`
+    /// (and the stack has exactly one push), this intent is a silent
+    /// no-op. Otherwise it behaves like `.push(route)`.
+    ///
+    /// Mirrors `NavigationIntent.pushUniqueRoot(R)`. When a modal tail
+    /// is active and the intent would otherwise push, it's rejected
+    /// with `.pushBlockedByModalTail`, matching `.push` semantics.
+    case pushUniqueRoot(R)
 }
 
 /// Reason surfaced to `FlowStoreConfiguration.onIntentRejected` when

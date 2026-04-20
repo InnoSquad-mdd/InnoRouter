@@ -182,6 +182,12 @@ public final class FlowStore<R: Route> {
             dispatchDismiss(intent: intent)
         case .reset(let steps):
             dispatchReset(steps, intent: intent)
+        case .replaceStack(let routes):
+            dispatchReplaceStack(routes, intent: intent)
+        case .backOrPush(let route):
+            dispatchBackOrPush(route, intent: intent)
+        case .pushUniqueRoot(let route):
+            dispatchPushUniqueRoot(route, intent: intent)
         }
     }
 
@@ -298,6 +304,51 @@ public final class FlowStore<R: Route> {
         }
 
         syncPathFromStores(from: pathBefore)
+    }
+
+    /// Replaces the navigation push prefix with `routes`, dropping any
+    /// active modal tail. Routes through `dispatchReset` so the same
+    /// invariant validation + middleware pipeline applies.
+    private func dispatchReplaceStack(_ routes: [R], intent: FlowIntent<R>) {
+        let steps = routes.map(RouteStep<R>.push)
+        dispatchReset(steps, intent: intent)
+    }
+
+    /// Pops the navigation stack back to `route` if it's already in the
+    /// stack. Otherwise falls through to `dispatchPush`, which honours
+    /// the modal-tail invariant by rejecting with
+    /// `.pushBlockedByModalTail` when a modal is active.
+    private func dispatchBackOrPush(_ route: R, intent: FlowIntent<R>) {
+        if navigationStore.state.path.contains(route) {
+            let pathBefore = path
+            let preview = navigationStore.previewFlowCommand(.popTo(route))
+            if !preview.result.isSuccess {
+                if case .cancelled(let reason) = preview.result {
+                    emitIntentRejected(
+                        intent,
+                        reason: .middlewareRejected(debugName: Self.debugName(from: reason))
+                    )
+                }
+                return
+            }
+            withInternalMutation {
+                _ = navigationStore.commitFlowPreview(preview)
+            }
+            syncPathFromStores(from: pathBefore)
+            return
+        }
+        dispatchPush(route, intent: intent)
+    }
+
+    /// Silent no-op when the navigation stack is already `[route]`.
+    /// Otherwise dispatches as `.push(route)`, so a modal tail rejects
+    /// the intent with `.pushBlockedByModalTail`.
+    private func dispatchPushUniqueRoot(_ route: R, intent: FlowIntent<R>) {
+        let stack = navigationStore.state.path
+        if stack.count == 1, stack.first == route {
+            return
+        }
+        dispatchPush(route, intent: intent)
     }
 
     // MARK: - Reverse sync
