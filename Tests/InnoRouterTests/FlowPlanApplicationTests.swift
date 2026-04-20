@@ -13,6 +13,7 @@ private enum FlowPlanRoute: Route {
     case second
     case sheetStep
     case coverStep
+    case queuedStep
 }
 
 @Suite("FlowPlan Application Tests")
@@ -79,5 +80,20 @@ struct FlowPlanApplicationTests {
 
         #expect(store.modalStore.currentPresentation?.style == .fullScreenCover)
         #expect(store.modalStore.currentPresentation?.route == .coverStep)
+    }
+
+    @Test("apply clears queued presentations when target modal tail already matches current modal")
+    @MainActor
+    func applyClearsStaleQueuedPresentations() {
+        let store = FlowStore<FlowPlanRoute>()
+        store.send(.push(.start))
+        store.send(.presentSheet(.sheetStep))
+        store.send(.presentSheet(.queuedStep))
+
+        store.apply(FlowPlan<FlowPlanRoute>(steps: [.push(.start), .sheet(.sheetStep)]))
+
+        #expect(store.path == [.push(.start), .sheet(.sheetStep)])
+        #expect(store.modalStore.currentPresentation?.route == .sheetStep)
+        #expect(store.modalStore.queuedPresentations.isEmpty)
     }
 }

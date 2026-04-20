@@ -29,6 +29,20 @@ public final class ModalStore<M: Route> {
         middlewareRegistry.metadata
     }
 
+    struct ModalStateSnapshot: Equatable {
+        let currentPresentation: ModalPresentation<M>?
+        let queuedPresentations: [ModalPresentation<M>]
+    }
+
+    struct FlowCommandPreview {
+        let requestedCommand: ModalCommand<M>
+        let effectiveCommand: ModalCommand<M>
+        let result: ModalExecutionResult<M>
+        let participantCount: Int
+        let stateBefore: ModalStateSnapshot
+        let stateAfter: ModalStateSnapshot
+    }
+
     public init(
         currentPresentation: ModalPresentation<M>? = nil,
         queuedPresentations: [ModalPresentation<M>] = [],
@@ -257,6 +271,88 @@ public final class ModalStore<M: Route> {
         _ = execute(.dismissAll)
     }
 
+    var flowStateSnapshot: ModalStateSnapshot {
+        Self.makeSnapshot(
+            currentPresentation: currentPresentation,
+            queuedPresentations: queuedPresentations
+        )
+    }
+
+    func previewFlowCommand(_ command: ModalCommand<M>) -> FlowCommandPreview {
+        previewFlowCommand(command, from: flowStateSnapshot)
+    }
+
+    func previewFlowCommand(
+        _ command: ModalCommand<M>,
+        from stateBefore: ModalStateSnapshot
+    ) -> FlowCommandPreview {
+        let outcome = middlewareRegistry.intercept(
+            command,
+            currentPresentation: stateBefore.currentPresentation,
+            queuedPresentations: stateBefore.queuedPresentations
+        )
+
+        switch outcome.interception {
+        case .cancel(let reason):
+            return FlowCommandPreview(
+                requestedCommand: command,
+                effectiveCommand: outcome.command,
+                result: .cancelled(reason),
+                participantCount: outcome.participantCount,
+                stateBefore: stateBefore,
+                stateAfter: stateBefore
+            )
+        case .proceed(let effectiveCommand):
+            let previewOutcome = previewApplyCommand(effectiveCommand, to: stateBefore)
+            return FlowCommandPreview(
+                requestedCommand: command,
+                effectiveCommand: effectiveCommand,
+                result: previewOutcome.result,
+                participantCount: outcome.participantCount,
+                stateBefore: stateBefore,
+                stateAfter: previewOutcome.stateAfter
+            )
+        }
+    }
+
+    @discardableResult
+    func commitFlowPreview(_ preview: FlowCommandPreview) -> ModalExecutionResult<M> {
+        currentPresentation = preview.stateAfter.currentPresentation
+        queuedPresentations = preview.stateAfter.queuedPresentations
+
+        emitCommittedEvents(for: preview)
+
+        middlewareRegistry.didExecute(
+            preview.effectiveCommand,
+            currentPresentation: currentPresentation,
+            queuedPresentations: queuedPresentations,
+            participantCount: preview.participantCount
+        )
+
+        if case .cancelled(let reason) = preview.result {
+            telemetrySink.recordCommandIntercepted(
+                command: preview.effectiveCommand,
+                outcome: .cancelled,
+                cancellationReason: reason
+            )
+        } else {
+            telemetrySink.recordCommandIntercepted(
+                command: preview.effectiveCommand,
+                outcome: Self.outcomeKind(for: preview.result),
+                cancellationReason: nil
+            )
+        }
+
+        onCommandIntercepted?(preview.effectiveCommand, preview.result)
+        return preview.result
+    }
+
+    func commitFlowPreviews(_ previews: [FlowCommandPreview]) {
+        for preview in previews {
+            _ = commitFlowPreview(preview)
+        }
+    }
+
     // MARK: - Command application (post-interception)
 
     private func applyCommand(_ command: ModalCommand<M>) -> ModalExecutionResult<M> {
@@ -268,6 +364,78 @@ public final class ModalStore<M: Route> {
         case .dismissAll:
             return applyDismissAll()
         }
+    }
+
+    private func previewApplyCommand(
+        _ command: ModalCommand<M>,
+        to snapshot: ModalStateSnapshot
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        switch command {
+        case .present(let presentation):
+            return previewPresent(presentation, on: snapshot)
+        case .dismissCurrent(let reason):
+            return previewDismissCurrent(reason: reason, on: snapshot)
+        case .dismissAll:
+            return previewDismissAll(on: snapshot)
+        }
+    }
+
+    private func previewPresent(
+        _ presentation: ModalPresentation<M>,
+        on snapshot: ModalStateSnapshot
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        if snapshot.currentPresentation == nil {
+            return (
+                .executed(.present(presentation)),
+                Self.makeSnapshot(
+                    currentPresentation: presentation,
+                    queuedPresentations: snapshot.queuedPresentations
+                )
+            )
+        }
+
+        return (
+            .queued(presentation),
+            Self.makeSnapshot(
+                currentPresentation: snapshot.currentPresentation,
+                queuedPresentations: snapshot.queuedPresentations + [presentation]
+            )
+        )
+    }
+
+    private func previewDismissCurrent(
+        reason: ModalDismissalReason,
+        on snapshot: ModalStateSnapshot
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        guard snapshot.currentPresentation != nil else {
+            return (.noop, snapshot)
+        }
+
+        let nextPresentation = snapshot.queuedPresentations.first
+        let remainingQueue = nextPresentation == nil
+            ? snapshot.queuedPresentations
+            : Array(snapshot.queuedPresentations.dropFirst())
+
+        return (
+            .executed(.dismissCurrent(reason: reason)),
+            Self.makeSnapshot(
+                currentPresentation: nextPresentation,
+                queuedPresentations: remainingQueue
+            )
+        )
+    }
+
+    private func previewDismissAll(
+        on snapshot: ModalStateSnapshot
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        guard snapshot.currentPresentation != nil || !snapshot.queuedPresentations.isEmpty else {
+            return (.noop, snapshot)
+        }
+
+        return (
+            .executed(.dismissAll),
+            Self.makeSnapshot(currentPresentation: nil, queuedPresentations: [])
+        )
     }
 
     private func applyPresent(_ presentation: ModalPresentation<M>) -> ModalExecutionResult<M> {
@@ -342,6 +510,71 @@ public final class ModalStore<M: Route> {
         onQueueChanged?(oldQueue, queuedPresentations)
         telemetrySink.recordPresented(promotedPresentation)
         onPresented?(promotedPresentation)
+    }
+
+    private func emitCommittedEvents(for preview: FlowCommandPreview) {
+        switch preview.result {
+        case .executed(.present(let presentation)):
+            telemetrySink.recordPresented(presentation)
+            onPresented?(presentation)
+
+        case .executed(.dismissCurrent(let reason)):
+            guard let dismissedPresentation = preview.stateBefore.currentPresentation else { return }
+            telemetrySink.recordDismissed(dismissedPresentation, reason: reason)
+            onDismissed?(dismissedPresentation, reason)
+
+            if preview.stateBefore.queuedPresentations != preview.stateAfter.queuedPresentations {
+                telemetrySink.recordQueueChanged(
+                    oldQueue: preview.stateBefore.queuedPresentations,
+                    newQueue: preview.stateAfter.queuedPresentations
+                )
+                onQueueChanged?(preview.stateBefore.queuedPresentations, preview.stateAfter.queuedPresentations)
+            }
+
+            if let promotedPresentation = preview.stateAfter.currentPresentation {
+                telemetrySink.recordPresented(promotedPresentation)
+                onPresented?(promotedPresentation)
+            }
+
+        case .executed(.dismissAll):
+            if preview.stateBefore.queuedPresentations != preview.stateAfter.queuedPresentations {
+                telemetrySink.recordQueueChanged(
+                    oldQueue: preview.stateBefore.queuedPresentations,
+                    newQueue: preview.stateAfter.queuedPresentations
+                )
+                onQueueChanged?(preview.stateBefore.queuedPresentations, preview.stateAfter.queuedPresentations)
+            }
+
+            if let dismissedPresentation = preview.stateBefore.currentPresentation {
+                telemetrySink.recordDismissed(dismissedPresentation, reason: .dismissAll)
+                onDismissed?(dismissedPresentation, .dismissAll)
+            }
+
+        case .queued(let presentation):
+            telemetrySink.recordQueued(presentation)
+            telemetrySink.recordQueueChanged(
+                oldQueue: preview.stateBefore.queuedPresentations,
+                newQueue: preview.stateAfter.queuedPresentations
+            )
+            onQueueChanged?(preview.stateBefore.queuedPresentations, preview.stateAfter.queuedPresentations)
+
+        case .cancelled, .noop:
+            break
+        }
+    }
+
+    private static func makeSnapshot(
+        currentPresentation: ModalPresentation<M>?,
+        queuedPresentations: [ModalPresentation<M>]
+    ) -> ModalStateSnapshot {
+        let normalized = normalize(
+            currentPresentation: currentPresentation,
+            queuedPresentations: queuedPresentations
+        )
+        return ModalStateSnapshot(
+            currentPresentation: normalized.current,
+            queuedPresentations: normalized.queue
+        )
     }
 
     private static func outcomeKind(

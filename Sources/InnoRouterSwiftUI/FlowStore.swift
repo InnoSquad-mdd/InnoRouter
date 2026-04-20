@@ -6,11 +6,10 @@ import InnoRouterCore
 /// array of `RouteStep`s, delegating execution to an inner `NavigationStore`
 /// and `ModalStore`.
 ///
-/// `FlowStore` is the single source of truth for flows where the user moves
-/// through a sequence of destinations that may mix `push`, sheet, or
-/// full-screen cover presentations — the classic login/checkout flow shape.
-/// Consumers dispatch `FlowIntent` values via `send(_:)` or describe the full
-/// end state with `FlowPlan` via `apply(_:)`.
+/// `FlowStore` projects the committed navigation + modal state owned by its
+/// inner stores into a single array of `RouteStep`s. Consumers dispatch
+/// `FlowIntent` values via `send(_:)` or describe the full end state with
+/// `FlowPlan` via `apply(_:)`.
 ///
 /// ## Invariants
 ///
@@ -22,14 +21,16 @@ import InnoRouterCore
 ///    `.pushBlockedByModalTail`.
 /// 3. `.pop` / `.dismiss` against an empty path or missing modal tail are
 ///    silent no-ops (matching `NavigationIntent.back` conventions).
-/// 4. Middleware cancellations from the inner navigation / modal store
-///    automatically roll the flow path back and emit
+/// 4. `path` is rebuilt from committed inner state after each successful
+///    mutation, so middleware rewrites are reflected in the projection.
+/// 5. Middleware cancellations from the inner navigation / modal store
+///    leave the committed state untouched and emit
 ///    `.middlewareRejected(debugName:)`.
 @Observable
 @MainActor
 public final class FlowStore<R: Route> {
-    /// Unified flow path. Push steps are the navigation prefix; at most one
-    /// trailing modal step (`.sheet` / `.cover`) may sit at the tail.
+    /// Canonical projection of the committed navigation prefix and visible
+    /// modal tail owned by the inner stores.
     public private(set) var path: [RouteStep<R>]
 
     /// Inner navigation store that owns stack state for `.push` steps.
@@ -60,11 +61,16 @@ public final class FlowStore<R: Route> {
         let link = FlowStoreLink<R>()
 
         let userNavOnChange = configuration.navigation.onChange
+        let userModalOnPresented = configuration.modal.onPresented
         let userModalOnDismissed = configuration.modal.onDismissed
 
         let composedNavOnChange: @MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void = { old, new in
             userNavOnChange?(old, new)
             link.owner?.handleNavigationStoreChange(from: old, to: new)
+        }
+        let composedModalOnPresented: @MainActor @Sendable (ModalPresentation<R>) -> Void = { presentation in
+            userModalOnPresented?(presentation)
+            link.owner?.handleModalStorePresentation(presentation)
         }
         let composedModalOnDismissed: @MainActor @Sendable (ModalPresentation<R>, ModalDismissalReason) -> Void = { presentation, reason in
             userModalOnDismissed?(presentation, reason)
@@ -86,7 +92,7 @@ public final class FlowStore<R: Route> {
         let modalConfig = ModalStoreConfiguration<R>(
             logger: configuration.modal.logger,
             middlewares: configuration.modal.middlewares,
-            onPresented: configuration.modal.onPresented,
+            onPresented: composedModalOnPresented,
             onDismissed: composedModalOnDismissed,
             onQueueChanged: configuration.modal.onQueueChanged,
             onMiddlewareMutation: configuration.modal.onMiddlewareMutation,
@@ -105,7 +111,11 @@ public final class FlowStore<R: Route> {
             currentPresentation: modalPresentation,
             configuration: modalConfig
         )
-        self.path = validatedInitial
+        self.path = FlowProjection(
+            pushRoutes: self.navigationStore.state.path,
+            currentPresentation: self.modalStore.currentPresentation,
+            queuedPresentations: self.modalStore.queuedPresentations
+        ).path
         self.onPathChanged = configuration.onPathChanged
         self.onIntentRejected = configuration.onIntentRejected
         self.link = link
@@ -143,96 +153,77 @@ public final class FlowStore<R: Route> {
     // MARK: - Dispatch
 
     private func dispatchPush(_ route: R, intent: FlowIntent<R>) {
-        if let last = path.last, last.isModal {
+        if currentProjection.currentPresentation != nil {
             onIntentRejected?(intent, .pushBlockedByModalTail)
             return
         }
 
         let pathBefore = path
-        let newStep = RouteStep<R>.push(route)
-        path.append(newStep)
-
-        let result = withInternalMutation {
-            navigationStore.execute(.push(route))
-        }
-
-        if case .cancelled(let reason) = result {
-            path = pathBefore
-            onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+        let preview = navigationStore.previewFlowCommand(.push(route))
+        if !preview.result.isSuccess {
+            if case .cancelled(let reason) = preview.result {
+                onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+            }
             return
         }
 
-        emitPathChangedIfNeeded(from: pathBefore)
+        withInternalMutation {
+            _ = navigationStore.commitFlowPreview(preview)
+        }
+
+        syncPathFromStores(from: pathBefore)
     }
 
     private func dispatchModal(_ route: R, step: RouteStep<R>, intent: FlowIntent<R>) {
-        // A modal tail already exists: queue-behaviour is delegated to ModalStore.
-        // The path reflects only the visible tail, so only update when this is
-        // the first modal step.
         let pathBefore = path
-        let appending = path.last?.isModal != true
+        let preview = modalStore.previewFlowCommand(.present(Self.presentation(for: step)))
 
-        if appending {
-            path.append(step)
-        }
-
-        let presentation = Self.presentation(for: step)
-        let result = withInternalMutation {
-            modalStore.execute(.present(presentation))
-        }
-
-        switch result {
-        case .executed, .queued:
-            emitPathChangedIfNeeded(from: pathBefore)
-        case .cancelled(let reason):
-            path = pathBefore
-            onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
-        case .noop:
-            emitPathChangedIfNeeded(from: pathBefore)
-        }
-    }
-
-    private func dispatchPop(intent: FlowIntent<R>) {
-        guard !path.isEmpty else { return }
-        // If the tail is a modal, `.pop` targets push steps only — no-op.
-        if path.last?.isModal == true { return }
-
-        let pathBefore = path
-        path.removeLast()
-
-        let result = withInternalMutation {
-            navigationStore.execute(.pop)
-        }
-
-        if case .cancelled(let reason) = result {
-            path = pathBefore
+        if case .cancelled(let reason) = preview.result {
             onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
             return
         }
 
-        emitPathChangedIfNeeded(from: pathBefore)
+        withInternalMutation {
+            _ = modalStore.commitFlowPreview(preview)
+        }
+
+        syncPathFromStores(from: pathBefore)
+    }
+
+    private func dispatchPop(intent: FlowIntent<R>) {
+        guard !navigationStore.state.path.isEmpty else { return }
+        guard currentProjection.currentPresentation == nil else { return }
+
+        let pathBefore = path
+        let preview = navigationStore.previewFlowCommand(.pop)
+        if !preview.result.isSuccess {
+            if case .cancelled(let reason) = preview.result {
+                onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+            }
+            return
+        }
+
+        withInternalMutation {
+            _ = navigationStore.commitFlowPreview(preview)
+        }
+
+        syncPathFromStores(from: pathBefore)
     }
 
     private func dispatchDismiss(intent: FlowIntent<R>) {
-        guard let last = path.last, last.isModal else { return }
-
+        guard currentProjection.currentPresentation != nil else { return }
         let pathBefore = path
-        path.removeLast()
-
-        let result = withInternalMutation {
-            modalStore.execute(.dismissCurrent(reason: .dismiss))
-        }
-
-        switch result {
-        case .executed, .noop:
-            emitPathChangedIfNeeded(from: pathBefore)
-        case .cancelled(let reason):
-            path = pathBefore
+        let preview = modalStore.previewFlowCommand(.dismissCurrent(reason: .dismiss))
+        if case .cancelled(let reason) = preview.result {
             onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
-        case .queued:
-            // Dismiss commands never produce `.queued`.
-            emitPathChangedIfNeeded(from: pathBefore)
+            return
         }
+
+        withInternalMutation {
+            _ = modalStore.commitFlowPreview(preview)
+        }
+
+        syncPathFromStores(from: pathBefore)
     }
 
     private func dispatchReset(_ steps: [RouteStep<R>], intent: FlowIntent<R>) {
@@ -244,47 +235,27 @@ public final class FlowStore<R: Route> {
         let pathBefore = path
         let (pushRoutes, modalTail) = Self.decompose(steps)
 
-        path = steps
-
-        // Replace navigation prefix.
-        let navResult = withInternalMutation {
-            navigationStore.execute(.replace(pushRoutes))
-        }
-
-        if case .cancelled(let reason) = navResult {
-            path = pathBefore
-            onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+        let navPreview = navigationStore.previewFlowCommand(.replace(pushRoutes))
+        if !navPreview.result.isSuccess {
+            if case .cancelled(let reason) = navPreview.result {
+                onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+            }
             return
         }
 
-        // Reconcile modal tail.
-        if let modalTail {
-            let presentation = Self.presentation(for: modalTail)
-            // If there is already an active modal and the new tail differs,
-            // dismiss first to avoid stacking presentations.
-            if modalStore.currentPresentation?.route != modalTail.route
-                || modalStore.currentPresentation?.style != modalTail.modalStyle {
-                if modalStore.currentPresentation != nil {
-                    _ = withInternalMutation {
-                        modalStore.execute(.dismissAll)
-                    }
-                }
-                let modalResult = withInternalMutation {
-                    modalStore.execute(.present(presentation))
-                }
-                if case .cancelled(let reason) = modalResult {
-                    path = pathBefore
-                    onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
-                    return
-                }
-            }
-        } else if modalStore.currentPresentation != nil || !modalStore.queuedPresentations.isEmpty {
-            _ = withInternalMutation {
-                modalStore.execute(.dismissAll)
+        let modalPlan = previewModalReset(to: modalTail)
+        switch modalPlan {
+        case .rejected(let reason):
+            onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+            return
+        case .commit(let modalPreviews):
+            withInternalMutation {
+                _ = navigationStore.commitFlowPreview(navPreview)
+                modalStore.commitFlowPreviews(modalPreviews)
             }
         }
 
-        emitPathChangedIfNeeded(from: pathBefore)
+        syncPathFromStores(from: pathBefore)
     }
 
     // MARK: - Reverse sync
@@ -294,10 +265,7 @@ public final class FlowStore<R: Route> {
         to newStack: RouteStack<R>
     ) {
         guard !isApplyingInternalMutation else { return }
-        // External / system-driven change (e.g. SwiftUI swipe-back) — reconcile
-        // `path`'s push prefix to match the new navigation path, preserving
-        // any modal tail.
-        reconcilePushPrefix(with: newStack.path)
+        syncPathFromStores(from: path)
     }
 
     private func handleModalStoreDismissal(
@@ -305,28 +273,12 @@ public final class FlowStore<R: Route> {
         reason: ModalDismissalReason
     ) {
         guard !isApplyingInternalMutation else { return }
-        guard reason == .systemDismiss else { return }
-        // SwiftUI-driven modal dismissal (e.g. sheet swipe-down) — drop the
-        // modal tail from the flow path if it still matches.
-        guard let last = path.last, last.isModal, last.route == presentation.route else { return }
-
-        let pathBefore = path
-        path.removeLast()
-        emitPathChangedIfNeeded(from: pathBefore)
+        syncPathFromStores(from: path)
     }
 
-    private func reconcilePushPrefix(with newPushRoutes: [R]) {
-        let pathBefore = path
-        let (currentPushes, modalTail) = Self.decompose(path)
-
-        guard currentPushes != newPushRoutes else { return }
-
-        var newPath: [RouteStep<R>] = newPushRoutes.map { .push($0) }
-        if let modalTail {
-            newPath.append(modalTail)
-        }
-        path = newPath
-        emitPathChangedIfNeeded(from: pathBefore)
+    private func handleModalStorePresentation(_ presentation: ModalPresentation<R>) {
+        guard !isApplyingInternalMutation else { return }
+        syncPathFromStores(from: path)
     }
 
     // MARK: - Helpers
@@ -341,6 +293,51 @@ public final class FlowStore<R: Route> {
         isApplyingInternalMutation = true
         defer { isApplyingInternalMutation = wasApplying }
         return body()
+    }
+
+    private var currentProjection: FlowProjection {
+        FlowProjection(
+            pushRoutes: navigationStore.state.path,
+            currentPresentation: modalStore.currentPresentation,
+            queuedPresentations: modalStore.queuedPresentations
+        )
+    }
+
+    private func syncPathFromStores(from oldPath: [RouteStep<R>]) {
+        path = currentProjection.path
+        emitPathChangedIfNeeded(from: oldPath)
+    }
+
+    private func previewModalReset(to modalTail: RouteStep<R>?) -> ModalPreviewPlan {
+        let targetPresentation = modalTail.map(Self.presentation(for:))
+        let currentSnapshot = modalStore.flowStateSnapshot
+
+        if currentSnapshot.currentPresentation == targetPresentation,
+            currentSnapshot.queuedPresentations.isEmpty {
+            return .commit([])
+        }
+
+        var previews: [ModalStore<R>.FlowCommandPreview] = []
+        var shadow = currentSnapshot
+
+        if shadow.currentPresentation != nil || !shadow.queuedPresentations.isEmpty {
+            let dismissPreview = modalStore.previewFlowCommand(.dismissAll, from: shadow)
+            if case .cancelled(let reason) = dismissPreview.result {
+                return .rejected(reason)
+            }
+            previews.append(dismissPreview)
+            shadow = dismissPreview.stateAfter
+        }
+
+        if let targetPresentation {
+            let presentPreview = modalStore.previewFlowCommand(.present(targetPresentation), from: shadow)
+            if case .cancelled(let reason) = presentPreview.result {
+                return .rejected(reason)
+            }
+            previews.append(presentPreview)
+        }
+
+        return .commit(previews)
     }
 
     private static func validatedInitial(_ steps: [RouteStep<R>]) -> [RouteStep<R>] {
@@ -370,6 +367,15 @@ public final class FlowStore<R: Route> {
         return ModalPresentation(route: step.route, style: style)
     }
 
+    nonisolated private static func step(for presentation: ModalPresentation<R>) -> RouteStep<R> {
+        switch presentation.style {
+        case .sheet:
+            return .sheet(presentation.route)
+        case .fullScreenCover:
+            return .cover(presentation.route)
+        }
+    }
+
     private static func debugName(from reason: NavigationCancellationReason<R>) -> String? {
         switch reason {
         case .middleware(let debugName, _): return debugName
@@ -389,6 +395,25 @@ public final class FlowStore<R: Route> {
     private static func debugName(from result: NavigationResult<R>) -> String? {
         guard case .cancelled(let reason) = result else { return nil }
         return debugName(from: reason)
+    }
+
+    private struct FlowProjection {
+        let pushRoutes: [R]
+        let currentPresentation: ModalPresentation<R>?
+        let queuedPresentations: [ModalPresentation<R>]
+
+        var path: [RouteStep<R>] {
+            var projectedPath = pushRoutes.map(RouteStep.push)
+            if let currentPresentation {
+                projectedPath.append(FlowStore.step(for: currentPresentation))
+            }
+            return projectedPath
+        }
+    }
+
+    private enum ModalPreviewPlan {
+        case commit([ModalStore<R>.FlowCommandPreview])
+        case rejected(ModalCancellationReason<R>)
     }
 }
 

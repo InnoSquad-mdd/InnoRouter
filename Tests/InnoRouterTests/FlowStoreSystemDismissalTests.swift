@@ -30,6 +30,19 @@ struct FlowStoreSystemDismissalTests {
         #expect(store.modalStore.currentPresentation == nil)
     }
 
+    @Test("system dismiss promotes queued modal into flow path")
+    @MainActor
+    func systemDismissPromotesQueuedModal() {
+        let store = FlowStore<FlowSystemRoute>()
+        store.send(.presentSheet(.share))
+        store.send(.presentSheet(.detail))
+
+        store.modalStore.binding(for: .sheet).wrappedValue = nil
+
+        #expect(store.modalStore.currentPresentation?.route == .detail)
+        #expect(store.path == [.sheet(.detail)])
+    }
+
     @Test("non-system modal dismiss path does not double-remove modal tail")
     @MainActor
     func userDismissDoesNotDoublyTrim() {

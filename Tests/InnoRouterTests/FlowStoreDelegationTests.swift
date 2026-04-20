@@ -52,6 +52,37 @@ struct FlowStoreDelegationTests {
         #expect(store.path == [.cover(.paywall)])
     }
 
+    @Test("modal middleware rewrite updates flow path to committed presentation style")
+    @MainActor
+    func modalRewriteProjectsCommittedStyle() {
+        let middleware = AnyModalMiddleware<FlowDelegationRoute>(
+            willExecute: { command, _, _ in
+                if case .present(let presentation) = command, presentation.style == .sheet {
+                    return .proceed(
+                        .present(
+                            ModalPresentation(
+                                id: presentation.id,
+                                route: presentation.route,
+                                style: .fullScreenCover
+                            )
+                        )
+                    )
+                }
+                return .proceed(command)
+            }
+        )
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(
+                modal: .init(middlewares: [.init(middleware: middleware)])
+            )
+        )
+
+        store.send(.presentSheet(.share))
+
+        #expect(store.modalStore.currentPresentation?.style == .fullScreenCover)
+        #expect(store.path == [.cover(.share)])
+    }
+
     @Test("pop delegates to navigation and trims path tail")
     @MainActor
     func popDelegatesToNavigation() {
@@ -76,6 +107,21 @@ struct FlowStoreDelegationTests {
         #expect(store.path == [.push(.home)])
     }
 
+    @Test("dismiss keeps promoted queued modal as new path tail")
+    @MainActor
+    func dismissKeepsPromotedQueuedModalTail() {
+        let store = FlowStore<FlowDelegationRoute>()
+        store.send(.push(.home))
+        store.send(.presentSheet(.share))
+        store.send(.presentSheet(.paywall))
+
+        store.send(.dismiss)
+
+        #expect(store.modalStore.currentPresentation?.route == .paywall)
+        #expect(store.modalStore.currentPresentation?.style == .sheet)
+        #expect(store.path == [.push(.home), .sheet(.paywall)])
+    }
+
     @Test("reset replaces navigation prefix and applies modal tail")
     @MainActor
     func resetReplacesStacksAndPresentsModal() {
@@ -88,6 +134,29 @@ struct FlowStoreDelegationTests {
         #expect(store.navigationStore.state.path == [.home])
         #expect(store.modalStore.currentPresentation?.route == .share)
         #expect(store.path == [.push(.home), .sheet(.share)])
+    }
+
+    @Test("navigation middleware rewrite updates flow path to committed stack")
+    @MainActor
+    func navigationRewriteProjectsCommittedStack() {
+        let middleware = AnyNavigationMiddleware<FlowDelegationRoute>(
+            willExecute: { command, _ in
+                if case .push(.detail) = command {
+                    return .proceed(.replace([.home, .paywall]))
+                }
+                return .proceed(command)
+            }
+        )
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(
+                navigation: .init(middlewares: [.init(middleware: middleware)])
+            )
+        )
+
+        store.send(.push(.detail))
+
+        #expect(store.navigationStore.state.path == [.home, .paywall])
+        #expect(store.path == [.push(.home), .push(.paywall)])
     }
 
     @Test("inner navigation onChange still fires when caller supplies a hook")

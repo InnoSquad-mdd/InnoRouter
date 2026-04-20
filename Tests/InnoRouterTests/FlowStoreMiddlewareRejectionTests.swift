@@ -84,4 +84,119 @@ struct FlowStoreMiddlewareRejectionTests {
             #expect(event.1 == .middlewareRejected(debugName: "sheet-gate"))
         }
     }
+
+    @Test("reset with modal present cancellation leaves nav modal and callbacks untouched")
+    @MainActor
+    func resetPresentCancellationIsAtomic() {
+        let rejections = Mutex<[FlowRejectionReason]>([])
+        let navChanges = Mutex<Int>(0)
+        let modalPresented = Mutex<Int>(0)
+        let modalDismissed = Mutex<Int>(0)
+        let modalQueueChanges = Mutex<Int>(0)
+        let pathChanges = Mutex<Int>(0)
+
+        let gate = AnyModalMiddleware<FlowMiddlewareRoute>(
+            willExecute: { command, _, _ in
+                if case .present = command {
+                    return .cancel(.middleware(debugName: "sheet-gate", command: command))
+                }
+                return .proceed(command)
+            }
+        )
+
+        let store = FlowStore<FlowMiddlewareRoute>(
+            configuration: .init(
+                navigation: .init(
+                    onChange: { _, _ in navChanges.withLock { $0 += 1 } }
+                ),
+                modal: .init(
+                    middlewares: [.init(middleware: gate, debugName: "sheet-gate")],
+                    onPresented: { _ in modalPresented.withLock { $0 += 1 } },
+                    onDismissed: { _, _ in modalDismissed.withLock { $0 += 1 } },
+                    onQueueChanged: { _, _ in modalQueueChanges.withLock { $0 += 1 } }
+                ),
+                onPathChanged: { _, _ in pathChanges.withLock { $0 += 1 } },
+                onIntentRejected: { _, reason in rejections.withLock { $0.append(reason) } }
+            )
+        )
+
+        store.send(.push(.home))
+        navChanges.withLock { $0 = 0 }
+        modalPresented.withLock { $0 = 0 }
+        modalDismissed.withLock { $0 = 0 }
+        modalQueueChanges.withLock { $0 = 0 }
+        pathChanges.withLock { $0 = 0 }
+
+        store.send(.reset([.push(.detail), .sheet(.secure)]))
+
+        #expect(store.path == [.push(.home)])
+        #expect(store.navigationStore.state.path == [.home])
+        #expect(store.modalStore.currentPresentation == nil)
+        #expect(store.modalStore.queuedPresentations.isEmpty)
+        #expect(navChanges.withLock { $0 } == 0)
+        #expect(modalPresented.withLock { $0 } == 0)
+        #expect(modalDismissed.withLock { $0 } == 0)
+        #expect(modalQueueChanges.withLock { $0 } == 0)
+        #expect(pathChanges.withLock { $0 } == 0)
+        #expect(rejections.withLock { $0 } == [.middlewareRejected(debugName: "sheet-gate")])
+    }
+
+    @Test("reset with dismissAll cancellation leaves existing modal state untouched")
+    @MainActor
+    func resetDismissAllCancellationIsAtomic() {
+        let rejections = Mutex<[FlowRejectionReason]>([])
+        let navChanges = Mutex<Int>(0)
+        let modalPresented = Mutex<Int>(0)
+        let modalDismissed = Mutex<Int>(0)
+        let modalQueueChanges = Mutex<Int>(0)
+        let pathChanges = Mutex<Int>(0)
+
+        let gate = AnyModalMiddleware<FlowMiddlewareRoute>(
+            willExecute: { command, _, _ in
+                if case .dismissAll = command {
+                    return .cancel(.middleware(debugName: "dismiss-gate", command: command))
+                }
+                return .proceed(command)
+            }
+        )
+
+        let store = FlowStore<FlowMiddlewareRoute>(
+            configuration: .init(
+                navigation: .init(
+                    onChange: { _, _ in navChanges.withLock { $0 += 1 } }
+                ),
+                modal: .init(
+                    middlewares: [.init(middleware: gate, debugName: "dismiss-gate")],
+                    onPresented: { _ in modalPresented.withLock { $0 += 1 } },
+                    onDismissed: { _, _ in modalDismissed.withLock { $0 += 1 } },
+                    onQueueChanged: { _, _ in modalQueueChanges.withLock { $0 += 1 } }
+                ),
+                onPathChanged: { _, _ in pathChanges.withLock { $0 += 1 } },
+                onIntentRejected: { _, reason in rejections.withLock { $0.append(reason) } }
+            )
+        )
+
+        store.send(.push(.home))
+        store.send(.presentSheet(.secure))
+        store.send(.presentSheet(.detail))
+
+        navChanges.withLock { $0 = 0 }
+        modalPresented.withLock { $0 = 0 }
+        modalDismissed.withLock { $0 = 0 }
+        modalQueueChanges.withLock { $0 = 0 }
+        pathChanges.withLock { $0 = 0 }
+
+        store.send(.reset([.push(.detail)]))
+
+        #expect(store.path == [.push(.home), .sheet(.secure)])
+        #expect(store.navigationStore.state.path == [.home])
+        #expect(store.modalStore.currentPresentation?.route == .secure)
+        #expect(store.modalStore.queuedPresentations.map(\.route) == [.detail])
+        #expect(navChanges.withLock { $0 } == 0)
+        #expect(modalPresented.withLock { $0 } == 0)
+        #expect(modalDismissed.withLock { $0 } == 0)
+        #expect(modalQueueChanges.withLock { $0 } == 0)
+        #expect(pathChanges.withLock { $0 } == 0)
+        #expect(rejections.withLock { $0 } == [.middlewareRejected(debugName: "dismiss-gate")])
+    }
 }

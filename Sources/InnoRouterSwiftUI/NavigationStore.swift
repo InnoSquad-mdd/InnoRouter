@@ -311,6 +311,77 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         )
     }
 
+    struct FlowCommandPreview {
+        let requestedCommand: NavigationCommand<R>
+        let effectiveCommand: NavigationCommand<R>
+        let executedCommands: [NavigationCommand<R>]
+        let result: NavigationResult<R>
+        let participantCount: Int
+        let stateBefore: RouteStack<R>
+        let stateAfter: RouteStack<R>
+    }
+
+    func previewFlowCommand(_ command: NavigationCommand<R>) -> FlowCommandPreview {
+        previewFlowCommand(command, from: state)
+    }
+
+    func previewFlowCommand(
+        _ command: NavigationCommand<R>,
+        from stateBefore: RouteStack<R>
+    ) -> FlowCommandPreview {
+        switch command {
+        case .sequence:
+            preconditionFailure("FlowStore preview does not support sequence commands.")
+        default:
+            break
+        }
+
+        let interceptionOutcome = middlewareRegistry.intercept(command, state: stateBefore)
+        switch interceptionOutcome.interception {
+        case .cancel(let reason):
+            return FlowCommandPreview(
+                requestedCommand: command,
+                effectiveCommand: interceptionOutcome.command,
+                executedCommands: [],
+                result: .cancelled(reason),
+                participantCount: interceptionOutcome.participantCount,
+                stateBefore: stateBefore,
+                stateAfter: stateBefore
+            )
+        case .proceed(let commandToExecute):
+            var shadowState = stateBefore
+            let result = engine.apply(commandToExecute, to: &shadowState)
+            return FlowCommandPreview(
+                requestedCommand: command,
+                effectiveCommand: commandToExecute,
+                executedCommands: [commandToExecute],
+                result: result,
+                participantCount: interceptionOutcome.participantCount,
+                stateBefore: stateBefore,
+                stateAfter: shadowState
+            )
+        }
+    }
+
+    @discardableResult
+    func commitFlowPreview(_ preview: FlowCommandPreview) -> NavigationResult<R> {
+        let committedStateBefore = state
+        state = preview.stateAfter
+
+        let finalResult = middlewareRegistry.didExecute(
+            preview.effectiveCommand,
+            result: preview.result,
+            state: state,
+            participantCount: preview.participantCount
+        )
+
+        if state != committedStateBefore {
+            onChange?(committedStateBefore, state)
+        }
+
+        return finalResult
+    }
+
     private func reconcileNavigationPath(with newPath: [R]) {
         pathReconciler.reconcile(
             from: state.path,
