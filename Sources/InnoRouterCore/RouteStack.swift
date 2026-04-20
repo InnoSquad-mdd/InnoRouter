@@ -17,3 +17,8 @@ public struct RouteStack<R: Route>: Sendable, Equatable {
         self.path = path
     }
 }
+
+// MARK: - Codable (opt-in when the underlying route is Codable)
+
+extension RouteStack: Encodable where R: Encodable {}
+extension RouteStack: Decodable where R: Decodable {}

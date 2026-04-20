@@ -37,3 +37,8 @@ public enum RouteStep<R: Route>: Sendable, Hashable {
         modalStyle != nil
     }
 }
+
+// MARK: - Codable (opt-in when the underlying route is Codable)
+
+extension RouteStep: Encodable where R: Encodable {}
+extension RouteStep: Decodable where R: Decodable {}
