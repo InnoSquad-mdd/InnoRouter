@@ -367,6 +367,62 @@ Recommended division:
 - `TabCoordinator`: shell/tab selection state
 - `FlowCoordinator`: local step progression inside a destination
 
+### Child coordinator chaining
+
+`ChildCoordinator` lets a parent coordinator await a finish value inline
+through `parent.push(child:) -> Task<Child.Result?, Never>`:
+
+```swift
+let signupResult = await parentCoordinator.push(child: SignUpCoordinator())
+if let user = signupResult {
+    parentCoordinator.handle(.go(.home(user)))
+}
+```
+
+Callbacks (`onFinish`, `onCancel`) are installed synchronously so the
+child can fire them at any point, including before the parent's
+`await`. See [`Docs/design-child-coordinator-handoff.md`](Docs/design-child-coordinator-handoff.md)
+for the design rationale.
+
+## Named navigation intents
+
+High-frequency intents compose from existing `NavigationCommand`
+primitives:
+
+- `NavigationIntent.replaceStack([R])` — reset the stack to the given
+  routes in one observable step.
+- `NavigationIntent.backOrPush(R)` — pop to `route` if it already
+  exists in the stack, otherwise push it.
+- `NavigationIntent.pushUniqueRoot(R)` — push only if the current
+  root doesn't already match.
+
+These route through the normal `send` → `execute` pipeline so middleware
+and telemetry observe them identically to direct `NavigationCommand`
+calls.
+
+## Case-typed destination bindings
+
+`NavigationStore` and `ModalStore` expose `binding(case:)` helpers keyed
+by the `CasePath` emitted by `@Routable` / `@CasePathable`:
+
+```swift
+struct DetailSheet: View {
+    @Environment(\.navigationStore) private var store: NavigationStore<AppRoute>
+
+    var body: some View {
+        SomeDetailView()
+            .sheet(item: store.binding(case: \AppRoute.detail)) { detail in
+                DetailView(detail: detail)
+            }
+    }
+}
+```
+
+Bindings route every set through the existing command pipeline so
+middleware and telemetry observe them exactly as they do direct
+`execute(...)` calls. `ModalStore.binding(case:style:)` is scoped per
+presentation style (`.sheet` / `.fullScreenCover`).
+
 ## Deep-link model
 
 Deep links are handled as plans, not hidden side effects.
@@ -673,17 +729,81 @@ Exhaustivity defaults to `.strict`: any unasserted event at store
 deinit fires a Swift Testing issue. Use `.off` for incremental
 migrations from legacy test fixtures.
 
+## State restoration
+
+Routes that opt into `Codable` get round-trippable `RouteStack`,
+`RouteStep`, and `FlowPlan` values for free:
+
+```swift
+enum AppRoute: Route, Codable {
+    case home
+    case detail(String)
+    case settings
+}
+
+let persistence = StatePersistence<AppRoute>()
+
+// On scene background / checkpoint:
+let data = try persistence.encode(FlowPlan(steps: flowStore.path))
+try data.write(to: restorationURL, options: .atomic)
+
+// On launch:
+if let data = try? Data(contentsOf: restorationURL) {
+    flowStore.apply(try persistence.decode(data))
+}
+```
+
+`StatePersistence<R: Route & Codable>` wraps a `JSONEncoder` and
+`JSONDecoder` (both configurable) and stops at the `Data`
+boundary — file URLs, `UserDefaults`, iCloud, and scene-phase
+hooks are app concerns. Errors propagate as the underlying
+`EncodingError` / `DecodingError` so callers can distinguish
+schema drift from I/O failures.
+
+## Unified observation stream
+
+Every store publishes a single `events: AsyncStream` that covers
+the complete observation surface — stack changes, batch /
+transaction completions, path-mismatch resolutions,
+middleware-registry mutations, modal present / dismiss / queue
+updates, command interceptions, and flow-level path or
+intent-rejection signals.
+
+```swift
+Task {
+    for await event in flowStore.events {
+        switch event {
+        case .navigation(.changed(_, let to)):
+            analytics.track("nav_path", to.path)
+        case .modal(.commandIntercepted(_, .cancelled(let reason))):
+            Log.warning("modal cancelled: \(reason)")
+        case .intentRejected(let intent, let reason):
+            Log.info("flow rejected \(intent) because \(reason)")
+        default:
+            continue
+        }
+    }
+}
+```
+
+Individual `onChange`, `onPresented`, `onCommandIntercepted`, etc.
+callbacks on each `*Configuration` type remain source-compatible;
+the `events` stream is an additional channel, not a replacement.
+
 ## Roadmap
 
-Potential next steps for a future major release:
+Remaining items tracked in
+[`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md):
 
-- [ ] Composite deep-link plans
-  Extend `DeepLinkPipeline` to emit `FlowPlan<R>` directly so URL
-  handling can seed combined push + modal flows in one value-level
-  step.
-- [ ] `Codable` route stacks + `FlowPlan` persistence
-  Opt-in state restoration so a `FlowStore.path` snapshot can be
-  persisted and replayed at launch.
+- [ ] **P0-3 Deep-link path rehydration** — `DeepLinkPathResolver`
+      + `FlowDeepLinkPipeline` + `DeepLinkEffectHandler` so a URL
+      can terminate on a modal step and rehydrate through
+      `FlowStore.apply`. Now unblocked by the shipped
+      `StatePersistence` / `Codable` surface.
+- [ ] **P2-3 UIKit escape hatch** — bidirectional binding between
+      `NavigationStore` and `UINavigationController` for
+      incremental UIKit adoption. Separate product decision
+      required.
 
 ## License
 

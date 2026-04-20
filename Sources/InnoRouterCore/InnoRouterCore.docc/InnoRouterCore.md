@@ -22,6 +22,7 @@ This module does not know about SwiftUI, deep links, or presentation hosts. It o
 - <doc:Route-Stack-and-Validation>
 - <doc:Command-Batch-and-Transaction-Semantics>
 - <doc:Middleware-and-Cancellation>
+- <doc:StatePersistence>
 
 ### Core Types
 
@@ -36,3 +37,9 @@ This module does not know about SwiftUI, deep links, or presentation hosts. It o
 - ``Navigator``
 - ``AnyNavigator``
 - ``AnyBatchNavigator``
+
+### Persistence
+
+- ``StatePersistence``
+- ``FlowPlan``
+- ``RouteStep``

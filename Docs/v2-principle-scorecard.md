@@ -11,6 +11,10 @@ This scorecard maps the current implementation to SwiftUI philosophy, SOLID, typ
 | Deep-link planning | URL matching and policy flow are explicit, typed, and replay-friendly | `Sources/InnoRouterDeepLink` | Enforced |
 | App boundary effects | Navigation-only effects and deep-link effects are split cleanly | `Sources/InnoRouterNavigationEffects`, `Sources/InnoRouterDeepLinkEffects` | Enforced |
 | Host-less testability | `NavigationTestStore`, `ModalTestStore`, and `FlowTestStore` expose a shippable Swift Testing harness over the public observation surface | `Sources/InnoRouterTesting` | Enforced |
+| Coordinator composition | `ChildCoordinator` + `parent.push(child:) -> Task<Result?, Never>` give child → parent finish chaining with inline `await`, symmetric with SwiftUI authority boundaries | `Sources/InnoRouterSwiftUI/ChildCoordinator.swift`, `Docs/design-child-coordinator-handoff.md` | Enforced |
+| Unified observation stream | Every store publishes a single `events: AsyncStream<Event>` covering the full set of configuration callbacks, with `FlowStore.events` wrapping inner navigation / modal emissions so one subscriber sees the complete chain | `Sources/InnoRouterSwiftUI/{NavigationEvent,ModalEvent,FlowEvent,EventBroadcaster}.swift` | Enforced |
+| Codable state restoration | Opt-in `Codable` on `RouteStack`, `RouteStep`, and `FlowPlan` with a typed `StatePersistence<R>` Data-boundary helper. No file I/O policy is baked in — apps own the transport. | `Sources/InnoRouterCore/StatePersistence.swift`, Codable extensions on value types | Enforced |
+| Tutorial-grade DocC | Narrative articles sit beside the symbol reference, covering onboarding flows, deep-link reconciliation, middleware composition, host migration, and host-less testing | `Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/`, `Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/` | Enforced |
 | Documentation | README and DocC coexist; module-level docs live beside sources | `README.md`, `Sources/*/*.docc` | Enforced |
 | Release discipline | Semver tags, DocC publishing, and GitHub Releases share one flow | `.github/workflows/release.yml`, `RELEASING.md` | Enforced |
 
@@ -56,6 +60,9 @@ The repository now treats documentation as a first-class artifact:
 - `FlowStore<R>` represents push + sheet + cover progression as a single `[RouteStep<R>]` value, delegating execution to the existing `NavigationStore` + `ModalStore` without removing their individual authorities.
 - `InnoRouterTesting` ships `NavigationTestStore` / `ModalTestStore` / `FlowTestStore` as a shippable Swift-Testing-native harness with TCA-style strict exhaustivity, so consumers no longer need `@testable import` to assert routing behaviour.
 - `NavigationStoreConfiguration.onPathMismatch` surfaces path-reconciliation telemetry publicly, completing the set of public observation hooks.
+- Child coordinators chain to parents through `ChildCoordinator` + `Coordinator.push(child:) -> Task<Result?, Never>`, so parent flows can `await` child finish values inline without hand-rolled continuation plumbing.
+- Case-typed destination bindings (`NavigationStore.binding(case:)`, `ModalStore.binding(case:style:)`) route every SwiftUI set through the existing command pipeline so middleware and telemetry observe them identically to direct `execute(...)`.
+- High-frequency navigation intents (`replaceStack`, `backOrPush`, `pushUniqueRoot`) compose from existing `NavigationCommand` primitives so the engine stays minimal while app code stays declarative.
 - Human-facing examples and smoke fixtures are intentionally separated.
 
 ## Remaining trade-offs

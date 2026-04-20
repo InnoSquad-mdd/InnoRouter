@@ -32,7 +32,8 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | Unified push + sheet + cover stack | ✅ `FlowStore<R>` + `[RouteStep<R>]` | ❌ nested presents | ❌ | ✅ **single array** | ✅ | ⚠ | ⚠ | ⚠ |
 | Middleware / interception | ✅ willExecute/didExecute + cancel **on both Navigation and Modal** | ✅ reducer composition | ❌ | ❌ | ✅ (via TCA) | ❌ | ❌ | ❌ |
 | Deep link pipeline | ✅ Matcher + Pipeline + AuthPolicy + Outcome | ⚠ hand-hydrate | ❌ | ✅ rebuild path | ✅ | ⚠ manual | ❌ | ✅ URL-first |
-| Public observability hooks | ✅ onChange / Batch / Transaction / MiddlewareMutation | ✅ TestStore covers it | ⚠ `observe { }` | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Public observability hooks | ✅ onChange / Batch / Transaction / MiddlewareMutation **+ unified `store.events` AsyncStream** | ✅ TestStore covers it | ⚠ `observe { }` | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Codable state restoration | ✅ opt-in `Codable` + `StatePersistence<R>` | ✅ `StackState: Codable` | ❌ | ✅ | ✅ | ⚠ | ❌ | ⚠ |
 | Batch + Transaction split | ✅ two models | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Validator / Mismatch policy | ✅ `RouteStackValidator`, `NavigationPathMismatchPolicy` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Host-less testing | ✅ `InnoRouterTesting` (Navigation / Modal / Flow) | ✅ **`TestStore`** | ✅ assert on model | ✅ value-typed arrays | ✅ | ❌ | ⚠ | ⚠ |
@@ -40,7 +41,8 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | Swift 6 strict concurrency | ✅ **enforced per module** | ✅ | ✅ | ⚠ in progress | ⚠ | ❌ | ✅ | ✅ |
 | iOS floor | **18+** | 13+ / 17+ for Observation | 13+ | 16+ | 13+ | 14+ | 17+ | 16+ |
 | Cross-surface (UIKit / AppKit) | ❌ SwiftUI only | ⚠ | ✅ **4 products** | ❌ | ⚠ | ⚠ | ❌ | ❌ |
-| Coordinator composition (child → parent) | ⚠ protocol only | ✅ reducer `forEach` | ❌ | ✅ | ✅ | ✅ | ⚠ | ⚠ |
+| Coordinator composition (child → parent) | ✅ `ChildCoordinator` + `parent.push(child:) -> Task<Result?>` | ✅ reducer `forEach` | ❌ | ✅ | ✅ | ✅ | ⚠ | ⚠ |
+| Case-typed destination bindings | ✅ `store.binding(case:)` on Nav + Modal | ⚠ via `@Presents` | ✅ `@CasePathable` | ⚠ | ⚠ | ❌ | ❌ | ❌ |
 
 ## 3. Head-to-head takeaways
 
@@ -74,8 +76,12 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 ### vs TCACoordinators — 498★
 - **Lead**: no TCA dependency, lower learning curve,
   `DeepLinkCoordinationOutcome` surfaces coordinator-level observability.
-- **Lag**: built-in coordinator-composition primitives (child → parent
-  chain, "back to root across coordinators") are absent.
+  `ChildCoordinator` + `parent.push(child:) -> Task<Result?, Never>`
+  (#14) now provides child → parent finish chaining with inline
+  `await` on the child result.
+- **Lag (narrowed)**: "back to root across coordinators" still
+  requires manual cleanup. Remaining P3 item: `Task` cancellation
+  propagation parent → child.
 
 ### vs Stinsen — 960★ (legacy)
 - **Lead**: every axis. NavigationStack-era, Observation, Sendable,
@@ -188,32 +194,58 @@ atomically.
 
 ### P1 — Meaningful feature gap
 
-#### P1-1 Coordinator composition primitives
+#### P1-1 Coordinator composition primitives — **Shipped (#14)**
 
-Child coordinators cannot cleanly report finish/cancel to a parent.
-This is FlowStacks' and TCACoordinators' daily ergonomics.
+Child coordinators can now cleanly report finish/cancel back to a
+parent, closing the FlowStacks / TCACoordinators ergonomics gap.
 
-Shape:
+Shape (landed):
 
-- `ChildCoordinator<Parent, Result>` with `onFinish(Result)` callback.
-- `parent.push(child:)` returning `Task<Result>` for async await on
-  child completion.
+- `ChildCoordinator` protocol in `InnoRouterSwiftUI` with associated
+  `Result` type + `onFinish` / `onCancel` callback hooks.
+- `Coordinator.push(child:) -> Task<Child.Result?, Never>` lets a
+  parent `await` the child's finish value inline. Callbacks are
+  installed synchronously through `AsyncStream.makeStream()` so the
+  child can fire `onFinish` at any point (including before the
+  parent's `await`), avoiding a `@MainActor` re-entrancy deadlock.
+- Design rationale in `Docs/design-child-coordinator-handoff.md`.
 
-#### P1-2 Typed destination bindings
+Remaining gap (tracked as P3): `Task` cancellation propagation from
+parent → child.
 
-`@CasePathable` exists, but public `.sheet(item:)`-style helpers per
-enum case are not provided on the store.
+#### P1-2 Typed destination bindings — **Shipped (#14)**
 
-Shape:
+`@CasePathable` now has `.sheet(item:)`-style helpers per enum case
+exposed on both stores.
+
+Shape (landed):
 
 - `NavigationStore<R>.binding(case: CasePath<R, Detail>) -> Binding<Detail?>`.
-- Mirror for `ModalStore`.
+- `ModalStore<M>.binding(case:style:)` mirror scoped per presentation
+  style.
+- `CasePath` moved from `InnoRouterMacros` to `InnoRouterCore` so the
+  binding API lives with the stores. Existing
+  `import InnoRouterMacros` consumers are unaffected — Macros keeps
+  `@_exported import InnoRouterCore`.
+- Bindings route every mutation through the existing command
+  pipeline so middleware and telemetry observe them exactly as with
+  direct `execute(...)`.
 
-#### P1-3 Named stack intents
+#### P1-3 Named stack intents — **Shipped (#14)**
 
-Add `NavigationIntent.replaceStack([R])`, `.backOrPush(R)`,
-`.pushUniqueRoot(R)`, and similar high-frequency intents. These
-currently require hand-composed commands.
+High-frequency intents compose from existing
+`NavigationCommand` primitives with no engine changes.
+
+Shape (landed):
+
+- `NavigationIntent.replaceStack([R])` — composes `.replace(routes)`.
+- `NavigationIntent.backOrPush(R)` — composes `.popTo(route)` with
+  fallback to `.push(route)`.
+- `NavigationIntent.pushUniqueRoot(R)` — dedupes when the current
+  root already matches, otherwise pushes.
+- `FlowIntent` parallels were intentionally skipped —
+  `FlowIntent` is a higher-level abstraction with modal-step
+  invariants, so low-level stack intents don't map 1:1.
 
 #### P1-4 `ModalStore` middleware — **Shipped**
 
@@ -235,23 +267,56 @@ Shape (landed):
 
 ### P2 — Quality of life
 
-#### P2-1 Unified telemetry stream
+#### P2-1 Unified telemetry stream — **Shipped**
 
-`onMiddlewareMutation` is public. The remaining internal events
-(pathMismatch, batch executed, transaction committed/rolled back) should
-be unified into a single public `AsyncStream<NavigationEvent<R>>` so
-analytics pipelines wire up in one place instead of N callbacks.
+All observation surfaces are now reachable through a single
+`AsyncStream` per store, so analytics, logging, and debugging
+pipelines wire up once instead of N individual callbacks.
 
-#### P2-2 `Codable` route stacks + `FlowPlan` + state restoration
+Shape (landed):
 
-Opt-in `Codable` on `RouteStack<R>`, `RouteStep<R>`, and `FlowPlan<R>`,
-plus a `StatePersistence` helper for launch-time restoration. TCA and
-FlowStacks both offer this.
+- `NavigationEvent<R>` / `ModalEvent<M>` / `FlowEvent<R>` public
+  enums in `InnoRouterSwiftUI` mirror every existing configuration
+  hook (5 / 5 / 4 cases respectively).
+- `NavigationStore.events: AsyncStream<NavigationEvent<R>>`,
+  `ModalStore.events`, and `FlowStore.events` broadcast every
+  observation event through a shared `EventBroadcaster<Event>`
+  helper. `FlowStore.events` wraps inner navigation / modal
+  emissions into `.navigation(...)` / `.modal(...)` so one
+  subscriber sees the full chain.
+- Subscribers clean up via `AsyncStream.Continuation.onTermination`;
+  store `isolated deinit` (SE-0371) finishes outstanding
+  continuations so `for await` loops terminate naturally.
+- Existing `onChange` / `onPresented` / `onCommandIntercepted` /
+  etc. callbacks remain source-compatible — the stream is an
+  additional channel, not a replacement.
+- `InnoRouterTesting`'s legacy `NavigationTestEvent` /
+  `ModalTestEvent` / `FlowTestEvent` types are preserved as
+  `typealias`es for source compatibility.
 
-**Coupling**: `RouteStep` / `FlowPlan` Codable is also a prerequisite
-for P0-3 deep-link path rehydration. The Codable surface should land
-as a small standalone PR _before_ P0-3 so the pipeline extension can
-build on stable serialisation.
+#### P2-2 `Codable` route stacks + `FlowPlan` + state restoration — **Shipped**
+
+Opt-in `Codable` now covers the full value-level flow surface,
+with a typed `StatePersistence<R>` helper for the Data boundary.
+
+Shape (landed):
+
+- Conditional `Codable` conformance on `RouteStack<R>`,
+  `RouteStep<R>`, and `FlowPlan<R>` — apps that don't opt their
+  routes into `Codable` pay nothing.
+- `StatePersistence<R: Route & Codable>` exposes
+  `encode(_:) -> Data` / `decode(_:) -> FlowPlan<R>` pairs plus
+  `encode(_:) -> Data` / `decodeStack(_:) -> RouteStack<R>`,
+  with pluggable `JSONEncoder` / `JSONDecoder` for deterministic
+  output.
+- Deliberately stops at the byte boundary — file I/O,
+  `UserDefaults`, iCloud, and scene-phase hooks stay app
+  concerns.
+- `NavigationCommand` and `NavigationPlan` remain non-Codable by
+  design; they are runtime-level and have no user-facing
+  restoration semantics.
+- Unblocks P0-3: `FlowDeepLinkPipeline` can now carry a
+  `FlowPlan<R>` across URL / `Codable` boundaries.
 
 #### P2-3 UIKit escape hatch
 
@@ -259,11 +324,24 @@ A minimal UIKit module that bidirectionally binds `NavigationStore` to
 `UINavigationController`, to ease incremental adoption in existing UIKit
 apps. Benchmark: swift-navigation's multi-surface modules.
 
-#### P2-4 DocC walkthroughs
+#### P2-4 DocC walkthroughs — **Shipped**
 
-Existing DocC is symbol-level. Add tutorial-style articles (e.g. login
-onboarding, deep link reconciliation) in the `.docc` catalogs. PointFree
-is the reference for style.
+Tutorial-style narrative articles now live alongside the existing
+symbol reference in each module catalog.
+
+Shape (landed):
+
+- `InnoRouterSwiftUI.docc/Articles/Tutorial-LoginOnboarding.md` —
+  `FlowStore` + `ChildCoordinator` wizard flow.
+- `Tutorial-DeepLinkReconciliation.md` — `DeepLinkPipeline` +
+  `PendingDeepLink` replay + events stream for analytics.
+- `Tutorial-MiddlewareComposition.md` — logging / entitlement /
+  analytics middleware stacks on both Nav and Modal with
+  participant discipline explained.
+- `Tutorial-MigratingFromNestedHosts.md` — step-by-step guide to
+  replace `ModalHost { NavigationHost { ... } }` with `FlowHost`.
+- `InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md` —
+  host-less test harness tour with `FlowTestStore`.
 
 ### P3 — Nice to have
 
@@ -283,29 +361,36 @@ is the reference for style.
 | P0 | NavigationTestStore / ModalTestStore / FlowTestStore (`InnoRouterTesting`) | positioning-decisive | large | **shipped** |
 | P0 | Unified FlowStack (push + sheet + cover) | positioning | medium–large | **shipped (#12 + 47467b50)** |
 | P0 | Deep link path rehydration + `FlowPlan` pipeline | deep-link selling point | medium | open |
-| P1 | Coordinator composition | coordinator UX | medium | open |
-| P1 | Typed destination bindings | ergonomics | small | open |
-| P1 | Named stack intents | ergonomics | small | open |
+| P1 | Coordinator composition (`ChildCoordinator` + `push(child:)`) | coordinator UX | medium | **shipped (#14)** |
+| P1 | Typed destination bindings (`binding(case:)`) | ergonomics | small | **shipped (#14)** |
+| P1 | Named stack intents (`replaceStack`/`backOrPush`/`pushUniqueRoot`) | ergonomics | small | **shipped (#14)** |
 | P1 | ModalStore middleware | symmetry | small | **shipped (#12)** |
-| P2 | Unified telemetry stream | analytics unification | small | open |
-| P2 | `Codable` (`RouteStack` / `RouteStep` / `FlowPlan`) + restoration | real-app requirement | medium | open (prereq for P0-3) |
+| P2 | Unified telemetry stream (`store.events: AsyncStream`) | analytics unification | small | **shipped** |
+| P2 | `Codable` (`RouteStack` / `RouteStep` / `FlowPlan`) + `StatePersistence` | real-app requirement | medium | **shipped** |
 | P2 | UIKit escape hatch | adoption path | large | open |
-| P2 | DocC walkthroughs | learning curve | small–medium | open |
+| P2 | DocC walkthroughs (5 tutorial articles) | learning curve | small–medium | **shipped** |
 | P3 | Macro diagnostics, algebra, plugin, PBT | polish | small | open |
 
 ## 6. Suggested next work
 
-With P0-1 (`InnoRouterTesting`), P0-2 (FlowStack), and P1-4
-(ModalStore middleware) all shipped, the remaining critical path
-collapses to a single track:
+With the P2 quality-of-life cluster (P2-1 unified telemetry stream,
+P2-2 Codable + `StatePersistence`, P2-4 DocC walkthroughs) shipped,
+the backlog reduces to two remaining items:
 
-- **Deep-link rehydration for flows**: land P2-2 first as a small
-  Codable PR (`RouteStack`, `RouteStep`, `FlowPlan`), then P0-3 on
-  top — `DeepLinkPathResolver` + `FlowDeepLinkPipeline` + wiring
-  into `DeepLinkEffectHandler` so URLs can terminate on a modal step
-  and rehydrate through `FlowStore.apply`. The new
-  `FlowTestStore` covers regression for this work at the intent
+- **P0-3 Deep-link rehydration for flows** — now unblocked by the
+  shipped P2-2 Codable surface. Build `DeepLinkPathResolver` +
+  `FlowDeepLinkPipeline` + `DeepLinkEffectHandler` wiring so URLs
+  can terminate on a modal step and rehydrate through
+  `FlowStore.apply`. The shipped `FlowTestStore` and
+  `FlowStore.events` surfaces cover regression at the intent
   boundary.
+- **P2-3 UIKit escape hatch** — large, separable investment that
+  requires a product-level decision (SwiftUI-only positioning vs
+  cross-surface). Defer until the decision lands.
+
+P3 polish items (macro diagnostics, command algebra extensions,
+`NavigationPlugin` protocol, property-based tests) remain
+opportunistic fill-ins.
 
 **Ergonomics cluster (small, compatible, ship opportunistically)**:
 P1-2 typed destination bindings + P1-3 named stack intents. Each is a

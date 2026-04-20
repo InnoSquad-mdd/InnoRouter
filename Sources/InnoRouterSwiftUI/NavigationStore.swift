@@ -18,6 +18,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private let pathReconciler: NavigationPathReconciler<R>
     private let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
     private let pathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void
+    private let broadcaster: EventBroadcaster<NavigationEvent<R>>
 
     public var middlewareHandles: [NavigationMiddlewareHandle] {
         middlewareRegistry.handles
@@ -27,17 +28,34 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         middlewareRegistry.metadata
     }
 
+    /// A multicast `AsyncStream` that emits every observation event the
+    /// store produces — stack changes, batch / transaction completions,
+    /// middleware mutations, and path-mismatch resolutions — in the
+    /// same order as the individual `onChange` / `onBatchExecuted` /
+    /// `onTransactionExecuted` / `onMiddlewareMutation` /
+    /// `onPathMismatch` callbacks fire.
+    ///
+    /// Each call to `events` returns a fresh stream with its own
+    /// continuation; multiple subscribers see every event
+    /// independently. When a subscriber cancels its iterator (or the
+    /// store deallocates) its continuation is cleaned up automatically.
+    public var events: AsyncStream<NavigationEvent<R>> {
+        broadcaster.stream()
+    }
+
     public init(
         initial: RouteStack<R> = .init(),
         configuration: NavigationStoreConfiguration<R> = .init()
     ) {
+        let broadcaster = EventBroadcaster<NavigationEvent<R>>()
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation,
             onPathMismatch: configuration.onPathMismatch
         )
+        let broadcastRecorder = Self.makeBroadcastRecorder(broadcaster: broadcaster)
         let telemetrySink = NavigationStoreTelemetrySink<R>(
             logger: configuration.logger,
-            recorder: publicRecorder
+            recorder: Self.combineRecorders(publicRecorder, broadcastRecorder)
         )
         let middlewareRegistry = NavigationMiddlewareRegistry(
             registrations: configuration.middlewares,
@@ -53,6 +71,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.pathReconciler = NavigationPathReconciler()
+        self.broadcaster = broadcaster
     }
 
     public convenience init(
@@ -69,11 +88,16 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         nonPrefixAssertionHandler: @escaping @MainActor @Sendable ([R], [R]) -> Void,
         telemetryRecorder: NavigationStoreTelemetryRecorder<R>? = nil
     ) {
+        let broadcaster = EventBroadcaster<NavigationEvent<R>>()
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation,
             onPathMismatch: configuration.onPathMismatch
         )
-        let combinedRecorder = Self.combineRecorders(telemetryRecorder, publicRecorder)
+        let broadcastRecorder = Self.makeBroadcastRecorder(broadcaster: broadcaster)
+        let combinedRecorder = Self.combineRecorders(
+            Self.combineRecorders(telemetryRecorder, publicRecorder),
+            broadcastRecorder
+        )
         let telemetrySink = NavigationStoreTelemetrySink(
             logger: configuration.logger,
             recorder: combinedRecorder
@@ -92,6 +116,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.pathReconciler = NavigationPathReconciler()
+        self.broadcaster = broadcaster
     }
 
     // MARK: - Public telemetry adapters
@@ -120,6 +145,36 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                         resolution: Self.publicResolution(for: resolution),
                         oldPath: oldPath,
                         newPath: newPath
+                    )
+                )
+            }
+        }
+    }
+
+    private static func makeBroadcastRecorder(
+        broadcaster: EventBroadcaster<NavigationEvent<R>>
+    ) -> NavigationStoreTelemetryRecorder<R>? {
+        { @MainActor event in
+            switch event {
+            case .middlewareMutation(let action, let metadata, let index):
+                broadcaster.broadcast(
+                    .middlewareMutation(
+                        MiddlewareMutationEvent(
+                            action: Self.publicAction(for: action),
+                            metadata: metadata,
+                            index: index
+                        )
+                    )
+                )
+            case .pathMismatch(let policy, let resolution, let oldPath, let newPath):
+                broadcaster.broadcast(
+                    .pathMismatch(
+                        NavigationPathMismatchEvent(
+                            policy: Self.publicPolicy(for: policy),
+                            resolution: Self.publicResolution(for: resolution),
+                            oldPath: oldPath,
+                            newPath: newPath
+                        )
                     )
                 )
             }
@@ -243,6 +298,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         let stateAfter = state
         if stateAfter != stateBefore {
             onChange?(stateBefore, stateAfter)
+            broadcaster.broadcast(.changed(from: stateBefore, to: stateAfter))
         }
 
         let batch = NavigationBatchResult(
@@ -254,6 +310,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             hasStoppedOnFailure: hasStoppedOnFailure
         )
         onBatchExecuted?(batch)
+        broadcaster.broadcast(.batchExecuted(batch))
         return batch
     }
 
@@ -287,6 +344,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             results = outcomes.map { $0.committedResult(using: middlewareRegistry) }
             if state != stateBefore {
                 onChange?(stateBefore, state)
+                broadcaster.broadcast(.changed(from: stateBefore, to: state))
             }
         } else {
             results = outcomes.map(\.result)
@@ -302,6 +360,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             isCommitted: isCommitted
         )
         onTransactionExecuted?(transaction)
+        broadcaster.broadcast(.transactionExecuted(transaction))
         return transaction
     }
 
@@ -454,6 +513,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
         if state != committedStateBefore {
             onChange?(committedStateBefore, state)
+            broadcaster.broadcast(.changed(from: committedStateBefore, to: state))
         }
 
         return finalResult
@@ -552,6 +612,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
         if shouldNotifyOnChange, currentState != stateBefore {
             onChange?(stateBefore, currentState)
+            broadcaster.broadcast(.changed(from: stateBefore, to: currentState))
         }
         return ExecutionOutcome(
             requestedCommand: requestedCommand,

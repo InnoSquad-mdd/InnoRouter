@@ -42,10 +42,28 @@ public final class FlowStore<R: Route> {
     private let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
     private let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?
     private let link: FlowStoreLink<R>
+    private let broadcaster: EventBroadcaster<FlowEvent<R>>
+    private var innerNavigationEventsTask: Task<Void, Never>?
+    private var innerModalEventsTask: Task<Void, Never>?
 
     // Bookkeeping toggled while FlowStore drives its own inner stores, so
     // observer callbacks can distinguish user / system-initiated changes.
     private var isApplyingInternalMutation: Bool = false
+
+    /// A multicast `AsyncStream` that emits every observation event the
+    /// flow store and its inner navigation / modal stores produce —
+    /// `.pathChanged` and `.intentRejected` from the flow level, plus
+    /// `.navigation(...)` and `.modal(...)` wrappers around the inner
+    /// stores' events — in the same order as the matching callbacks
+    /// fire.
+    ///
+    /// This lets a single subscriber assert the complete chain
+    /// triggered by one `FlowIntent` (including middleware
+    /// cancellation paths) without wiring the ten individual
+    /// navigation + modal + flow callbacks.
+    public var events: AsyncStream<FlowEvent<R>> {
+        broadcaster.stream()
+    }
 
     /// Creates a new flow store.
     /// - Parameters:
@@ -120,7 +138,30 @@ public final class FlowStore<R: Route> {
         self.onPathChanged = configuration.onPathChanged
         self.onIntentRejected = configuration.onIntentRejected
         self.link = link
+        let broadcaster = EventBroadcaster<FlowEvent<R>>()
+        self.broadcaster = broadcaster
         self.link.owner = self
+
+        // Pipe the inner stores' unified event streams into our own
+        // broadcaster so a single FlowStore.events subscriber can
+        // observe the full chain.
+        let navStream = self.navigationStore.events
+        let modalStream = self.modalStore.events
+        self.innerNavigationEventsTask = Task { [weak self] in
+            for await event in navStream {
+                self?.broadcaster.broadcast(.navigation(event))
+            }
+        }
+        self.innerModalEventsTask = Task { [weak self] in
+            for await event in modalStream {
+                self?.broadcaster.broadcast(.modal(event))
+            }
+        }
+    }
+
+    isolated deinit {
+        innerNavigationEventsTask?.cancel()
+        innerModalEventsTask?.cancel()
     }
 
     // MARK: - Public API
@@ -155,7 +196,7 @@ public final class FlowStore<R: Route> {
 
     private func dispatchPush(_ route: R, intent: FlowIntent<R>) {
         if currentProjection.currentPresentation != nil {
-            onIntentRejected?(intent, .pushBlockedByModalTail)
+            emitIntentRejected(intent, reason: .pushBlockedByModalTail)
             return
         }
 
@@ -163,7 +204,7 @@ public final class FlowStore<R: Route> {
         let preview = navigationStore.previewFlowCommand(.push(route))
         if !preview.result.isSuccess {
             if case .cancelled(let reason) = preview.result {
-                onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+                emitIntentRejected(intent, reason: .middlewareRejected(debugName: Self.debugName(from: reason)))
             }
             return
         }
@@ -180,7 +221,7 @@ public final class FlowStore<R: Route> {
         let preview = modalStore.previewFlowCommand(.present(Self.presentation(for: step)))
 
         if case .cancelled(let reason) = preview.result {
-            onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+            emitIntentRejected(intent, reason: .middlewareRejected(debugName: Self.debugName(from: reason)))
             return
         }
 
@@ -199,7 +240,7 @@ public final class FlowStore<R: Route> {
         let preview = navigationStore.previewFlowCommand(.pop)
         if !preview.result.isSuccess {
             if case .cancelled(let reason) = preview.result {
-                onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+                emitIntentRejected(intent, reason: .middlewareRejected(debugName: Self.debugName(from: reason)))
             }
             return
         }
@@ -216,7 +257,7 @@ public final class FlowStore<R: Route> {
         let pathBefore = path
         let preview = modalStore.previewFlowCommand(.dismissCurrent(reason: .dismiss))
         if case .cancelled(let reason) = preview.result {
-            onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+            emitIntentRejected(intent, reason: .middlewareRejected(debugName: Self.debugName(from: reason)))
             return
         }
 
@@ -229,7 +270,7 @@ public final class FlowStore<R: Route> {
 
     private func dispatchReset(_ steps: [RouteStep<R>], intent: FlowIntent<R>) {
         guard Self.isValidPath(steps) else {
-            onIntentRejected?(intent, .invalidResetPath)
+            emitIntentRejected(intent, reason: .invalidResetPath)
             return
         }
 
@@ -239,7 +280,7 @@ public final class FlowStore<R: Route> {
         let navPreview = navigationStore.previewFlowCommand(.replace(pushRoutes))
         if !navPreview.result.isSuccess {
             if case .cancelled(let reason) = navPreview.result {
-                onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+                emitIntentRejected(intent, reason: .middlewareRejected(debugName: Self.debugName(from: reason)))
             }
             return
         }
@@ -247,7 +288,7 @@ public final class FlowStore<R: Route> {
         let modalPlan = previewModalReset(to: modalTail)
         switch modalPlan {
         case .rejected(let reason):
-            onIntentRejected?(intent, .middlewareRejected(debugName: Self.debugName(from: reason)))
+            emitIntentRejected(intent, reason: .middlewareRejected(debugName: Self.debugName(from: reason)))
             return
         case .commit(let modalPreviews):
             withInternalMutation {
@@ -294,6 +335,12 @@ public final class FlowStore<R: Route> {
     private func emitPathChangedIfNeeded(from oldPath: [RouteStep<R>]) {
         guard oldPath != path else { return }
         onPathChanged?(oldPath, path)
+        broadcaster.broadcast(.pathChanged(old: oldPath, new: path))
+    }
+
+    private func emitIntentRejected(_ intent: FlowIntent<R>, reason: FlowRejectionReason) {
+        onIntentRejected?(intent, reason)
+        broadcaster.broadcast(.intentRejected(intent, reason))
     }
 
     private func withInternalMutation<T>(_ body: () -> T) -> T {

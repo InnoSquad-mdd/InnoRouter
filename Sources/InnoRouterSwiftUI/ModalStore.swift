@@ -20,6 +20,7 @@ public final class ModalStore<M: Route> {
     private let onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?
     private let telemetrySink: ModalStoreTelemetrySink<M>
     private let middlewareRegistry: ModalMiddlewareRegistry<M>
+    private let broadcaster: EventBroadcaster<ModalEvent<M>>
 
     public var middlewareHandles: [ModalMiddlewareHandle] {
         middlewareRegistry.handles
@@ -27,6 +28,21 @@ public final class ModalStore<M: Route> {
 
     public var middlewareMetadata: [ModalMiddlewareMetadata] {
         middlewareRegistry.metadata
+    }
+
+    /// A multicast `AsyncStream` that emits every observation event the
+    /// modal store produces — presentations, dismissals, queue changes,
+    /// command interceptions, and middleware registry mutations — in
+    /// the same order as the matching `onPresented` / `onDismissed` /
+    /// `onQueueChanged` / `onCommandIntercepted` /
+    /// `onMiddlewareMutation` callbacks fire.
+    ///
+    /// Each call to `events` returns a fresh stream with its own
+    /// continuation; multiple subscribers see every event
+    /// independently. Subscriber teardown (cancelled `for await` loop
+    /// or store deallocation) cleans up the associated continuation.
+    public var events: AsyncStream<ModalEvent<M>> {
+        broadcaster.stream()
     }
 
     struct ModalStateSnapshot: Equatable {
@@ -52,12 +68,14 @@ public final class ModalStore<M: Route> {
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
+        let broadcaster = EventBroadcaster<ModalEvent<M>>()
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation
         )
+        let broadcastRecorder = Self.makeBroadcastRecorder(broadcaster: broadcaster)
         let telemetrySink = ModalStoreTelemetrySink<M>(
             logger: configuration.logger,
-            recorder: publicRecorder
+            recorder: Self.combineRecorders(publicRecorder, broadcastRecorder)
         )
         let middlewareRegistry = ModalMiddlewareRegistry(
             registrations: configuration.middlewares,
@@ -71,6 +89,7 @@ public final class ModalStore<M: Route> {
         self.onCommandIntercepted = configuration.onCommandIntercepted
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
+        self.broadcaster = broadcaster
     }
 
     init(
@@ -83,10 +102,15 @@ public final class ModalStore<M: Route> {
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
+        let broadcaster = EventBroadcaster<ModalEvent<M>>()
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation
         )
-        let combinedRecorder = Self.combineRecorders(telemetryRecorder, publicRecorder)
+        let broadcastRecorder = Self.makeBroadcastRecorder(broadcaster: broadcaster)
+        let combinedRecorder = Self.combineRecorders(
+            Self.combineRecorders(telemetryRecorder, publicRecorder),
+            broadcastRecorder
+        )
         let telemetrySink = ModalStoreTelemetrySink(
             logger: configuration.logger,
             recorder: combinedRecorder
@@ -103,6 +127,7 @@ public final class ModalStore<M: Route> {
         self.onCommandIntercepted = configuration.onCommandIntercepted
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
+        self.broadcaster = broadcaster
     }
 
     // MARK: - Public telemetry adapters
@@ -124,6 +149,69 @@ public final class ModalStore<M: Route> {
             case .presented, .dismissed, .queued, .queueChanged, .commandIntercepted:
                 break
             }
+        }
+    }
+
+    private static func makeBroadcastRecorder(
+        broadcaster: EventBroadcaster<ModalEvent<M>>
+    ) -> ModalStoreTelemetryRecorder<M>? {
+        { @MainActor event in
+            switch event {
+            case .presented(let presentation):
+                broadcaster.broadcast(.presented(presentation))
+            case .dismissed(let presentation, let reason):
+                broadcaster.broadcast(.dismissed(presentation, reason: reason))
+            case .queueChanged(let oldQueue, let newQueue):
+                broadcaster.broadcast(.queueChanged(old: oldQueue, new: newQueue))
+            case .middlewareMutation(let action, let metadata, let index):
+                broadcaster.broadcast(
+                    .middlewareMutation(
+                        ModalMiddlewareMutationEvent(
+                            action: Self.publicAction(for: action),
+                            metadata: metadata,
+                            index: index
+                        )
+                    )
+                )
+            case .commandIntercepted(let command, let outcome, let cancellationReason):
+                let result = Self.executionResult(
+                    for: command,
+                    outcome: outcome,
+                    cancellationReason: cancellationReason
+                )
+                broadcaster.broadcast(
+                    .commandIntercepted(command: command, result: result)
+                )
+            case .queued:
+                // .queued is an internal side-signal emitted alongside
+                // .queueChanged; the public ModalEvent surface folds
+                // queueing into queueChanged, so we skip it here.
+                break
+            }
+        }
+    }
+
+    private static func executionResult(
+        for command: ModalCommand<M>,
+        outcome: ModalStoreTelemetryEvent<M>.InterceptionOutcomeKind,
+        cancellationReason: ModalCancellationReason<M>?
+    ) -> ModalExecutionResult<M> {
+        switch outcome {
+        case .executed:
+            return .executed(command)
+        case .queued:
+            // .queued is only produced by `.present(presentation)`
+            // commands that were deferred behind an active modal.
+            if case .present(let presentation) = command {
+                return .queued(presentation)
+            }
+            // Should be unreachable — fall through as .executed so the
+            // surface still type-checks.
+            return .executed(command)
+        case .cancelled:
+            return .cancelled(cancellationReason ?? .custom("unknown"))
+        case .noop:
+            return .noop
         }
     }
 

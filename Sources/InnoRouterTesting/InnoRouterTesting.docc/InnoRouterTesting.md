@@ -59,6 +59,10 @@ store.expectNoMoreEvents()
 
 ## Topics
 
+### Tutorials
+
+- <doc:Tutorial-TestingFlows>
+
 ### Test stores
 
 - ``NavigationTestStore``

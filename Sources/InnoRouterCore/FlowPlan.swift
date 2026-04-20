@@ -17,3 +17,8 @@ public struct FlowPlan<R: Route>: Sendable, Equatable {
         self.steps = steps
     }
 }
+
+// MARK: - Codable (opt-in when the underlying route is Codable)
+
+extension FlowPlan: Encodable where R: Encodable {}
+extension FlowPlan: Decodable where R: Decodable {}

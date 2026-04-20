@@ -1,0 +1,169 @@
+# Migrating from Nested Hosts to `FlowHost`
+
+Replace manually composed `ModalHost { NavigationHost { ... } }`
+surfaces with a single `FlowHost` backed by `FlowStore`. Preserve
+existing `NavigationStore` / `ModalStore` configurations while
+unlocking a serializable `[RouteStep<R>]` path and
+`FlowStore.apply(_:)` for restoration + deep-link hydration.
+
+## Starting point
+
+An app that shipped before `FlowStore` landed typically has:
+
+```swift
+@main
+struct LegacyApp: App {
+    @State private var nav = NavigationStore<AppRoute>()
+    @State private var modal = ModalStore<AppRoute>()
+
+    var body: some Scene {
+        WindowGroup {
+            ModalHost(store: modal, destination: destination) {
+                NavigationHost(store: nav, destination: destination) {
+                    RootView()
+                }
+            }
+        }
+    }
+}
+```
+
+Two stores. Two hosts. Path + modal state cannot be round-tripped
+as one value — the app can't persist "user is 3 screens deep
+inside a presented sheet" without hand-serializing both halves.
+
+## Target shape
+
+```swift
+@main
+struct MigratedApp: App {
+    @State private var flow = FlowStore<AppRoute>()
+
+    var body: some Scene {
+        WindowGroup {
+            FlowHost(
+                store: flow,
+                destination: destination,
+                root: { RootView() }
+            )
+        }
+    }
+}
+```
+
+One store. One host. `flow.path: [RouteStep<AppRoute>]` is the
+single source of truth; push + sheet + cover are three cases of
+the same enum.
+
+## Migration steps
+
+### 1. Swap the host layering
+
+Replace the nested host pair with `FlowHost`. `FlowHost` owns the
+same `ModalHost` + `NavigationHost` composition internally —
+external observable behavior is unchanged — but views now resolve
+intents through a `FlowIntent` dispatcher in the SwiftUI
+environment.
+
+### 2. Route view intents through `FlowIntent`
+
+Old:
+```swift
+navigationStore.send(.go(.detail))
+modalStore.present(.sheet, style: .sheet)
+```
+
+New:
+```swift
+@EnvironmentFlowIntent<AppRoute> private var flow
+// ...
+flow.send(.push(.detail))
+flow.send(.presentSheet(.sheet))
+```
+
+`FlowStore.send` still delegates to the inner
+`NavigationStore.send` and `ModalStore.present`, so any middleware
+or telemetry attached to those stores continues to run.
+
+### 3. Port store configuration through `FlowStoreConfiguration`
+
+`FlowStoreConfiguration` composes `NavigationStoreConfiguration` +
+`ModalStoreConfiguration`, so existing configs port 1:1:
+
+```swift
+let flow = FlowStore<AppRoute>(
+    configuration: .init(
+        navigation: legacyNavigationConfiguration,
+        modal: legacyModalConfiguration,
+        onPathChanged: { old, new in Log.debug("flow path: \(old) -> \(new)") },
+        onIntentRejected: { intent, reason in Log.info("flow rejected \(intent): \(reason)") }
+    )
+)
+```
+
+### 4. Handle the two new invariant-violation paths
+
+`FlowStore` rejects intents that would violate its invariants:
+
+| Intent situation | Reason emitted |
+|---|---|
+| `.push` while a modal tail is active | `.pushBlockedByModalTail` |
+| `.reset([.sheet, .push])` (modal not at tail) | `.invalidResetPath` |
+| Any intent cancelled by middleware | `.middlewareRejected(debugName:)` |
+
+Subscribe to `flow.events` (case `.intentRejected`) — or keep the
+`onIntentRejected` closure — and handle each case. The legacy
+stores never had this signal; before the migration, a push attempt
+during a sheet presentation silently no-opped or tripped up the
+app in subtle ways.
+
+### 5. Adopt `apply(_:)` for deep links and restoration
+
+`FlowPlan<R>.steps` is `[RouteStep<R>]`, so once your routes opt
+into `Codable`:
+
+```swift
+extension AppRoute: Codable {}
+```
+
+`StatePersistence<AppRoute>` round-trips the whole flow state:
+
+```swift
+let persistence = StatePersistence<AppRoute>()
+
+// On app background
+try persistence.encode(FlowPlan(steps: flow.path)).write(to: url)
+
+// On launch
+if let data = try? Data(contentsOf: url) {
+    flow.apply(try persistence.decode(data))
+}
+```
+
+Deep-link resolvers can emit a `FlowPlan` directly and hand it to
+`flow.apply(_:)` to hydrate a push + sheet terminal URL in one
+atomic step.
+
+### 6. Migrate tests incrementally
+
+`ModalTestStore` / `NavigationTestStore` that targeted legacy
+stores keep building (typealiases preserve source compatibility).
+Re-home the highest-value scenarios onto `FlowTestStore` when you
+get a chance — a single `FlowTestStore` subscription asserts both
+navigation and modal emissions in the same FIFO queue, which
+usually compresses a 40-line legacy test into 15 lines.
+
+## Rollback story
+
+The migration is per-flow. Any screen tree that still uses the
+nested host pair continues to build. `FlowHost` lives alongside
+`ModalHost` / `NavigationHost`; adopting one doesn't remove the
+others. Incremental migration by flow (onboarding, settings,
+checkout, ...) is supported.
+
+## Next steps
+
+- Read <doc:Tutorial-LoginOnboarding> to see a greenfield flow
+  composed with `FlowHost` + `ChildCoordinator`.
+- Read <doc:Tutorial-TestingFlows> for the full host-less test
+  harness story.
