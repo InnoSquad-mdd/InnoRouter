@@ -13,6 +13,9 @@ Extracts public symbol graphs for every public library product, normalizes
 them into a stable text baseline, and compares the result against
 Baselines/PublicAPI.
 
+Regenerate baselines only with the same Swift 6.2 toolchain used by CI so
+symbol graph output stays comparable.
+
 Options:
   --write-baseline   Regenerate committed baselines instead of checking them.
 EOF
@@ -44,6 +47,7 @@ for required in swift xcrun python3 diff; do
 done
 
 cd "$ROOT_DIR"
+ROOT_DIR_CANONICAL="$(cd "$ROOT_DIR" && pwd -P)"
 
 temp_root="$(mktemp -d "${TMPDIR:-/tmp}/innorouter-public-api.XXXXXX")"
 cleanup() {
@@ -115,27 +119,80 @@ normalize_symbol_graph() {
   local product_name="$1"
   local raw_dir="$2"
   local output_path="$3"
+  local repo_root="$4"
 
-  python3 - "$product_name" "$raw_dir" "$output_path" <<'PY'
+  python3 - "$product_name" "$raw_dir" "$output_path" "$repo_root" <<'PY'
 import json
 import pathlib
 import sys
+import urllib.parse
 
-product_name, raw_dir, output_path = sys.argv[1:]
+product_name, raw_dir, output_path, repo_root = sys.argv[1:]
+repo_root = pathlib.Path(repo_root).resolve()
 rows = set()
+kept_symbols = {}
+
+def normalize_text(value: str) -> str:
+    return " ".join(value.split())
+
+def repo_source_path(symbol: dict) -> pathlib.Path | None:
+    precise = symbol.get("identifier", {}).get("precise", "")
+    if "::SYNTHESIZED::" in precise:
+        return None
+
+    location = symbol.get("location") or {}
+    uri = location.get("uri")
+    if not uri:
+        return None
+
+    parsed = urllib.parse.urlparse(uri)
+    if parsed.scheme != "file":
+        return None
+
+    path = pathlib.Path(urllib.parse.unquote(parsed.path)).resolve()
+    try:
+        path.relative_to(repo_root)
+    except ValueError:
+        return None
+    return path
 
 for symbol_graph_path in sorted(pathlib.Path(raw_dir).glob("*.symbols.json")):
     document = json.loads(symbol_graph_path.read_text())
     for symbol in document.get("symbols", []):
+        if repo_source_path(symbol) is None:
+            continue
+
+        precise = symbol.get("identifier", {}).get("precise", "")
         kind = symbol.get("kind", {}).get("identifier", "")
         path_components = symbol.get("pathComponents") or []
         path = ".".join(path_components) if path_components else symbol.get("names", {}).get("title", "")
         title = symbol.get("names", {}).get("title", "")
         declaration = "".join(fragment.get("spelling", "") for fragment in symbol.get("declarationFragments", []))
-        declaration = " ".join(declaration.split())
+        declaration = normalize_text(declaration)
         if not declaration:
             declaration = title
-        rows.add((kind, path, title, declaration))
+        availability = normalize_text(
+            json.dumps(symbol.get("availability", []), sort_keys=True, separators=(",", ":"))
+        )
+        rows.add(("symbol", kind, path, title, declaration, availability))
+
+        if precise:
+            kept_symbols[precise] = path or title
+
+    for relationship in document.get("relationships", []):
+        source = relationship.get("source", "")
+        target = relationship.get("target", "")
+        if source not in kept_symbols or target not in kept_symbols:
+            continue
+
+        rows.add((
+            "relationship",
+            relationship.get("kind", ""),
+            kept_symbols[source],
+            kept_symbols[target],
+            "",
+            "",
+        ))
 
 with open(output_path, "w", encoding="utf-8") as handle:
     handle.write(f"# Public API baseline for {product_name}\n")
@@ -188,7 +245,7 @@ while IFS=$'\t' read -r product_name target_name; do
   echo "[check-public-api] Extracting $product_name ($target_name)"
   extract_product_symbols "$target_name" "$raw_dir"
   mkdir -p "$(dirname "$normalized_path")"
-  normalize_symbol_graph "$product_name" "$raw_dir" "$normalized_path"
+  normalize_symbol_graph "$product_name" "$raw_dir" "$normalized_path" "$ROOT_DIR_CANONICAL"
 
   baseline_path="$BASELINE_DIR/${product_name}.txt"
   if [[ "$MODE" == "write" ]]; then

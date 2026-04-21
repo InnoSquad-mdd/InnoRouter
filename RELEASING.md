@@ -47,6 +47,9 @@ swift test
 ./scripts/build-docc-site.sh --version preview
 ```
 
+If you regenerate `Baselines/PublicAPI`, do it with the same Swift 6.2 toolchain
+used in CI. The symbol-graph baseline gate is intentionally toolchain-sensitive.
+
 ## CI and CD responsibilities
 
 ### CI
