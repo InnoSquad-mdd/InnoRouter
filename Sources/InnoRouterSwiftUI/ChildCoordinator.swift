@@ -19,6 +19,34 @@ public protocol ChildCoordinator: AnyObject {
 
     /// Called by the child to report cancellation or user-driven dismissal.
     var onCancel: (@MainActor @Sendable () -> Void)? { get set }
+
+    /// Called on the main actor when the parent `Task` awaiting
+    /// ``Coordinator/push(child:)`` is cancelled (e.g. the parent's
+    /// view is torn down, the parent receives its own
+    /// `parentDidCancel`, or the app explicitly cancels the task).
+    ///
+    /// Default implementation is a no-op — conforming coordinators
+    /// override this when they need to tear down transient state
+    /// triggered by the parent push (dismiss sheets, cancel
+    /// in-flight work, release temporary stores, etc.).
+    ///
+    /// The callback is directional: `parentDidCancel` flows
+    /// **parent → child**. Use `onCancel` when the child itself
+    /// wants to abort (child → parent). The two hooks are
+    /// orthogonal; firing one does not invoke the other.
+    ///
+    /// The push helper invokes this method exactly once, as part of
+    /// its `withTaskCancellationHandler` recovery path. Repeated
+    /// invocations are not expected, but the default no-op makes
+    /// idempotency a safe assumption.
+    @MainActor
+    func parentDidCancel()
+}
+
+public extension ChildCoordinator {
+    /// Default no-op. Override to tear down transient state when the
+    /// parent `Task` is cancelled.
+    func parentDidCancel() {}
 }
 
 public extension Coordinator {
@@ -37,6 +65,13 @@ public extension Coordinator {
     /// begins awaiting, so it is safe for the child to fire `onFinish`
     /// or `onCancel` at any point after this call — even before the
     /// parent's `await`. Subsequent callback firings are ignored.
+    ///
+    /// When the returned `Task` is cancelled (either via
+    /// `task.cancel()` or by cancellation of a surrounding
+    /// `Task.cancel()`), the child's ``ChildCoordinator/parentDidCancel()``
+    /// method is invoked on the main actor and the underlying
+    /// continuation is finished, so the task's `await` resolves
+    /// with `nil`.
     @MainActor
     @discardableResult
     func push<Child: ChildCoordinator>(
@@ -55,9 +90,27 @@ public extension Coordinator {
             continuation.yield(nil)
             continuation.finish()
         }
-        return Task { @MainActor in
-            var iterator = stream.makeAsyncIterator()
-            return await iterator.next() ?? nil
+        // Capture parentDidCancel as a pre-bound @Sendable closure so
+        // the task-cancellation handler can hop back to the main
+        // actor without crossing isolation with a raw `Child`
+        // reference (which is non-Sendable AnyObject).
+        let invokeParentDidCancel: @Sendable @MainActor () -> Void = { [weak child] in
+            child?.parentDidCancel()
+        }
+        return Task {
+            await withTaskCancellationHandler {
+                var iterator = stream.makeAsyncIterator()
+                return await iterator.next() ?? nil
+            } onCancel: {
+                // Fire the directional signal on the main actor and
+                // unblock the iterator so the Task exits cleanly with
+                // `nil`. A weak child capture keeps us safe if the
+                // parent has released the child in the meantime.
+                Task { @MainActor in
+                    invokeParentDidCancel()
+                }
+                continuation.finish()
+            }
         }
     }
 }

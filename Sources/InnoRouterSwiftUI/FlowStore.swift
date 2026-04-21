@@ -181,15 +181,22 @@ public final class FlowStore<R: Route> {
         case .dismiss:
             dispatchDismiss(intent: intent)
         case .reset(let steps):
-            dispatchReset(steps, intent: intent)
+            _ = dispatchReset(steps, intent: intent)
+        case .replaceStack(let routes):
+            dispatchReplaceStack(routes, intent: intent)
+        case .backOrPush(let route):
+            dispatchBackOrPush(route, intent: intent)
+        case .pushUniqueRoot(let route):
+            dispatchPushUniqueRoot(route, intent: intent)
         }
     }
 
     /// Applies a `FlowPlan` to the store, replacing the current path in one
     /// coordinated mutation. Equivalent to `send(.reset(plan.steps))` but
     /// communicates intent at the API boundary.
-    public func apply(_ plan: FlowPlan<R>) {
-        send(.reset(plan.steps))
+    @discardableResult
+    public func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> {
+        dispatchReset(plan.steps, intent: .reset(plan.steps))
     }
 
     // MARK: - Dispatch
@@ -268,10 +275,11 @@ public final class FlowStore<R: Route> {
         syncPathFromStores(from: pathBefore)
     }
 
-    private func dispatchReset(_ steps: [RouteStep<R>], intent: FlowIntent<R>) {
+    @discardableResult
+    private func dispatchReset(_ steps: [RouteStep<R>], intent: FlowIntent<R>) -> FlowPlanApplyResult<R> {
         guard Self.isValidPath(steps) else {
             emitIntentRejected(intent, reason: .invalidResetPath)
-            return
+            return .rejected(currentPath: path)
         }
 
         let pathBefore = path
@@ -282,14 +290,14 @@ public final class FlowStore<R: Route> {
             if case .cancelled(let reason) = navPreview.result {
                 emitIntentRejected(intent, reason: .middlewareRejected(debugName: Self.debugName(from: reason)))
             }
-            return
+            return .rejected(currentPath: path)
         }
 
         let modalPlan = previewModalReset(to: modalTail)
         switch modalPlan {
         case .rejected(let reason):
             emitIntentRejected(intent, reason: .middlewareRejected(debugName: Self.debugName(from: reason)))
-            return
+            return .rejected(currentPath: path)
         case .commit(let modalPreviews):
             withInternalMutation {
                 _ = navigationStore.commitFlowPreview(navPreview)
@@ -298,6 +306,56 @@ public final class FlowStore<R: Route> {
         }
 
         syncPathFromStores(from: pathBefore)
+        return .applied(path: path)
+    }
+
+    /// Replaces the navigation push prefix with `routes`, dropping any
+    /// active modal tail. Routes through `dispatchReset` so the same
+    /// invariant validation + middleware pipeline applies.
+    private func dispatchReplaceStack(_ routes: [R], intent: FlowIntent<R>) {
+        let steps = routes.map(RouteStep<R>.push)
+        _ = dispatchReset(steps, intent: intent)
+    }
+
+    /// Pops the navigation stack back to `route` if it's already in the
+    /// stack. Otherwise falls through to `dispatchPush`, which honours
+    /// the modal-tail invariant by rejecting with
+    /// `.pushBlockedByModalTail` when a modal is active.
+    private func dispatchBackOrPush(_ route: R, intent: FlowIntent<R>) {
+        if currentProjection.currentPresentation != nil {
+            emitIntentRejected(intent, reason: .pushBlockedByModalTail)
+            return
+        }
+
+        if navigationStore.state.path.contains(route) {
+            let pathBefore = path
+            let preview = navigationStore.previewFlowCommand(.popTo(route))
+            if !preview.result.isSuccess {
+                if case .cancelled(let reason) = preview.result {
+                    emitIntentRejected(
+                        intent,
+                        reason: .middlewareRejected(debugName: Self.debugName(from: reason))
+                    )
+                }
+                return
+            }
+            withInternalMutation {
+                _ = navigationStore.commitFlowPreview(preview)
+            }
+            syncPathFromStores(from: pathBefore)
+            return
+        }
+        dispatchPush(route, intent: intent)
+    }
+
+    /// Silent no-op when the navigation stack already contains `route`.
+    /// Otherwise dispatches as `.push(route)`, so a modal tail rejects
+    /// the intent with `.pushBlockedByModalTail`.
+    private func dispatchPushUniqueRoot(_ route: R, intent: FlowIntent<R>) {
+        if navigationStore.state.path.contains(route) {
+            return
+        }
+        dispatchPush(route, intent: intent)
     }
 
     // MARK: - Reverse sync
@@ -482,4 +540,10 @@ public final class FlowStore<R: Route> {
 @MainActor
 private final class FlowStoreLink<R: Route> {
     weak var owner: FlowStore<R>?
+}
+
+// MARK: - FlowPlanApplier conformance
+
+extension FlowStore: FlowPlanApplier {
+    public typealias RouteType = R
 }

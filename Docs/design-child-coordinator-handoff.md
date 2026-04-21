@@ -66,9 +66,16 @@ store layer:
 
 ## Out of scope for P1-1
 
-- **Task cancellation propagation** (parent cancels → children cancel).
+- ~~**Task cancellation propagation** (parent cancels → children cancel).
   Needs a cancellation contract on the child's store; tracked as P2+
-  concurrency work.
+  concurrency work.~~ **Addressed in P3-1.** `ChildCoordinator` now
+  declares a `parentDidCancel()` protocol method (default no-op), and
+  `push(child:)` wires `withTaskCancellationHandler` so the child is
+  notified on the main actor when the parent `Task` is cancelled. The
+  hook is directional — `parentDidCancel` is parent → child, while
+  `onCancel` remains child → parent. Store-level cancellation (for
+  example, cancelling in-flight network work owned by the child's
+  store) stays in the app; the override point is `parentDidCancel`.
 - **Modal-hosted children / multi-child orchestration**. The primitive
   is neutral on presentation style, but tidy APIs (`presentSheet(child:)`,
   `raceChildren`) are deferred until an app needs them.
