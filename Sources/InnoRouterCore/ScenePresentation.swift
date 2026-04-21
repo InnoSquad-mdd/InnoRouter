@@ -1,0 +1,81 @@
+import Foundation
+
+/// Immersion style for an `ImmersiveSpace`-style scene presentation.
+///
+/// Mirrors SwiftUI's `ImmersionStyle` cases but lives in
+/// ``InnoRouterCore`` so that the scene vocabulary is platform-neutral —
+/// `InnoRouterCore` does not import SwiftUI, so this enum is available on
+/// every platform InnoRouter supports. Non-visionOS hosts simply never
+/// act on the value.
+public enum ImmersiveStyle: Sendable, Hashable, Codable {
+    /// Mixed immersion — the user's passthrough environment stays visible
+    /// around the app's content.
+    case mixed
+
+    /// Progressive immersion — the user dials the level of immersion with
+    /// the digital crown between passthrough and full.
+    case progressive
+
+    /// Full immersion — the app replaces the passthrough environment.
+    case full
+}
+
+/// Size hint for a volumetric scene, in metres.
+///
+/// visionOS apps can request a specific volume size for a
+/// `WindowGroup` declared with `.windowStyle(.volumetric)`. Keeping the
+/// value type here in Core means the rest of the pipeline (and peers such
+/// as `StatePersistence`) can reason about scene presentations without
+/// importing SwiftUI or RealityKit.
+public struct VolumetricSize: Sendable, Hashable, Codable {
+    /// Extent along the x axis, in metres.
+    public let x: Double
+
+    /// Extent along the y axis, in metres.
+    public let y: Double
+
+    /// Extent along the z axis, in metres.
+    public let z: Double
+
+    /// Creates a volumetric size.
+    public init(x: Double, y: Double, z: Double) {
+        self.x = x
+        self.y = y
+        self.z = z
+    }
+}
+
+/// A spatial or window-level scene presentation.
+///
+/// `ScenePresentation` is deliberately separate from ``RouteStep`` and
+/// ``ModalPresentation`` because scene transitions are multi-scene events
+/// (opening a new window, opening or dismissing an immersive space),
+/// whereas ``RouteStep`` and ``ModalPresentation`` describe transitions
+/// inside a single scene's navigation stack or modal layer.
+///
+/// Today every case only materialises on visionOS — the `SceneStore` /
+/// `SceneHost` pair in `InnoRouterSwiftUI` is gated to `#if os(visionOS)`.
+/// On other platforms the type still compiles (it is SwiftUI-free) but no
+/// host acts on it. This keeps the vocabulary future-proof: if Apple adds
+/// equivalent multi-scene affordances on other platforms, the store /
+/// host layer can grow without changing this enum.
+public enum ScenePresentation<R: Route>: Sendable, Hashable {
+    /// A regular window for `route`. On visionOS this maps to
+    /// `@Environment(\.openWindow)`.
+    case window(R)
+
+    /// A volumetric window for `route`, with an optional size hint. On
+    /// visionOS this maps to a `WindowGroup` declared with
+    /// `.windowStyle(.volumetric)`.
+    case volumetric(R, size: VolumetricSize? = nil)
+
+    /// An immersive space for `route`, with the requested immersion
+    /// style. On visionOS this maps to
+    /// `@Environment(\.openImmersiveSpace)`.
+    case immersive(R, style: ImmersiveStyle)
+}
+
+// MARK: - Codable
+
+extension ScenePresentation: Encodable where R: Encodable {}
+extension ScenePresentation: Decodable where R: Decodable {}
