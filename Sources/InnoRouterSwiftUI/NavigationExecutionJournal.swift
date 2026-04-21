@@ -1,0 +1,436 @@
+import InnoRouterCore
+
+@MainActor
+struct NavigationExecutionJournal<R: Route> {
+    enum Kind {
+        case leaf
+        case sequence
+        case whenCancelled
+    }
+
+    enum LeafDisposition {
+        case publicDidExecute
+        case discardCleanup
+        case wrapperOnly
+    }
+
+    let kind: Kind
+    let requestedCommand: NavigationCommand<R>
+    let effectiveCommand: NavigationCommand<R>?
+    let participantCount: Int?
+    let result: NavigationResult<R>
+    let stateBefore: RouteStack<R>
+    let stateAfter: RouteStack<R>
+    let children: [NavigationExecutionJournal<R>]
+    let leafDisposition: LeafDisposition
+    let executedCommands: [NavigationCommand<R>]
+
+    static func planLive(
+        _ command: NavigationCommand<R>,
+        state currentState: inout RouteStack<R>,
+        middlewareRegistry: NavigationMiddlewareRegistry<R>,
+        engine: NavigationEngine<R>
+    ) -> Self {
+        switch command {
+        case .sequence(let commands):
+            let stateBefore = currentState
+            var children: [Self] = []
+            var executedCommands: [NavigationCommand<R>] = []
+
+            for nestedCommand in commands {
+                let child = planLive(
+                    nestedCommand,
+                    state: &currentState,
+                    middlewareRegistry: middlewareRegistry,
+                    engine: engine
+                )
+                children.append(child)
+                executedCommands.append(contentsOf: child.executedCommands)
+            }
+
+            return .group(
+                kind: .sequence,
+                requestedCommand: command,
+                result: .multiple(children.map(\.result)),
+                stateBefore: stateBefore,
+                stateAfter: currentState,
+                children: children,
+                executedCommands: executedCommands
+            )
+
+        case .whenCancelled(let primary, let fallback):
+            let snapshot = currentState
+            let primaryJournal = planLive(
+                primary,
+                state: &currentState,
+                middlewareRegistry: middlewareRegistry,
+                engine: engine
+            )
+            if primaryJournal.result.isSuccess {
+                return .group(
+                    kind: .whenCancelled,
+                    requestedCommand: command,
+                    result: primaryJournal.result,
+                    stateBefore: snapshot,
+                    stateAfter: currentState,
+                    children: [primaryJournal],
+                    executedCommands: primaryJournal.executedCommands
+                )
+            }
+
+            currentState = snapshot
+            let fallbackJournal = planLive(
+                fallback,
+                state: &currentState,
+                middlewareRegistry: middlewareRegistry,
+                engine: engine
+            )
+            return .group(
+                kind: .whenCancelled,
+                requestedCommand: command,
+                result: fallbackJournal.result,
+                stateBefore: snapshot,
+                stateAfter: currentState,
+                children: [primaryJournal, fallbackJournal],
+                executedCommands: primaryJournal.executedCommands + fallbackJournal.executedCommands
+            )
+
+        default:
+            return planLeaf(
+                command,
+                state: &currentState,
+                middlewareRegistry: middlewareRegistry,
+                engine: engine,
+                disposition: .publicDidExecute
+            )
+        }
+    }
+
+    static func planTransaction(
+        _ command: NavigationCommand<R>,
+        state currentState: inout RouteStack<R>,
+        middlewareRegistry: NavigationMiddlewareRegistry<R>,
+        engine: NavigationEngine<R>
+    ) -> Self {
+        switch command {
+        case .sequence(let commands):
+            let stateBefore = currentState
+            var children: [Self] = []
+            var executedCommands: [NavigationCommand<R>] = []
+
+            for nestedCommand in commands {
+                let child = planTransaction(
+                    nestedCommand,
+                    state: &currentState,
+                    middlewareRegistry: middlewareRegistry,
+                    engine: engine
+                )
+                children.append(child)
+                executedCommands.append(contentsOf: child.executedCommands)
+                if !child.result.isSuccess {
+                    return .group(
+                        kind: .sequence,
+                        requestedCommand: command,
+                        result: .multiple(children.map(\.result)),
+                        stateBefore: stateBefore,
+                        stateAfter: currentState,
+                        children: children,
+                        executedCommands: executedCommands
+                    )
+                }
+            }
+
+            return .group(
+                kind: .sequence,
+                requestedCommand: command,
+                result: .multiple(children.map(\.result)),
+                stateBefore: stateBefore,
+                stateAfter: currentState,
+                children: children,
+                executedCommands: executedCommands
+            )
+
+        case .whenCancelled(let primary, let fallback):
+            let snapshot = currentState
+            let primaryJournal = planTransaction(
+                primary,
+                state: &currentState,
+                middlewareRegistry: middlewareRegistry,
+                engine: engine
+            )
+            if primaryJournal.result.isSuccess {
+                return .group(
+                    kind: .whenCancelled,
+                    requestedCommand: command,
+                    result: primaryJournal.result,
+                    stateBefore: snapshot,
+                    stateAfter: currentState,
+                    children: [primaryJournal],
+                    executedCommands: primaryJournal.executedCommands
+                )
+            }
+
+            currentState = snapshot
+            let fallbackJournal = planTransaction(
+                fallback,
+                state: &currentState,
+                middlewareRegistry: middlewareRegistry,
+                engine: engine
+            )
+            return .group(
+                kind: .whenCancelled,
+                requestedCommand: command,
+                result: fallbackJournal.result,
+                stateBefore: snapshot,
+                stateAfter: currentState,
+                children: [primaryJournal.forDiscardedTransaction(), fallbackJournal],
+                executedCommands: fallbackJournal.executedCommands
+            )
+
+        default:
+            let disposition: LeafDisposition = .wrapperOnly
+            let leaf = planLeaf(
+                command,
+                state: &currentState,
+                middlewareRegistry: middlewareRegistry,
+                engine: engine,
+                disposition: disposition
+            )
+            if leaf.result.isSuccess {
+                return leaf.withLeafDisposition(.publicDidExecute)
+            }
+            return leaf.withLeafDisposition(.discardCleanup)
+        }
+    }
+
+    func realizeLive(
+        using middlewareRegistry: NavigationMiddlewareRegistry<R>,
+        emitChange: @MainActor (RouteStack<R>, RouteStack<R>) -> Void,
+        shouldNotifyOnChange: Bool
+    ) -> NavigationResult<R> {
+        switch kind {
+        case .leaf:
+            guard let effectiveCommand, let participantCount else {
+                return result
+            }
+            let finalResult = middlewareRegistry.didExecute(
+                effectiveCommand,
+                result: result,
+                state: stateAfter,
+                participantCount: participantCount
+            )
+            if shouldNotifyOnChange, stateBefore != stateAfter {
+                emitChange(stateBefore, stateAfter)
+            }
+            return finalResult
+
+        case .sequence:
+            return .multiple(
+                children.map {
+                    $0.realizeLive(
+                        using: middlewareRegistry,
+                        emitChange: emitChange,
+                        shouldNotifyOnChange: shouldNotifyOnChange
+                    )
+                }
+            )
+
+        case .whenCancelled:
+            var finalResult = result
+            for child in children {
+                finalResult = child.realizeLive(
+                    using: middlewareRegistry,
+                    emitChange: emitChange,
+                    shouldNotifyOnChange: false
+                )
+            }
+            if shouldNotifyOnChange, stateBefore != stateAfter {
+                emitChange(stateBefore, stateAfter)
+            }
+            return finalResult
+        }
+    }
+
+    func finalizeCommittedTransaction(
+        using middlewareRegistry: NavigationMiddlewareRegistry<R>
+    ) -> NavigationResult<R> {
+        switch kind {
+        case .leaf:
+            guard leafDisposition == .publicDidExecute,
+                  let effectiveCommand,
+                  let participantCount else {
+                if leafDisposition == .discardCleanup,
+                   let effectiveCommand,
+                   let participantCount {
+                    middlewareRegistry.discardExecution(
+                        effectiveCommand,
+                        result: result,
+                        state: stateAfter,
+                        participantCount: participantCount
+                    )
+                }
+                return result
+            }
+            return middlewareRegistry.didExecute(
+                effectiveCommand,
+                result: result,
+                state: stateAfter,
+                participantCount: participantCount
+            )
+
+        case .sequence:
+            return .multiple(children.map { $0.finalizeCommittedTransaction(using: middlewareRegistry) })
+
+        case .whenCancelled:
+            var lastPublicResult: NavigationResult<R>?
+            for child in children.reversed() where child.containsPublicDidExecute {
+                lastPublicResult = child.result
+                break
+            }
+
+            var finalizedPublicResult: NavigationResult<R>?
+            for child in children {
+                let childResult = child.finalizeCommittedTransaction(using: middlewareRegistry)
+                if child.containsPublicDidExecute {
+                    finalizedPublicResult = childResult
+                }
+            }
+            return finalizedPublicResult ?? lastPublicResult ?? result
+        }
+    }
+
+    func discardExecuted(
+        using middlewareRegistry: NavigationMiddlewareRegistry<R>
+    ) {
+        switch kind {
+        case .leaf:
+            guard leafDisposition == .discardCleanup,
+                  let effectiveCommand,
+                  let participantCount else { return }
+            middlewareRegistry.discardExecution(
+                effectiveCommand,
+                result: result,
+                state: stateAfter,
+                participantCount: participantCount
+            )
+
+        case .sequence, .whenCancelled:
+            for child in children {
+                child.discardExecuted(using: middlewareRegistry)
+            }
+        }
+    }
+
+    func forDiscardedTransaction() -> Self {
+        switch kind {
+        case .leaf:
+            if leafDisposition == .publicDidExecute {
+                return withLeafDisposition(.discardCleanup)
+            }
+            return self
+
+        case .sequence, .whenCancelled:
+            return Self(
+                kind: kind,
+                requestedCommand: requestedCommand,
+                effectiveCommand: effectiveCommand,
+                participantCount: participantCount,
+                result: result,
+                stateBefore: stateBefore,
+                stateAfter: stateAfter,
+                children: children.map { $0.forDiscardedTransaction() },
+                leafDisposition: leafDisposition,
+                executedCommands: executedCommands
+            )
+        }
+    }
+
+    private var containsPublicDidExecute: Bool {
+        switch kind {
+        case .leaf:
+            return leafDisposition == .publicDidExecute
+        case .sequence, .whenCancelled:
+            return children.contains { $0.containsPublicDidExecute }
+        }
+    }
+
+    private func withLeafDisposition(_ disposition: LeafDisposition) -> Self {
+        Self(
+            kind: kind,
+            requestedCommand: requestedCommand,
+            effectiveCommand: effectiveCommand,
+            participantCount: participantCount,
+            result: result,
+            stateBefore: stateBefore,
+            stateAfter: stateAfter,
+            children: children,
+            leafDisposition: disposition,
+            executedCommands: executedCommands
+        )
+    }
+
+    private static func group(
+        kind: Kind,
+        requestedCommand: NavigationCommand<R>,
+        result: NavigationResult<R>,
+        stateBefore: RouteStack<R>,
+        stateAfter: RouteStack<R>,
+        children: [Self],
+        executedCommands: [NavigationCommand<R>]
+    ) -> Self {
+        Self(
+            kind: kind,
+            requestedCommand: requestedCommand,
+            effectiveCommand: nil,
+            participantCount: nil,
+            result: result,
+            stateBefore: stateBefore,
+            stateAfter: stateAfter,
+            children: children,
+            leafDisposition: .wrapperOnly,
+            executedCommands: executedCommands
+        )
+    }
+
+    private static func planLeaf(
+        _ command: NavigationCommand<R>,
+        state currentState: inout RouteStack<R>,
+        middlewareRegistry: NavigationMiddlewareRegistry<R>,
+        engine: NavigationEngine<R>,
+        disposition: LeafDisposition
+    ) -> Self {
+        let stateBefore = currentState
+        let interceptionOutcome = middlewareRegistry.intercept(command, state: stateBefore)
+        switch interceptionOutcome.interception {
+        case .cancel(let reason):
+            let result: NavigationResult<R> = .cancelled(reason)
+            return Self(
+                kind: .leaf,
+                requestedCommand: command,
+                effectiveCommand: interceptionOutcome.command,
+                participantCount: interceptionOutcome.participantCount,
+                result: result,
+                stateBefore: stateBefore,
+                stateAfter: currentState,
+                children: [],
+                leafDisposition: disposition,
+                executedCommands: []
+            )
+
+        case .proceed(let commandToExecute):
+            let result = engine.apply(commandToExecute, to: &currentState)
+            return Self(
+                kind: .leaf,
+                requestedCommand: command,
+                effectiveCommand: commandToExecute,
+                participantCount: interceptionOutcome.participantCount,
+                result: result,
+                stateBefore: stateBefore,
+                stateAfter: currentState,
+                children: [],
+                leafDisposition: disposition,
+                executedCommands: [commandToExecute]
+            )
+        }
+    }
+}

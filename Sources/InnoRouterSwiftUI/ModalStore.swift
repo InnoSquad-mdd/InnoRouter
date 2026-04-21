@@ -45,20 +45,6 @@ public final class ModalStore<M: Route> {
         broadcaster.stream()
     }
 
-    struct ModalStateSnapshot: Equatable {
-        let currentPresentation: ModalPresentation<M>?
-        let queuedPresentations: [ModalPresentation<M>]
-    }
-
-    struct FlowCommandPreview {
-        let requestedCommand: ModalCommand<M>
-        let effectiveCommand: ModalCommand<M>
-        let result: ModalExecutionResult<M>
-        let participantCount: Int
-        let stateBefore: ModalStateSnapshot
-        let stateAfter: ModalStateSnapshot
-    }
-
     public init(
         currentPresentation: ModalPresentation<M>? = nil,
         queuedPresentations: [ModalPresentation<M>] = [],
@@ -373,21 +359,21 @@ public final class ModalStore<M: Route> {
         _ = execute(.dismissAll)
     }
 
-    var flowStateSnapshot: ModalStateSnapshot {
+    var flowStateSnapshot: ModalExecutionState<M> {
         Self.makeSnapshot(
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
     }
 
-    func previewFlowCommand(_ command: ModalCommand<M>) -> FlowCommandPreview {
+    func previewFlowCommand(_ command: ModalCommand<M>) -> ModalExecutionJournal<M> {
         previewFlowCommand(command, from: flowStateSnapshot)
     }
 
     func previewFlowCommand(
         _ command: ModalCommand<M>,
-        from stateBefore: ModalStateSnapshot
-    ) -> FlowCommandPreview {
+        from stateBefore: ModalExecutionState<M>
+    ) -> ModalExecutionJournal<M> {
         let outcome = middlewareRegistry.intercept(
             command,
             currentPresentation: stateBefore.currentPresentation,
@@ -396,7 +382,7 @@ public final class ModalStore<M: Route> {
 
         switch outcome.interception {
         case .cancel(let reason):
-            return FlowCommandPreview(
+            return ModalExecutionJournal(
                 requestedCommand: command,
                 effectiveCommand: outcome.command,
                 result: .cancelled(reason),
@@ -406,7 +392,7 @@ public final class ModalStore<M: Route> {
             )
         case .proceed(let effectiveCommand):
             let previewOutcome = previewApplyCommand(effectiveCommand, to: stateBefore)
-            return FlowCommandPreview(
+            return ModalExecutionJournal(
                 requestedCommand: command,
                 effectiveCommand: effectiveCommand,
                 result: previewOutcome.result,
@@ -418,7 +404,7 @@ public final class ModalStore<M: Route> {
     }
 
     @discardableResult
-    func commitFlowPreview(_ preview: FlowCommandPreview) -> ModalExecutionResult<M> {
+    func commitFlowPreview(_ preview: ModalExecutionJournal<M>) -> ModalExecutionResult<M> {
         currentPresentation = preview.stateAfter.currentPresentation
         queuedPresentations = preview.stateAfter.queuedPresentations
 
@@ -449,7 +435,7 @@ public final class ModalStore<M: Route> {
         return preview.result
     }
 
-    func commitFlowPreviews(_ previews: [FlowCommandPreview]) {
+    func commitFlowPreviews(_ previews: [ModalExecutionJournal<M>]) {
         for preview in previews {
             _ = commitFlowPreview(preview)
         }
@@ -472,8 +458,8 @@ public final class ModalStore<M: Route> {
 
     private func previewApplyCommand(
         _ command: ModalCommand<M>,
-        to snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        to snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         switch command {
         case .present(let presentation):
             return previewPresent(presentation, on: snapshot)
@@ -488,8 +474,8 @@ public final class ModalStore<M: Route> {
 
     private func previewPresent(
         _ presentation: ModalPresentation<M>,
-        on snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        on snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         if snapshot.currentPresentation == nil {
             return (
                 .executed(.present(presentation)),
@@ -511,8 +497,8 @@ public final class ModalStore<M: Route> {
 
     private func previewDismissCurrent(
         reason: ModalDismissalReason,
-        on snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        on snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         guard snapshot.currentPresentation != nil else {
             return (.noop, snapshot)
         }
@@ -532,8 +518,8 @@ public final class ModalStore<M: Route> {
     }
 
     private func previewDismissAll(
-        on snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        on snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         guard snapshot.currentPresentation != nil || !snapshot.queuedPresentations.isEmpty else {
             return (.noop, snapshot)
         }
@@ -546,8 +532,8 @@ public final class ModalStore<M: Route> {
 
     private func previewReplaceCurrent(
         _ presentation: ModalPresentation<M>,
-        on snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        on snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         guard let currentPresentation = snapshot.currentPresentation else {
             return (.noop, snapshot)
         }
@@ -697,7 +683,7 @@ public final class ModalStore<M: Route> {
         onPresented?(promotedPresentation)
     }
 
-    private func emitCommittedEvents(for preview: FlowCommandPreview) {
+    private func emitCommittedEvents(for preview: ModalExecutionJournal<M>) {
         switch preview.result {
         case .executed(.present(let presentation)):
             telemetrySink.recordPresented(presentation)
@@ -754,12 +740,12 @@ public final class ModalStore<M: Route> {
     private static func makeSnapshot(
         currentPresentation: ModalPresentation<M>?,
         queuedPresentations: [ModalPresentation<M>]
-    ) -> ModalStateSnapshot {
+    ) -> ModalExecutionState<M> {
         let normalized = normalize(
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
-        return ModalStateSnapshot(
+        return ModalExecutionState(
             currentPresentation: normalized.current,
             queuedPresentations: normalized.queue
         )
