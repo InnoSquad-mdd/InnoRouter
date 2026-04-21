@@ -32,6 +32,11 @@ import Foundation
 public final class ChildCoordinatorTaskTracker {
     private var tasks: [UUID: Task<Void, Never>] = [:]
 
+    /// Creates an empty tracker with no active tasks.
+    ///
+    /// Construct one when a `ChildCoordinator` needs to keep
+    /// bookkeeping over transient async work so `parentDidCancel()`
+    /// can cancel every outstanding task in one place.
     public init() {}
 
     /// Launches `operation` inside a tracked `Task` and returns the

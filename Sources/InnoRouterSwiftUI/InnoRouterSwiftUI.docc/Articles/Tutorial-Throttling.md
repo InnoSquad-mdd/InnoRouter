@@ -91,7 +91,10 @@ store.execute(
 ```
 
 If the throttle middleware cancels the `.push(.detail)`, the
-fallback `.push(.home)` runs instead.
+fallback `.push(.home)` is attempted next. `NavigationStore`
+routes that fallback back through the full middleware chain, so a
+global throttle key can cancel the fallback too if it still lands
+inside the same throttle window.
 
 ## Debounce?
 

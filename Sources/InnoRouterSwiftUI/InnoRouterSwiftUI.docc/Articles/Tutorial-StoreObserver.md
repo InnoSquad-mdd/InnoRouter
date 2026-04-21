@@ -54,8 +54,9 @@ let flowSubscription = flowStore.observe(observer)
 ```
 
 Each `observe(_:)` returns a `StoreObserverSubscription`. Keep it
-around for the observer's lifetime; the subscription auto-cancels
-on deinit via `isolated deinit`.
+around for the observer's lifetime; when the
+`StoreObserverSubscription` itself is deinitialized it auto-cancels
+via `isolated deinit`.
 
 To stop observing early:
 

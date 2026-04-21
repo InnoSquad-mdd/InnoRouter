@@ -3,7 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
-import InnoRouterCore
+@_spi(NavigationStoreInternals) import InnoRouterCore
 
 /// Cancels `NavigationCommand`s that arrive within a `minimumInterval`
 /// of a previously-accepted command sharing the same `Key`. Useful for
@@ -109,7 +109,7 @@ public final class ThrottleNavigationMiddleware<
         result: NavigationResult<R>,
         state: RouteStack<R>
     ) -> NavigationResult<R> {
-        guard let pending = pendingAttempts.popLast() else {
+        guard let pending = consumePendingAttempt() else {
             return result
         }
 
@@ -117,6 +117,22 @@ public final class ThrottleNavigationMiddleware<
             lastAccept[key] = acceptedAt
         }
         return result
+    }
+
+    private func consumePendingAttempt() -> PendingAttempt? {
+        guard !pendingAttempts.isEmpty else { return nil }
+        return pendingAttempts.removeFirst()
+    }
+}
+
+@_spi(NavigationStoreInternals)
+extension ThrottleNavigationMiddleware: NavigationMiddlewareDiscardCleanup {
+    public func discardExecution(
+        _ command: NavigationCommand<R>,
+        result: NavigationResult<R>,
+        state: RouteStack<R>
+    ) {
+        _ = consumePendingAttempt()
     }
 }
 

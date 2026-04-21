@@ -5,6 +5,7 @@
 import Testing
 import Foundation
 import Synchronization
+@_spi(NavigationStoreInternals) import InnoRouterCore
 import InnoRouter
 import InnoRouterSwiftUI
 
@@ -24,6 +25,46 @@ private func blockCommandMiddleware(
         }
         return .proceed(command)
     })
+}
+
+@MainActor
+private final class CleanupTrackingMiddleware: NavigationMiddleware, NavigationMiddlewareDiscardCleanup {
+    typealias RouteType = WCRoute
+
+    var didExecuteCommands: [NavigationCommand<WCRoute>] = []
+    var discardedCommands: [NavigationCommand<WCRoute>] = []
+
+    private let interceptor: @MainActor @Sendable (NavigationCommand<WCRoute>, RouteStack<WCRoute>) -> NavigationInterception<WCRoute>
+
+    init(
+        interceptor: @escaping @MainActor @Sendable (NavigationCommand<WCRoute>, RouteStack<WCRoute>) -> NavigationInterception<WCRoute>
+    ) {
+        self.interceptor = interceptor
+    }
+
+    func willExecute(
+        _ command: NavigationCommand<WCRoute>,
+        state: RouteStack<WCRoute>
+    ) -> NavigationInterception<WCRoute> {
+        interceptor(command, state)
+    }
+
+    func didExecute(
+        _ command: NavigationCommand<WCRoute>,
+        result: NavigationResult<WCRoute>,
+        state: RouteStack<WCRoute>
+    ) -> NavigationResult<WCRoute> {
+        didExecuteCommands.append(command)
+        return result
+    }
+
+    func discardExecution(
+        _ command: NavigationCommand<WCRoute>,
+        result: NavigationResult<WCRoute>,
+        state: RouteStack<WCRoute>
+    ) {
+        discardedCommands.append(command)
+    }
 }
 
 @Suite("NavigationCommand .whenCancelled Tests")
@@ -141,7 +182,7 @@ struct NavigationCommandWhenCancelledTests {
 
     @Test("Store: rollback path emits only the committed change")
     @MainActor
-    func storeRollbackNotifiesOnlyCommittedState() async {
+    func storeRollbackNotifiesOnlyCommittedState() async throws {
         let observedChanges = Mutex<[(RouteStack<WCRoute>, RouteStack<WCRoute>)]>([])
         let observedEvents = Mutex<[NavigationEvent<WCRoute>]>([])
         let store = NavigationStore<WCRoute>(
@@ -170,7 +211,7 @@ struct NavigationCommandWhenCancelledTests {
         _ = await listener.result
 
         let changes = observedChanges.withLock { $0 }
-        #expect(changes.count == 1)
+        try #require(changes.count == 1)
         #expect(changes[0].0.path.isEmpty)
         #expect(changes[0].1.path == [.home])
 
@@ -180,7 +221,7 @@ struct NavigationCommandWhenCancelledTests {
                 return (from, to)
             }
         }
-        #expect(changedEvents.count == 1)
+        try #require(changedEvents.count == 1)
         #expect(changedEvents[0].0.path.isEmpty)
         #expect(changedEvents[0].1.path == [.home])
     }
@@ -222,5 +263,65 @@ struct NavigationCommandWhenCancelledTests {
         #expect(transaction.stateAfter.path == [.home])
         #expect(store.state.path == [.home])
         #expect(didExecuteCommands == [.push(.home)])
+    }
+
+    @Test("Transaction: discarded primary cleanup runs without surfacing public didExecute")
+    @MainActor
+    func transactionDiscardedPrimaryCleansUpWithoutDidExecute() {
+        let middleware = CleanupTrackingMiddleware { command, _ in
+            if case .push(.detail) = command {
+                return .cancel(.middleware(debugName: nil, command: command))
+            }
+            return .proceed(command)
+        }
+        let store = NavigationStore<WCRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [
+                    .init(
+                        middleware: AnyNavigationMiddleware(middleware),
+                        debugName: "cleanup"
+                    )
+                ]
+            )
+        )
+
+        let transaction = store.executeTransaction([
+            .whenCancelled(.push(.detail), fallback: .push(.home))
+        ])
+
+        #expect(transaction.isCommitted)
+        #expect(transaction.executedCommands == [.push(.home)])
+        #expect(transaction.results == [.success])
+        #expect(middleware.discardedCommands == [.push(.detail)])
+        #expect(middleware.didExecuteCommands == [.push(.home)])
+    }
+
+    @Test("Transaction: rollback cleans up discarded legs without public didExecute")
+    @MainActor
+    func transactionRollbackCleansUpDiscardedLegs() {
+        let middleware = CleanupTrackingMiddleware { command, _ in
+            .proceed(command)
+        }
+        let store = NavigationStore<WCRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [
+                    .init(
+                        middleware: AnyNavigationMiddleware(middleware),
+                        debugName: "cleanup"
+                    )
+                ]
+            )
+        )
+
+        let transaction = store.executeTransaction([
+            .push(.home),
+            .popTo(.settings)
+        ])
+
+        #expect(!transaction.isCommitted)
+        #expect(transaction.failureIndex == 1)
+        #expect(transaction.results == [.success, .routeNotFound(.settings)])
+        #expect(middleware.didExecuteCommands.isEmpty)
+        #expect(middleware.discardedCommands == [.push(.home), .popTo(.settings)])
     }
 }

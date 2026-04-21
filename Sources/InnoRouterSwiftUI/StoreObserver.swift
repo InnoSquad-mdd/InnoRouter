@@ -41,9 +41,9 @@ public extension StoreObserver {
 }
 
 /// Opaque subscription handle returned from `observe(_:)`. Cancel
-/// explicitly, or let the subscription deinit cancel itself when the
-/// owner (typically the observer itself, or a scene coordinator)
-/// goes away.
+/// explicitly, or let the subscription's deinit cancel itself when
+/// the owner (typically the observer itself, or a scene coordinator)
+/// drops the retained handle.
 @MainActor
 public final class StoreObserverSubscription {
     private var task: Task<Void, Never>?
@@ -88,8 +88,8 @@ public extension NavigationStore {
     /// Subscribes `observer` to this store's `events` stream. The
     /// observer's `handle(_: NavigationEvent<R>)` is invoked for
     /// every emitted event until the returned subscription is
-    /// cancelled or the observer deinitialises.
-    @discardableResult
+    /// cancelled or deinitialised. Retain the returned
+    /// `StoreObserverSubscription`; the observer is held weakly.
     func observe<O: StoreObserver>(_ observer: O) -> StoreObserverSubscription
     where O.RouteType == R {
         let task = makeObserverTask(
@@ -106,8 +106,9 @@ public extension NavigationStore {
 public extension ModalStore {
     /// Subscribes `observer` to this store's `events` stream. The
     /// observer's `handle(_: ModalEvent<M>)` is invoked for every
-    /// emitted event until the subscription is cancelled.
-    @discardableResult
+    /// emitted event until the subscription is cancelled or
+    /// deinitialised. Retain the returned
+    /// `StoreObserverSubscription`; the observer is held weakly.
     func observe<O: StoreObserver>(_ observer: O) -> StoreObserverSubscription
     where O.RouteType == M {
         let task = makeObserverTask(
@@ -125,8 +126,9 @@ public extension FlowStore {
     /// Subscribes `observer` to this store's `events` stream.
     /// `FlowStore.events` wraps inner navigation / modal emissions,
     /// so a single subscription routes all three event types
-    /// through the observer's typed `handle(_:)` overloads.
-    @discardableResult
+    /// through the observer's typed `handle(_:)` overloads. Retain
+    /// the returned `StoreObserverSubscription`; the observer is
+    /// held weakly.
     func observe<O: StoreObserver>(_ observer: O) -> StoreObserverSubscription
     where O.RouteType == R {
         let task = makeObserverTask(

@@ -253,4 +253,59 @@ struct ThrottleNavigationMiddlewareTests {
             Issue.record("Expected .cancelled(.middleware), got \(result)")
         }
     }
+
+    @Test("Transaction discard cleanup keeps throttle aligned to the committed fallback")
+    @MainActor
+    func transactionDiscardCleanupKeepsThrottleBalanced() {
+        let clock = TestClock()
+        let throttle = ThrottleNavigationMiddleware<ThrottleRoute, TestClock>(
+            interval: .milliseconds(300),
+            clock: clock,
+            key: { _ in "all" }
+        )
+        let gate = AnyNavigationMiddleware<ThrottleRoute>(
+            willExecute: { command, _ in
+                if case .push(.detail) = command {
+                    return .cancel(.middleware(debugName: nil, command: command))
+                }
+                return .proceed(command)
+            }
+        )
+        let store = NavigationStore<ThrottleRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [
+                    .init(middleware: AnyNavigationMiddleware(throttle), debugName: "throttle"),
+                    .init(middleware: gate, debugName: "gate")
+                ]
+            )
+        )
+
+        let transaction = store.executeTransaction([
+            .whenCancelled(.push(.detail), fallback: .push(.home))
+        ])
+        #expect(transaction.isCommitted)
+        #expect(store.state.path == [.home])
+
+        clock.advance(by: .milliseconds(50))
+        let first = store.execute(.push(.settings))
+        if case .cancelled(.middleware(let debugName, _)) = first {
+            #expect(debugName == "throttle")
+        } else {
+            Issue.record("Expected first post-transaction command to be throttled, got \(first)")
+        }
+
+        clock.advance(by: .milliseconds(400))
+        let second = store.execute(.push(.settings))
+        #expect(second.isSuccess)
+        #expect(store.state.path == [.home, .settings])
+
+        clock.advance(by: .milliseconds(50))
+        let third = store.execute(.push(.home))
+        if case .cancelled(.middleware(let debugName, _)) = third {
+            #expect(debugName == "throttle")
+        } else {
+            Issue.record("Expected throttle window to track the committed fallback, got \(third)")
+        }
+        #expect(store.state.path == [.home, .settings])
+    }
 }

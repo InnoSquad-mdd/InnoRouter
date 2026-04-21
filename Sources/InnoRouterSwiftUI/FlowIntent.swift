@@ -58,7 +58,10 @@ public enum FlowIntent<R: Route>: Sendable, Equatable {
     ///
     /// If the modal dismiss is cancelled by middleware, the outer
     /// intent surfaces the rejection and the inner operation does
-    /// **not** run.
+    /// **not** run. If dismissing the active modal promotes a queued
+    /// modal instead, the outer intent is rejected with
+    /// `.pushBlockedByModalTail` and the inner operation still does
+    /// not run.
     case backOrPushDismissingModal(R)
 
     /// Dismiss any active modal tail, then behave like

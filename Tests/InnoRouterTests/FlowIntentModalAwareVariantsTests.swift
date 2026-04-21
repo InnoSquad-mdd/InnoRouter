@@ -86,8 +86,15 @@ struct FlowIntentModalAwareVariantsTests {
 
     @Test(".backOrPushDismissingModal stops when a queued modal is promoted")
     @MainActor
-    func backOrPushDismissingQueuedModalPromotion() {
-        let store = FlowStore<MARoute>()
+    func backOrPushDismissingQueuedModalPromotion() throws {
+        var rejections: [(FlowIntent<MARoute>, FlowRejectionReason)] = []
+        let store = FlowStore<MARoute>(
+            configuration: FlowStoreConfiguration(
+                onIntentRejected: { intent, reason in
+                    rejections.append((intent, reason))
+                }
+            )
+        )
         store.send(.push(.home))
         store.send(.presentSheet(.sheet))
         store.send(.presentSheet(.queuedSheet))
@@ -97,12 +104,22 @@ struct FlowIntentModalAwareVariantsTests {
         #expect(store.modalStore.currentPresentation?.route == .queuedSheet)
         #expect(store.modalStore.queuedPresentations.isEmpty)
         #expect(store.navigationStore.state.path == [.home])
+        let rejection = try #require(rejections.first)
+        #expect(rejection.0 == .backOrPushDismissingModal(.detail))
+        #expect(rejection.1 == .pushBlockedByModalTail)
     }
 
     @Test(".pushUniqueRootDismissingModal stops when a queued modal is promoted")
     @MainActor
-    func pushUniqueRootDismissingQueuedModalPromotion() {
-        let store = FlowStore<MARoute>()
+    func pushUniqueRootDismissingQueuedModalPromotion() throws {
+        var rejections: [(FlowIntent<MARoute>, FlowRejectionReason)] = []
+        let store = FlowStore<MARoute>(
+            configuration: FlowStoreConfiguration(
+                onIntentRejected: { intent, reason in
+                    rejections.append((intent, reason))
+                }
+            )
+        )
         store.send(.presentSheet(.sheet))
         store.send(.presentSheet(.queuedSheet))
 
@@ -111,5 +128,8 @@ struct FlowIntentModalAwareVariantsTests {
         #expect(store.modalStore.currentPresentation?.route == .queuedSheet)
         #expect(store.modalStore.queuedPresentations.isEmpty)
         #expect(store.navigationStore.state.path.isEmpty)
+        let rejection = try #require(rejections.first)
+        #expect(rejection.0 == .pushUniqueRootDismissingModal(.home))
+        #expect(rejection.1 == .pushBlockedByModalTail)
     }
 }

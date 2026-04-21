@@ -373,7 +373,8 @@ public final class FlowStore<R: Route> {
     /// rejected and `inner` does NOT run. If no modal is active,
     /// `inner` runs directly. Promoting a queued modal does not count
     /// as a successful dismissal for these intents; they only proceed
-    /// once the modal tail is fully gone.
+    /// once the modal tail is fully gone, otherwise the outer intent
+    /// is rejected with `.pushBlockedByModalTail`.
     private func dispatchDismissingModal(
         intent: FlowIntent<R>,
         inner: () -> Void
@@ -384,6 +385,7 @@ public final class FlowStore<R: Route> {
         }
         dispatchDismiss(intent: intent)
         if modalStore.currentPresentation != nil {
+            emitIntentRejected(intent, reason: .pushBlockedByModalTail)
             return
         }
         inner()

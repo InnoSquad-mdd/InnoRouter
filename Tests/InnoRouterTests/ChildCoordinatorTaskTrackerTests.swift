@@ -17,14 +17,11 @@ struct ChildCoordinatorTaskTrackerTests {
         let tracker = ChildCoordinatorTaskTracker()
         let finished = Mutex<Bool>(false)
 
-        tracker.track {
+        let task = tracker.track {
             finished.withLock { $0 = true }
         }
 
-        // Give the tracked task a chance to complete.
-        await Task.yield()
-        await Task.yield()
-
+        await task.value
         #expect(finished.withLock { $0 })
     }
 
@@ -34,20 +31,15 @@ struct ChildCoordinatorTaskTrackerTests {
         let tracker = ChildCoordinatorTaskTracker()
         let observedCancellation = Mutex<Bool>(false)
 
-        tracker.track {
+        let task = tracker.track {
             while !Task.isCancelled {
                 await Task.yield()
             }
             observedCancellation.withLock { $0 = true }
         }
 
-        // Let the task start.
-        await Task.yield()
         tracker.cancelAll()
-        // Let the cancelled body observe the signal.
-        await Task.yield()
-        await Task.yield()
-
+        await task.value
         #expect(observedCancellation.withLock { $0 })
     }
 
@@ -57,13 +49,12 @@ struct ChildCoordinatorTaskTrackerTests {
         let tracker = ChildCoordinatorTaskTracker()
         #expect(tracker.activeCount == 0)
 
-        tracker.track { await Task.yield() }
-        tracker.track { await Task.yield() }
+        let first = tracker.track { await Task.yield() }
+        let second = tracker.track { await Task.yield() }
         #expect(tracker.activeCount == 2)
 
-        // Drain scheduler.
-        for _ in 0..<5 { await Task.yield() }
-
+        await first.value
+        await second.value
         #expect(tracker.activeCount == 0)
     }
 }
