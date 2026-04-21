@@ -94,7 +94,15 @@ public struct CoordinatorHost<C: Coordinator, Root: View>: View {
     }
 }
 
+// MARK: - Platform: NavigationSplitView is unavailable on watchOS.
+// `CoordinatorSplitHost` is therefore declared only on non-watchOS platforms.
+// watchOS consumers should fall back to `CoordinatorHost`.
+#if !os(watchOS)
 /// Hosts a split-view coordinator surface whose detail column is driven by the coordinator's store.
+///
+/// - Important: This host is **not available on watchOS** because SwiftUI's
+///   `NavigationSplitView` is unavailable there. Use ``CoordinatorHost``
+///   inside a `#if !os(watchOS)` fallback on watchOS targets.
 public struct CoordinatorSplitHost<C: Coordinator, Sidebar: View, Root: View>: View {
     @Bindable private var coordinator: C
     @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
@@ -122,3 +130,4 @@ public struct CoordinatorSplitHost<C: Coordinator, Sidebar: View, Root: View>: V
         .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
     }
 }
+#endif

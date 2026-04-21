@@ -1,3 +1,7 @@
+// MARK: - Platform: NavigationSplitView is unavailable on watchOS, so the
+// `CoordinatorSplitHost`-based example is compiled only on non-watchOS
+// platforms. watchOS apps should use `CoordinatorHost` instead.
+#if !os(watchOS)
 import SwiftUI
 
 import InnoRouter
@@ -64,3 +68,5 @@ struct SplitDestinationView: View {
         }
     }
 }
+
+#endif

@@ -57,7 +57,15 @@ public struct NavigationHost<R: Route, DestinationView: View, Root: View>: View 
     }
 }
 
+// MARK: - Platform: NavigationSplitView is unavailable on watchOS.
+// `NavigationSplitHost` is therefore declared only on non-watchOS platforms.
+// watchOS consumers should fall back to `NavigationHost`.
+#if !os(watchOS)
 /// Hosts a split-view navigation surface whose detail column is driven by a `NavigationStore`.
+///
+/// - Important: This host is **not available on watchOS** because SwiftUI's
+///   `NavigationSplitView` is unavailable there. Use ``NavigationHost``
+///   inside a `#if !os(watchOS)` fallback on watchOS targets.
 public struct NavigationSplitHost<R: Route, Sidebar: View, DestinationView: View, Root: View>: View {
     @Bindable private var store: NavigationStore<R>
     @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()
@@ -97,3 +105,4 @@ public struct NavigationSplitHost<R: Route, Sidebar: View, DestinationView: View
         .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
     }
 }
+#endif
