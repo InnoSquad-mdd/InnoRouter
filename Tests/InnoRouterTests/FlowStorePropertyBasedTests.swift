@@ -134,4 +134,56 @@ struct FlowStorePropertyBasedTests {
             )
         }
     }
+
+    @Test(
+        "Multi-middleware nav/modal chains preserve FlowStore invariants and match the reference model",
+        arguments: Array(0..<32)
+    )
+    @MainActor
+    func middlewareChainMatchesModel(seed: Int) async {
+        var rng = PropertyPBTGenerator(seed: seed)
+        let policy = PropertyMiddlewareChainPolicy(seed: seed)
+        let store = FlowStore<PropertyRoute>(
+            configuration: FlowStoreConfiguration(
+                navigation: NavigationStoreConfiguration(
+                    middlewares: policy.navigationRegistrations()
+                ),
+                modal: ModalStoreConfiguration(
+                    middlewares: policy.modalRegistrations()
+                )
+            )
+        )
+        let recorder = FlowEventRecorder(store: store)
+        defer { recorder.cancel() }
+
+        var model = FlowModelState()
+
+        for step in 0..<20 {
+            let intent = randomFlowIntent(rng: &rng)
+            let marker = recorder.mark()
+
+            let expectation = model.apply(intent, middlewarePolicy: policy)
+            store.send(intent)
+
+            let events = (
+                await recorder.rawEvents(
+                    since: marker,
+                    minimumCount: minimumExpectedFlowEventCount(expectation)
+                )
+            ).compactMap(normalizeFlowEvent)
+
+            assertFlowStoreMatchesModel(
+                store: store,
+                model: model,
+                seed: seed,
+                step: step
+            )
+            assertFlowEventContract(
+                events,
+                expectation: expectation,
+                seed: seed,
+                step: step
+            )
+        }
+    }
 }

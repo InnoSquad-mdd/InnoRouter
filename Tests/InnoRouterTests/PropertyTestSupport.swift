@@ -53,6 +53,49 @@ struct PropertyPBTGenerator {
         return (0..<count).map { _ in nextRoute() }
     }
 
+    mutating func nextLeafNavigationCommand() -> NavigationCommand<PropertyRoute> {
+        switch nextInt(upperBound: 100) {
+        case 0..<26:
+            return .push(nextRoute())
+        case 26..<38:
+            return .replace(nextRoutes(maxCount: 3))
+        case 38..<48:
+            return .pushAll(nextRoutes(maxCount: 3))
+        case 48..<60:
+            return .pop
+        case 60..<72:
+            return .popTo(nextRoute())
+        case 72..<82:
+            return .popToRoot
+        default:
+            return .popCount(nextInt(upperBound: 5))
+        }
+    }
+
+    mutating func nextCompositeNavigationCommand(maxDepth: Int = 2) -> NavigationCommand<PropertyRoute> {
+        guard maxDepth > 0 else { return nextLeafNavigationCommand() }
+
+        switch nextInt(upperBound: 100) {
+        case 0..<58:
+            return nextLeafNavigationCommand()
+        case 58..<80:
+            let count = max(2, nextInt(upperBound: 4))
+            let commands = (0..<count).map { _ in
+                nextCompositeNavigationCommand(maxDepth: maxDepth - 1)
+            }
+            return .sequence(commands)
+        default:
+            let primary = nextCompositeNavigationCommand(maxDepth: maxDepth - 1)
+            let fallback = nextCompositeNavigationCommand(maxDepth: maxDepth - 1)
+            return .whenCancelled(primary, fallback: fallback)
+        }
+    }
+
+    mutating func nextTransactionCommands() -> [NavigationCommand<PropertyRoute>] {
+        let count = max(1, nextInt(upperBound: 4))
+        return (0..<count).map { _ in nextLeafNavigationCommand() }
+    }
+
     mutating func nextFlowSteps() -> [RouteStep<PropertyRoute>] {
         if chance(1, outOf: 5) {
             return nextInvalidFlowSteps()
@@ -128,6 +171,19 @@ struct ModelModalState: Equatable {
     }
 }
 
+protocol PropertyFlowMiddlewareModeling {
+    func navigationDecision(
+        for command: NavigationCommand<PropertyRoute>,
+        state: RouteStack<PropertyRoute>
+    ) -> PropertyNavigationDecision
+
+    func modalDecision(
+        for command: ModalCommand<PropertyRoute>,
+        currentPresentation: ModelModalState?,
+        queuedPresentations: [ModelModalState]
+    ) -> PropertyModalDecision
+}
+
 struct FlowModelState: Equatable {
     var navigationPath: [PropertyRoute] = []
     var currentModal: ModelModalState?
@@ -158,7 +214,7 @@ struct FlowModelState: Equatable {
 
     mutating func apply(
         _ intent: FlowIntent<PropertyRoute>,
-        middlewarePolicy: PropertyMiddlewarePolicy? = nil
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)? = nil
     ) -> FlowStepExpectation {
         lastRejection = nil
         switch intent {
@@ -205,14 +261,14 @@ struct FlowModelState: Equatable {
 
     private mutating func applyPush(
         _ route: PropertyRoute,
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> FlowStepExpectation {
         guard currentModal == nil else {
             return reject(.pushBlockedByModalTail)
         }
         switch navigationDecision(for: .push(route), middlewarePolicy: middlewarePolicy) {
-        case .cancel:
-            return reject(.middlewareRejected(debugName: PropertyMiddlewarePolicy.navigationDebugName))
+        case .cancel(let debugName, _):
+            return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             let changed = applyNavigationCommand(command)
             return FlowStepExpectation(
@@ -224,14 +280,14 @@ struct FlowModelState: Equatable {
 
     private mutating func applyModalPresent(
         _ modal: ModelModalState,
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> FlowStepExpectation {
         let command = ModalCommand<PropertyRoute>.present(
             ModalPresentation(route: modal.route, style: modal.style)
         )
         switch modalDecision(for: command, middlewarePolicy: middlewarePolicy) {
-        case .cancel:
-            return reject(.middlewareRejected(debugName: PropertyMiddlewarePolicy.modalDebugName))
+        case .cancel(let debugName, _):
+            return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let effectiveCommand):
             let delta = applyModalCommand(effectiveCommand)
             return FlowStepExpectation(
@@ -244,14 +300,14 @@ struct FlowModelState: Equatable {
     }
 
     private mutating func applyPop(
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> FlowStepExpectation {
         guard currentModal == nil, !navigationPath.isEmpty else {
             return FlowStepExpectation(outcome: .none)
         }
         switch navigationDecision(for: .pop, middlewarePolicy: middlewarePolicy) {
-        case .cancel:
-            return reject(.middlewareRejected(debugName: PropertyMiddlewarePolicy.navigationDebugName))
+        case .cancel(let debugName, _):
+            return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             let changed = applyNavigationCommand(command)
             return FlowStepExpectation(
@@ -262,7 +318,7 @@ struct FlowModelState: Equatable {
     }
 
     private mutating func applyDismiss(
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> FlowStepExpectation {
         guard currentModal != nil else {
             return FlowStepExpectation(outcome: .none)
@@ -275,7 +331,7 @@ struct FlowModelState: Equatable {
 
     private mutating func applyBackOrPush(
         _ route: PropertyRoute,
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> FlowStepExpectation {
         guard currentModal == nil else {
             return reject(.pushBlockedByModalTail)
@@ -283,8 +339,8 @@ struct FlowModelState: Equatable {
 
         if navigationPath.contains(route) {
             switch navigationDecision(for: .popTo(route), middlewarePolicy: middlewarePolicy) {
-            case .cancel:
-                return reject(.middlewareRejected(debugName: PropertyMiddlewarePolicy.navigationDebugName))
+            case .cancel(let debugName, _):
+                return reject(.middlewareRejected(debugName: debugName))
             case .proceed(let command):
                 let changed = applyNavigationCommand(command)
                 return FlowStepExpectation(
@@ -299,7 +355,7 @@ struct FlowModelState: Equatable {
 
     private mutating func applyPushUniqueRoot(
         _ route: PropertyRoute,
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> FlowStepExpectation {
         guard !navigationPath.contains(route) else {
             return FlowStepExpectation(outcome: .none)
@@ -308,7 +364,7 @@ struct FlowModelState: Equatable {
     }
 
     private mutating func applyDismissingModal(
-        middlewarePolicy: PropertyMiddlewarePolicy?,
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?,
         next: (inout FlowModelState) -> FlowStepExpectation
     ) -> FlowStepExpectation {
         guard currentModal != nil else {
@@ -344,7 +400,7 @@ struct FlowModelState: Equatable {
 
     private mutating func applyReset(
         _ steps: [RouteStep<PropertyRoute>],
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> FlowStepExpectation {
         guard Self.isValidPath(steps) else {
             return reject(.invalidResetPath)
@@ -359,8 +415,8 @@ struct FlowModelState: Equatable {
             for: .replace(pushRoutes),
             middlewarePolicy: middlewarePolicy
         ) {
-        case .cancel:
-            return reject(.middlewareRejected(debugName: PropertyMiddlewarePolicy.navigationDebugName))
+        case .cancel(let debugName, _):
+            return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let command):
             let navigationChanged = shadow.applyNavigationCommand(command)
             let modalResetResult = shadow.previewModalReset(
@@ -387,11 +443,11 @@ struct FlowModelState: Equatable {
 
     private mutating func applyModalDismissCommand(
         _ command: ModalCommand<PropertyRoute>,
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> FlowStepExpectation {
         switch modalDecision(for: command, middlewarePolicy: middlewarePolicy) {
-        case .cancel:
-            return reject(.middlewareRejected(debugName: PropertyMiddlewarePolicy.modalDebugName))
+        case .cancel(let debugName, _):
+            return reject(.middlewareRejected(debugName: debugName))
         case .proceed(let effectiveCommand):
             let delta = applyModalCommand(effectiveCommand)
             return FlowStepExpectation(
@@ -405,7 +461,7 @@ struct FlowModelState: Equatable {
 
     private mutating func previewModalReset(
         to modalTail: RouteStep<PropertyRoute>?,
-        middlewarePolicy: PropertyMiddlewarePolicy?,
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?,
         navigationChanged: Bool
     ) -> ModalResetPreview {
         _ = navigationChanged
@@ -417,8 +473,8 @@ struct FlowModelState: Equatable {
 
         if currentModal != nil || !queuedModals.isEmpty {
             switch modalDecision(for: .dismissAll, middlewarePolicy: middlewarePolicy) {
-            case .cancel:
-                return .rejected(.middlewareRejected(debugName: PropertyMiddlewarePolicy.modalDebugName))
+            case .cancel(let debugName, _):
+                return .rejected(.middlewareRejected(debugName: debugName))
             case .proceed(let command):
                 delta.formUnion(applyModalCommand(command))
             }
@@ -429,8 +485,8 @@ struct FlowModelState: Equatable {
                 ModalPresentation(route: targetModal.route, style: targetModal.style)
             )
             switch modalDecision(for: command, middlewarePolicy: middlewarePolicy) {
-            case .cancel:
-                return .rejected(.middlewareRejected(debugName: PropertyMiddlewarePolicy.modalDebugName))
+            case .cancel(let debugName, _):
+                return .rejected(.middlewareRejected(debugName: debugName))
             case .proceed(let effectiveCommand):
                 delta.formUnion(applyModalCommand(effectiveCommand))
             }
@@ -527,7 +583,7 @@ struct FlowModelState: Equatable {
 
     private func navigationDecision(
         for command: NavigationCommand<PropertyRoute>,
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> PropertyNavigationDecision {
         guard let middlewarePolicy else { return .proceed(command) }
         return middlewarePolicy.navigationDecision(
@@ -538,7 +594,7 @@ struct FlowModelState: Equatable {
 
     private func modalDecision(
         for command: ModalCommand<PropertyRoute>,
-        middlewarePolicy: PropertyMiddlewarePolicy?
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> PropertyModalDecision {
         guard let middlewarePolicy else { return .proceed(command) }
         return middlewarePolicy.modalDecision(
@@ -634,15 +690,15 @@ enum ModalResetPreview: Equatable {
 
 enum PropertyNavigationDecision {
     case proceed(NavigationCommand<PropertyRoute>)
-    case cancel
+    case cancel(debugName: String, command: NavigationCommand<PropertyRoute>)
 }
 
 enum PropertyModalDecision {
     case proceed(ModalCommand<PropertyRoute>)
-    case cancel
+    case cancel(debugName: String, command: ModalCommand<PropertyRoute>)
 }
 
-struct PropertyMiddlewarePolicy {
+struct PropertyMiddlewarePolicy: PropertyFlowMiddlewareModeling {
     static let navigationDebugName = "prop-nav"
     static let modalDebugName = "prop-modal"
 
@@ -660,7 +716,7 @@ struct PropertyMiddlewarePolicy {
         case .push(let route):
             switch score % 7 {
             case 0:
-                return .cancel
+                return .cancel(debugName: Self.navigationDebugName, command: command)
             case 1:
                 return .proceed(.push(rotated(route)))
             default:
@@ -669,14 +725,16 @@ struct PropertyMiddlewarePolicy {
         case .replace(let routes):
             switch score % 9 {
             case 0:
-                return .cancel
+                return .cancel(debugName: Self.navigationDebugName, command: command)
             case 1:
                 return .proceed(.replace(routes.map(rotated)))
             default:
                 return .proceed(command)
             }
         case .pop, .popTo, .popToRoot:
-            return score % 11 == 0 ? .cancel : .proceed(command)
+            return score % 11 == 0
+                ? .cancel(debugName: Self.navigationDebugName, command: command)
+                : .proceed(command)
         default:
             return .proceed(command)
         }
@@ -699,7 +757,7 @@ struct PropertyMiddlewarePolicy {
         case .present(let presentation):
             switch score % 7 {
             case 0:
-                return .cancel
+                return .cancel(debugName: Self.modalDebugName, command: command)
             case 1:
                 return .proceed(
                     .present(
@@ -713,11 +771,13 @@ struct PropertyMiddlewarePolicy {
                 return .proceed(command)
             }
         case .dismissCurrent, .dismissAll:
-            return score % 11 == 0 ? .cancel : .proceed(command)
+            return score % 11 == 0
+                ? .cancel(debugName: Self.modalDebugName, command: command)
+                : .proceed(command)
         case .replaceCurrent(let presentation):
             switch score % 7 {
             case 0:
-                return .cancel
+                return .cancel(debugName: Self.modalDebugName, command: command)
             case 1:
                 return .proceed(
                     .replaceCurrent(
@@ -776,6 +836,119 @@ struct PropertyMiddlewarePolicy {
             ),
             debugName: Self.modalDebugName
         )
+    }
+}
+
+struct PropertyMiddlewareChainPolicy: PropertyFlowMiddlewareModeling {
+    let navigationStages: [PropertyMiddlewarePolicy]
+    let modalStages: [PropertyMiddlewarePolicy]
+
+    init(seed: Int, navigationCount: Int = 3, modalCount: Int = 3) {
+        self.navigationStages = (0..<navigationCount).map {
+            PropertyMiddlewarePolicy(seed: seed &+ (($0 + 1) * 977))
+        }
+        self.modalStages = (0..<modalCount).map {
+            PropertyMiddlewarePolicy(seed: seed &+ (($0 + 1) * 1597))
+        }
+    }
+
+    func navigationDecision(
+        for command: NavigationCommand<PropertyRoute>,
+        state: RouteStack<PropertyRoute>
+    ) -> PropertyNavigationDecision {
+        var currentCommand = command
+        for (index, stage) in navigationStages.enumerated() {
+            switch stage.navigationDecision(for: currentCommand, state: state) {
+            case .cancel(_, let cancelledCommand):
+                return .cancel(
+                    debugName: navigationDebugName(index: index),
+                    command: cancelledCommand
+                )
+            case .proceed(let updatedCommand):
+                currentCommand = updatedCommand
+            }
+        }
+        return .proceed(currentCommand)
+    }
+
+    func modalDecision(
+        for command: ModalCommand<PropertyRoute>,
+        currentPresentation: ModelModalState?,
+        queuedPresentations: [ModelModalState]
+    ) -> PropertyModalDecision {
+        var currentCommand = command
+        for (index, stage) in modalStages.enumerated() {
+            switch stage.modalDecision(
+                for: currentCommand,
+                currentPresentation: currentPresentation,
+                queuedPresentations: queuedPresentations
+            ) {
+            case .cancel(_, let cancelledCommand):
+                return .cancel(
+                    debugName: modalDebugName(index: index),
+                    command: cancelledCommand
+                )
+            case .proceed(let updatedCommand):
+                currentCommand = updatedCommand
+            }
+        }
+        return .proceed(currentCommand)
+    }
+
+    @MainActor
+    func navigationRegistrations() -> [NavigationMiddlewareRegistration<PropertyRoute>] {
+        navigationStages.enumerated().map { index, stage in
+            .init(
+                middleware: AnyNavigationMiddleware(
+                    willExecute: { command, state in
+                        switch stage.navigationDecision(for: command, state: state) {
+                        case .cancel:
+                            return .cancel(.middleware(debugName: nil, command: command))
+                        case .proceed(let effectiveCommand):
+                            return .proceed(effectiveCommand)
+                        }
+                    }
+                ),
+                debugName: navigationDebugName(index: index)
+            )
+        }
+    }
+
+    @MainActor
+    func modalRegistrations() -> [ModalMiddlewareRegistration<PropertyRoute>] {
+        modalStages.enumerated().map { index, stage in
+            .init(
+                middleware: AnyModalMiddleware(
+                    willExecute: { command, currentPresentation, queuedPresentations in
+                        let current = currentPresentation.map {
+                            ModelModalState(route: $0.route, style: $0.style)
+                        }
+                        let queue = queuedPresentations.map {
+                            ModelModalState(route: $0.route, style: $0.style)
+                        }
+                        switch stage.modalDecision(
+                            for: command,
+                            currentPresentation: current,
+                            queuedPresentations: queue
+                        ) {
+                        case .cancel:
+                            return .cancel(.middleware(debugName: nil, command: command))
+                        case .proceed(let effectiveCommand):
+                            return .proceed(effectiveCommand)
+                        }
+                    }
+                ),
+                debugName: modalDebugName(index: index)
+            )
+        }
+    }
+
+    private func navigationDebugName(index: Int) -> String {
+        "prop-nav-\(index)"
+    }
+
+    private func modalDebugName(index: Int) -> String {
+        "prop-modal-\(index)"
     }
 }
 
@@ -1431,5 +1604,199 @@ private func styleSignature(_ style: ModalPresentationStyle) -> String {
         return "sheet"
     case .fullScreenCover:
         return "cover"
+    }
+}
+
+struct PropertyNavigationExecutionModelResult {
+    let result: NavigationResult<PropertyRoute>
+    let stateAfter: RouteStack<PropertyRoute>
+    let executedCommands: [NavigationCommand<PropertyRoute>]
+    let didExecuteCommands: [NavigationCommand<PropertyRoute>]
+}
+
+struct PropertyNavigationTransactionModelResult {
+    let transaction: NavigationTransactionResult<PropertyRoute>
+    let didExecuteCommands: [NavigationCommand<PropertyRoute>]
+    let discardedCommands: [NavigationCommand<PropertyRoute>]
+}
+
+private struct PropertyNavigationLeafModelResult {
+    let result: NavigationResult<PropertyRoute>
+    let stateAfter: RouteStack<PropertyRoute>
+    let executedCommands: [NavigationCommand<PropertyRoute>]
+    let finalizedCommand: NavigationCommand<PropertyRoute>
+}
+
+func modelNavigationExecute(
+    _ command: NavigationCommand<PropertyRoute>,
+    initialState: RouteStack<PropertyRoute> = .init(),
+    middlewarePolicy: (any PropertyFlowMiddlewareModeling)? = nil,
+    engine: NavigationEngine<PropertyRoute> = .init()
+) -> PropertyNavigationExecutionModelResult {
+    switch command {
+    case .sequence(let commands):
+        var currentState = initialState
+        var executedCommands: [NavigationCommand<PropertyRoute>] = []
+        var didExecuteCommands: [NavigationCommand<PropertyRoute>] = []
+        var results: [NavigationResult<PropertyRoute>] = []
+
+        for nestedCommand in commands {
+            let outcome = modelNavigationExecute(
+                nestedCommand,
+                initialState: currentState,
+                middlewarePolicy: middlewarePolicy,
+                engine: engine
+            )
+            currentState = outcome.stateAfter
+            executedCommands.append(contentsOf: outcome.executedCommands)
+            didExecuteCommands.append(contentsOf: outcome.didExecuteCommands)
+            results.append(outcome.result)
+        }
+
+        return PropertyNavigationExecutionModelResult(
+            result: .multiple(results),
+            stateAfter: currentState,
+            executedCommands: executedCommands,
+            didExecuteCommands: didExecuteCommands
+        )
+
+    case .whenCancelled(let primary, let fallback):
+        let primaryOutcome = modelNavigationExecute(
+            primary,
+            initialState: initialState,
+            middlewarePolicy: middlewarePolicy,
+            engine: engine
+        )
+        if primaryOutcome.result.isSuccess {
+            return primaryOutcome
+        }
+
+        let fallbackOutcome = modelNavigationExecute(
+            fallback,
+            initialState: initialState,
+            middlewarePolicy: middlewarePolicy,
+            engine: engine
+        )
+        return PropertyNavigationExecutionModelResult(
+            result: fallbackOutcome.result,
+            stateAfter: fallbackOutcome.stateAfter,
+            executedCommands: primaryOutcome.executedCommands + fallbackOutcome.executedCommands,
+            didExecuteCommands: primaryOutcome.didExecuteCommands + fallbackOutcome.didExecuteCommands
+        )
+
+    default:
+        let leaf = modelNavigationLeaf(
+            command,
+            initialState: initialState,
+            middlewarePolicy: middlewarePolicy,
+            engine: engine
+        )
+        return PropertyNavigationExecutionModelResult(
+            result: leaf.result,
+            stateAfter: leaf.stateAfter,
+            executedCommands: leaf.executedCommands,
+            didExecuteCommands: [leaf.finalizedCommand]
+        )
+    }
+}
+
+func modelNavigationTransaction(
+    _ commands: [NavigationCommand<PropertyRoute>],
+    initialState: RouteStack<PropertyRoute> = .init(),
+    middlewarePolicy: (any PropertyFlowMiddlewareModeling)? = nil,
+    engine: NavigationEngine<PropertyRoute> = .init()
+) -> PropertyNavigationTransactionModelResult {
+    var shadowState = initialState
+    var leafOutcomes: [PropertyNavigationLeafModelResult] = []
+    var failureIndex: Int?
+
+    for (index, command) in commands.enumerated() {
+        let outcome = modelNavigationLeaf(
+            command,
+            initialState: shadowState,
+            middlewarePolicy: middlewarePolicy,
+            engine: engine
+        )
+        leafOutcomes.append(outcome)
+        shadowState = outcome.stateAfter
+        if !outcome.result.isSuccess {
+            failureIndex = index
+            break
+        }
+    }
+
+    let isCommitted = failureIndex == nil
+    let transaction = NavigationTransactionResult<PropertyRoute>(
+        requestedCommands: commands,
+        executedCommands: leafOutcomes.flatMap(\.executedCommands),
+        results: leafOutcomes.map(\.result),
+        stateBefore: initialState,
+        stateAfter: isCommitted ? shadowState : initialState,
+        failureIndex: failureIndex,
+        isCommitted: isCommitted
+    )
+
+    return PropertyNavigationTransactionModelResult(
+        transaction: transaction,
+        didExecuteCommands: isCommitted ? leafOutcomes.map(\.finalizedCommand) : [],
+        discardedCommands: isCommitted ? [] : leafOutcomes.map(\.finalizedCommand)
+    )
+}
+
+private func modelNavigationLeaf(
+    _ command: NavigationCommand<PropertyRoute>,
+    initialState: RouteStack<PropertyRoute>,
+    middlewarePolicy: (any PropertyFlowMiddlewareModeling)?,
+    engine: NavigationEngine<PropertyRoute>
+) -> PropertyNavigationLeafModelResult {
+    let effectiveCommand = applyNavigationMiddlewarePolicy(
+        command,
+        state: initialState,
+        middlewarePolicy: middlewarePolicy
+    )
+
+    switch effectiveCommand {
+    case .cancel(let commandToFinalize, let reason):
+        return PropertyNavigationLeafModelResult(
+            result: .cancelled(reason),
+            stateAfter: initialState,
+            executedCommands: [],
+            finalizedCommand: commandToFinalize
+        )
+
+    case .proceed(let commandToExecute):
+        var shadowState = initialState
+        let result = engine.apply(commandToExecute, to: &shadowState)
+        return PropertyNavigationLeafModelResult(
+            result: result,
+            stateAfter: shadowState,
+            executedCommands: [commandToExecute],
+            finalizedCommand: commandToExecute
+        )
+    }
+}
+
+private enum PropertyNavigationMiddlewareOutcome {
+    case proceed(NavigationCommand<PropertyRoute>)
+    case cancel(NavigationCommand<PropertyRoute>, NavigationCancellationReason<PropertyRoute>)
+}
+
+private func applyNavigationMiddlewarePolicy(
+    _ command: NavigationCommand<PropertyRoute>,
+    state: RouteStack<PropertyRoute>,
+    middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
+) -> PropertyNavigationMiddlewareOutcome {
+    guard let middlewarePolicy else {
+        return .proceed(command)
+    }
+
+    switch middlewarePolicy.navigationDecision(for: command, state: state) {
+    case .proceed(let effectiveCommand):
+        return .proceed(effectiveCommand)
+    case .cancel(let debugName, let cancelledCommand):
+        return .cancel(
+            cancelledCommand,
+            .middleware(debugName: debugName, command: cancelledCommand)
+        )
     }
 }
