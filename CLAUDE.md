@@ -18,6 +18,7 @@ Requirements:
 - macOS 15+
 - tvOS 18+
 - watchOS 11+
+- visionOS 2+
 - Swift 6.2+
 
 ## Common commands

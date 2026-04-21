@@ -9,7 +9,8 @@ let package = Package(
         .iOS(.v18),
         .macOS(.v15),
         .tvOS(.v18),
-        .watchOS(.v11)
+        .watchOS(.v11),
+        .visionOS(.v2)
     ],
     products: [
         // MARK: - Umbrella
