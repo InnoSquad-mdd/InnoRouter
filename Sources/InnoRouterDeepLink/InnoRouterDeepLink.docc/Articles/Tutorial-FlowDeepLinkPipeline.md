@@ -148,15 +148,22 @@ await handler.resumePendingDeepLinkIfAllowed { pending in
 }
 ```
 
-Stale pending links (ones the user replaced by opening a different
-URL) are dropped automatically.
+The handler keeps a single pending slot:
+
+- a newly deferred URL replaces the older pending link
+- `clearPendingDeepLink()` drops the slot explicitly
+- stale pending links (ones the user replaced by opening a different
+  URL) are therefore dropped automatically
 
 ## Observing the chain
 
 All three authorities surface on ``FlowStore/events`` as one
 `AsyncStream`. A single subscriber sees the batch execution on the
 navigation store, the modal presentation (if any), and the
-FlowStore-level `.pathChanged` in order:
+settled FlowStore-level event as one merged chain. `FlowStore`
+fans inner authorities into its own stream asynchronously, so
+callers should treat this as a unified merged stream rather than a
+strict total order across authorities.
 
 ```swift
 Task {

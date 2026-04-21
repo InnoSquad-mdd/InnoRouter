@@ -20,6 +20,7 @@ Important cases:
 - `.popTo`
 - `.replace`
 - `.sequence`
+- `.whenCancelled`
 
 ``NavigationEngine`` executes these commands against a `RouteStack`.
 
@@ -31,9 +32,24 @@ That means:
 
 - commands execute left-to-right
 - earlier successful steps stay applied even if a later step fails
+- later steps still run unless the sequence itself has no more elements
 - the final result is ``NavigationResult/multiple(_:)``
 
 Use `.sequence` when partial success is acceptable and the command stream itself is the point.
+
+## Fallback semantics
+
+`.whenCancelled(primary, fallback:)` is also command algebra.
+
+That means:
+
+- `primary` runs first
+- if `primary` reports anything other than success, the store restores the snapshot and runs `fallback`
+- both legs still pass through middleware recursively
+- single-command execution only emits the committed state change
+- transaction execution keeps public middleware observation commit-only, while discarded preview legs run internal cleanup
+
+Use `.whenCancelled` when rollback-to-fallback semantics belong to one logical command.
 
 ## Batch semantics
 
@@ -42,6 +58,8 @@ Use `.sequence` when partial success is acceptable and the command stream itself
 Batch execution still runs commands one step at a time, but it lets higher layers coalesce observation:
 
 - step middleware still runs
+- `stopOnFailure: false` keeps later commands running after a failure
+- `stopOnFailure: true` stops the batch after the first failed step
 - the store can emit one aggregated callback
 - the caller gets a structured ``NavigationBatchResult``
 
@@ -57,6 +75,8 @@ Transactions:
 - abort on the first failure or cancellation
 - leave the real state unchanged on failure
 - commit the final state all at once on success
+- surface public `didExecute` / transaction observation only for committed leaves
+- run internal discard cleanup for previewed leaves that never commit
 
 Use transactions when all-or-nothing semantics are required.
 
