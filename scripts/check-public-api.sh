@@ -217,17 +217,15 @@ fi
 [[ -d "$module_cache_dir" ]] || { echo "[check-public-api] Missing module cache directory: $module_cache_dir" >&2; exit 1; }
 [[ -n "$sdk_path" ]] || { echo "[check-public-api] Failed to locate SDK path" >&2; exit 1; }
 
-readarray -t target_info_parts < <(
+target_info_output="$(
   swift -print-target-info | python3 -c '
 import json, sys
 
 info = json.load(sys.stdin)
-print(info["target"]["triple"])
-print(info["paths"]["runtimeResourcePath"])
+print("{}\t{}".format(info["target"]["triple"], info["paths"]["runtimeResourcePath"]))
 '
-)
-target_triple="${target_info_parts[0]:-}"
-resource_dir="${target_info_parts[1]:-}"
+)"
+IFS=$'\t' read -r target_triple resource_dir <<< "$target_info_output"
 toolchain_bin_dir="$(cd "$(dirname "$(dirname "$resource_dir")")/bin" && pwd -P)"
 swift_symbolgraph_extract_bin="$toolchain_bin_dir/swift-symbolgraph-extract"
 
