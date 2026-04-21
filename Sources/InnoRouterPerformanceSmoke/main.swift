@@ -1,0 +1,255 @@
+import Foundation
+import Darwin
+import InnoRouter
+import InnoRouterDeepLinkEffects
+
+private struct SmokeRoute: Route, Codable {
+    let id: Int
+}
+
+private struct SmokeSample: Codable {
+    let name: String
+    let smallInput: Int
+    let largeInput: Int
+    let smallMilliseconds: Double
+    let largeMilliseconds: Double
+    let ratio: Double
+    let threshold: Double
+    let passed: Bool
+}
+
+private struct SmokeReport: Codable {
+    let generatedAt: String
+    let passed: Bool
+    let samples: [SmokeSample]
+}
+
+private let clock = ContinuousClock()
+
+@MainActor
+private func measureMilliseconds(
+    warmup: Int = 1,
+    samples: Int = 3,
+    _ body: () -> Void
+) -> Double {
+    for _ in 0..<warmup {
+        body()
+    }
+
+    var total: Double = 0
+    for _ in 0..<samples {
+        let duration = clock.measure {
+            body()
+        }
+        total += Double(duration.components.seconds) * 1_000
+        total += Double(duration.components.attoseconds) / 1_000_000_000_000_000
+    }
+
+    return total / Double(samples)
+}
+
+private func makeRoutes(_ count: Int) -> [SmokeRoute] {
+    (0..<count).map { SmokeRoute(id: $0) }
+}
+
+@MainActor
+private func measureNavigationReplace(routeCount: Int) -> Double {
+    let routes = makeRoutes(routeCount)
+    return measureMilliseconds {
+        let store = NavigationStore<SmokeRoute>()
+        _ = store.execute(.replace(routes))
+        _ = store.execute(.popToRoot)
+    }
+}
+
+@MainActor
+private func measureModalQueue(queueCount: Int) -> Double {
+    let routes = makeRoutes(queueCount)
+    return measureMilliseconds {
+        let store = ModalStore<SmokeRoute>()
+        for route in routes {
+            store.present(route, style: .sheet)
+        }
+        for _ in routes {
+            store.dismissCurrent()
+        }
+    }
+}
+
+@MainActor
+private func makeNavigationMiddlewares(_ count: Int) -> [NavigationMiddlewareRegistration<SmokeRoute>] {
+    (0..<count).map { index in
+        .init(
+            middleware: AnyNavigationMiddleware(
+                willExecute: { command, _ in
+                    if case .push(let route) = command, route.id % max(index + 2, 2) == 0 {
+                        return .proceed(.push(SmokeRoute(id: route.id + 1)))
+                    }
+                    return .proceed(command)
+                }
+            ),
+            debugName: "perf-nav-\(index)"
+        )
+    }
+}
+
+@MainActor
+private func measureMiddlewareChain(chainCount: Int) -> Double {
+    return measureMilliseconds {
+        let store = NavigationStore<SmokeRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: makeNavigationMiddlewares(chainCount)
+            )
+        )
+        for index in 0..<200 {
+            _ = store.execute(.replace([]))
+            _ = store.execute(.push(SmokeRoute(id: index)))
+        }
+    }
+}
+
+private func makePipeline(mappingCount: Int) -> FlowDeepLinkPipeline<SmokeRoute> {
+    let mappings = (0..<mappingCount).map { index in
+        FlowDeepLinkMapping<SmokeRoute>("/perf/\(index)") { _ in
+            FlowPlan(steps: [.push(SmokeRoute(id: index))])
+        }
+    }
+
+    return FlowDeepLinkPipeline(
+        allowedSchemes: ["myapp"],
+        allowedHosts: ["app"],
+        matcher: FlowDeepLinkMatcher(mappings: mappings)
+    )
+}
+
+@MainActor
+private func measureDeepLinkPipeline(mappingCount: Int) -> Double {
+    let pipeline = makePipeline(mappingCount: mappingCount)
+    let store = FlowStore<SmokeRoute>()
+    let handler = FlowDeepLinkEffectHandler(
+        pipeline: pipeline,
+        applier: store
+    )
+    let url = URL(string: "myapp://app/perf/\(mappingCount - 1)")!
+
+    return measureMilliseconds {
+        for _ in 0..<200 {
+            _ = handler.handle(url)
+        }
+    }
+}
+
+private func makeSample(
+    name: String,
+    smallInput: Int,
+    largeInput: Int,
+    threshold: Double,
+    measure: (Int) -> Double
+) -> SmokeSample {
+    let small = measure(smallInput)
+    let large = measure(largeInput)
+    let ratio = small == 0 ? 0 : large / small
+    return SmokeSample(
+        name: name,
+        smallInput: smallInput,
+        largeInput: largeInput,
+        smallMilliseconds: small,
+        largeMilliseconds: large,
+        ratio: ratio,
+        threshold: threshold,
+        passed: ratio <= threshold
+    )
+}
+
+private func outputPath() -> String? {
+    let arguments = CommandLine.arguments.dropFirst()
+    var iterator = arguments.makeIterator()
+
+    while let argument = iterator.next() {
+        if argument == "--output" {
+            return iterator.next()
+        }
+    }
+
+    return nil
+}
+
+private func writeReport(_ report: SmokeReport, to path: String?) throws {
+    guard let path else {
+        let data = try JSONEncoder.prettyPrinted.encode(report)
+        FileHandle.standardOutput.write(data)
+        FileHandle.standardOutput.write(Data("\n".utf8))
+        return
+    }
+
+    let outputURL = URL(fileURLWithPath: path)
+    try FileManager.default.createDirectory(
+        at: outputURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true,
+        attributes: nil
+    )
+    let data = try JSONEncoder.prettyPrinted.encode(report)
+    try data.write(to: outputURL)
+}
+
+private extension JSONEncoder {
+    static var prettyPrinted: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }
+}
+
+@main
+@MainActor
+enum InnoRouterPerformanceSmokeMain {
+    static func main() {
+        let samples = [
+            makeSample(
+                name: "navigation_replace_reset_scaling",
+                smallInput: 120,
+                largeInput: 240,
+                threshold: 3.6,
+                measure: measureNavigationReplace
+            ),
+            makeSample(
+                name: "modal_queue_promote_scaling",
+                smallInput: 60,
+                largeInput: 120,
+                threshold: 3.8,
+                measure: measureModalQueue
+            ),
+            makeSample(
+                name: "middleware_chain_scaling",
+                smallInput: 4,
+                largeInput: 8,
+                threshold: 2.6,
+                measure: measureMiddlewareChain
+            ),
+            makeSample(
+                name: "deep_link_pipeline_scaling",
+                smallInput: 50,
+                largeInput: 100,
+                threshold: 3.8,
+                measure: measureDeepLinkPipeline
+            ),
+        ]
+
+        let report = SmokeReport(
+            generatedAt: ISO8601DateFormatter().string(from: Date()),
+            passed: samples.allSatisfy(\.passed),
+            samples: samples
+        )
+
+        do {
+            try writeReport(report, to: outputPath())
+            if !report.passed {
+                fputs("Performance smoke detected a gross regression.\n", stderr)
+                Darwin.exit(1)
+            }
+        } catch {
+            fputs("Failed to write performance smoke report: \(error)\n", stderr)
+            Darwin.exit(1)
+        }
+    }
+}

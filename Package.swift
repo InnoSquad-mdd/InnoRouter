@@ -137,6 +137,12 @@ let package = Package(
             path: "Sources/ChildCoordinatorFailFastProbe",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .executableTarget(
+            name: "InnoRouterPerformanceSmoke",
+            dependencies: ["InnoRouter", "InnoRouterDeepLinkEffects"],
+            path: "Sources/InnoRouterPerformanceSmoke",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
 
         // MARK: - Example Build Gates (human-facing Examples/*.swift)
         //
