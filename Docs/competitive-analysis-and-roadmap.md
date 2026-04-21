@@ -373,16 +373,62 @@ Shape (landed):
   changing that contract (`replaceStackPreservingModal`, etc.)
   were left as app policy.
 
+#### Shipped (continued)
+
+- **P3-3 Macro diagnostics** — `@Routable` and `@CasePathable`
+  now share a `MacroDiagnostic` layer. Misapplication to a struct
+  or class attaches a Swift FixIt offering to change the keyword
+  to `enum`. Empty enums produce a warning instead of silently
+  expanding to nothing.
+- **P3-4 Command algebra extensions (partial)** —
+  `.whenCancelled(NavigationCommand<R>, fallback:)` adds a
+  synchronous fallback case to `NavigationCommand`, handled both
+  by `NavigationEngine` (engine-level failures) and
+  `NavigationStore` (middleware-driven cancellation).
+  `ThrottleNavigationMiddleware<R, C>` adds a
+  generic-over-Clock middleware for rate-limiting with
+  deterministic test-clock injection. `.debounce` remains open —
+  it needs a timer + cancellable Task infrastructure outside the
+  synchronous engine contract.
+- **P3-5 StoreObserver protocol adapter** — replaces a full
+  `NavigationPlugin` surface (which would have duplicated the
+  `events: AsyncStream` channel). `StoreObserver` is a thin
+  protocol over the existing stream with typed `handle(_:)`
+  dispatch for `NavigationEvent` / `ModalEvent` / `FlowEvent`,
+  plus a `StoreObserverSubscription` token with isolated-deinit
+  auto-cancellation.
+- **P3-6 Property-based tests** — `NavigationPropertyBasedTests`
+  uses `@Test(arguments:)` to exercise compositionality of
+  `.sequence` and snapshot semantics of `.whenCancelled` across
+  many seeds. The pre-existing random-command test in
+  `InnoRouterTests.swift` already used the same pattern; this
+  complements it with engine-level invariants.
+- **P3-7 FlowIntent modal-aware variants** —
+  `.backOrPushDismissingModal(R)` and
+  `.pushUniqueRootDismissingModal(R)` dismiss any active modal
+  tail then dispatch through the base intent, with middleware
+  cancellation propagating coherently.
+- **P3-8 ChildCoordinatorTaskTracker** — opt-in helper that
+  child coordinators compose into `parentDidCancel()` to cancel
+  tracked async `Task`s in one call. No protocol change, so
+  coordinators that don't need task tracking skip it entirely.
+- **P3-9 Cross-launch pending deep links** — `FlowPendingDeepLink`
+  gains conditional `Codable` conformance and a
+  `FlowPendingDeepLinkPersistence<R: Route & Codable>` helper
+  mirrors `StatePersistence<R>` (Data ↔ value, no I/O policy).
+  `FlowDeepLinkEffectHandler.restore(pending:)` re-installs a
+  decoded pending link for replay. Push-only `PendingDeepLink`
+  stays non-Codable because `NavigationPlan` is runtime-only
+  by design.
+
 #### Still open
 
-- **Macro diagnostics**: `@Routable` error messages and FixIts.
-- **Command algebra extensions**: `.whenCancelled(then:)`, `.throttle`,
-  `.debounce` for dedupe / UX smoothing.
-- **`NavigationPlugin` protocol**: bundle lifecycle hooks so logging /
-  analytics / crash reporting integrate via a plugin surface instead of
-  scattered closures.
-- **Property-based tests**: leverage parameterised Swift Testing for
-  `RouteStack` / `NavigationEngine` invariants.
+- **`.debounce` NavigationCommand** — deferred; needs Clock
+  injection + deferred Task infrastructure.
+- **Full `NavigationPlugin` surface** — superseded by
+  `StoreObserver` for the observability use case. A
+  plugin-style lifecycle sub-framework is not currently
+  justified given the `events` stream.
 
 ## 5. Summary backlog table
 
@@ -401,33 +447,41 @@ Shape (landed):
 | P2 | DocC walkthroughs (5 tutorial articles) | learning curve | small–medium | **shipped** |
 | P3 | Parent Task cancellation (`parentDidCancel`) | coordinator UX polish | small | **shipped** |
 | P3 | FlowIntent named-intent parity (`.replaceStack`/`.backOrPush`/`.pushUniqueRoot`) | ergonomics parity | small | **shipped** |
-| P3 | Macro diagnostics, algebra, plugin, PBT | polish | small | open |
+| P3 | Macro diagnostics + FixIts | DX polish | small | **shipped** |
+| P3 | Command algebra: `.whenCancelled` + `ThrottleNavigationMiddleware` | UX polish | small | **shipped** (debounce deferred) |
+| P3 | `StoreObserver` protocol adapter | observability ergonomics | small | **shipped** |
+| P3 | Property-based tests (Swift Testing `@Test(arguments:)`) | invariant coverage | small | **shipped** |
+| P3 | FlowIntent modal-aware variants | ergonomics | small | **shipped** |
+| P3 | `ChildCoordinatorTaskTracker` | cancellation ergonomics | small | **shipped** |
+| P3 | Cross-launch pending deep links (Codable `FlowPendingDeepLink` + persistence) | state restoration | small | **shipped** |
 
 ## 6. Suggested next work
 
-With P0-3 (composite deep-link rehydration), P3-1 (parent Task
-cancellation), and P3-2 (FlowIntent named-intent parity) all shipped,
-the P0/P1 backlog is **empty**. One item remains in P2, plus P3
-polish:
+With the P3 polish cluster shipped (macro FixIts, `.whenCancelled`,
+`ThrottleNavigationMiddleware`, `StoreObserver`, property-based
+tests, modal-aware FlowIntent variants, `ChildCoordinatorTaskTracker`,
+`FlowPendingDeepLinkPersistence`), the P0 / P1 / P3 backlog is
+**empty**. **3.0.0 release candidate.**
+
+Only two items remain:
 
 - **P2-3 UIKit escape hatch** — large, separable investment that
   requires a product-level decision (SwiftUI-only positioning vs
-  cross-surface). Defer until the decision lands. If
-  SwiftUI-only stays the position, remove the entry from the
-  roadmap and mark the framework "complete" for v3.
+  cross-surface). Defer until the decision lands. If SwiftUI-only
+  is the final stance, remove the entry and declare the
+  framework complete for 3.x.
+- **`.debounce` NavigationCommand** — deferred from P3-4; wants
+  a Clock-injection + deferred-Task design pass before shipping.
+  Blocks nothing else.
 
-P3 polish items still open: macro diagnostics, command algebra
-(`.whenCancelled` / `.throttle` / `.debounce`), `NavigationPlugin`
-protocol, property-based tests. Each is a single-PR opportunistic
-fill-in.
-
-At this point the primary investment direction shifts from gap
-closure to **polish + evangelism** (example apps, case studies,
-community onboarding).
+Primary investment direction from here: **tag 3.0.0, ship the
+release notes, refresh public examples, and shift to
+evangelism** (case studies, migration guides for apps coming from
+TCA / FlowStacks / SwiftfulRouting).
 
 ## 7. Sources
 
-- InnoRouter repo, `main @ a42c5da0` (2026-04-21).
+- InnoRouter repo, `main @ 5a6c3549` + feat/p3-polish-cluster (2026-04-21).
 - [pointfreeco/swift-composable-architecture](https://github.com/pointfreeco/swift-composable-architecture)
 - [pointfreeco/swift-navigation](https://github.com/pointfreeco/swift-navigation)
 - [johnpatrickmorgan/FlowStacks](https://github.com/johnpatrickmorgan/FlowStacks)

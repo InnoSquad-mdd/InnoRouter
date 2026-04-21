@@ -14,7 +14,7 @@ private enum ObsRoute: Route {
     case sheet
 }
 
-private final class RecordingObserver: StoreObserver, @unchecked Sendable {
+private final class RecordingObserver: StoreObserver, Sendable {
     typealias RouteType = ObsRoute
     let navEvents = Mutex<[NavigationEvent<ObsRoute>]>([])
     let modalEvents = Mutex<[ModalEvent<ObsRoute>]>([])

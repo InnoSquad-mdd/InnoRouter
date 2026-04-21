@@ -18,7 +18,7 @@ private enum ThrottleRoute: Route {
 /// explicitly steps it forward. Uses `Mutex` so the `Clock`
 /// protocol's non-isolated requirements can be satisfied while
 /// callers (on the MainActor) drive `advance(by:)`.
-private final class TestClock: Clock, @unchecked Sendable {
+private final class TestClock: Clock, Sendable {
     typealias Duration = Swift.Duration
 
     struct Instant: InstantProtocol, Sendable, Comparable {

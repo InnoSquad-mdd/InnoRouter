@@ -32,6 +32,8 @@ The guiding rule is simple: views emit intent, stores own transition authority, 
 - <doc:Tutorial-DeepLinkReconciliation>
 - <doc:Tutorial-MiddlewareComposition>
 - <doc:Tutorial-MigratingFromNestedHosts>
+- <doc:Tutorial-Throttling>
+- <doc:Tutorial-StoreObserver>
 
 ### Key Types
 

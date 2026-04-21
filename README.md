@@ -857,16 +857,17 @@ the `events` stream is an additional channel, not a replacement.
 
 Tracked in
 [`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md).
-The P0/P1 backlog is now empty. One P2 item remains:
+With the P3 polish cluster shipped, the P0 / P1 / P3 backlog is
+empty. **3.0.0 release candidate.** See
+[`CHANGELOG.md`](CHANGELOG.md) for the full 3.0.0 surface.
 
 - [ ] **P2-3 UIKit escape hatch** — bidirectional binding between
       `NavigationStore` and `UINavigationController` for
       incremental UIKit adoption. Separate product decision
       required (SwiftUI-only positioning vs multi-surface).
-
-P3 polish items (macro diagnostics, command algebra extensions,
-`NavigationPlugin` protocol, property-based tests) stay
-opportunistic fill-ins.
+- [ ] **`.debounce` NavigationCommand** — deferred from P3-4;
+      needs Clock injection + deferred Task infrastructure
+      outside the synchronous engine contract.
 
 ## License
 
