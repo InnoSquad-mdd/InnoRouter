@@ -14,11 +14,11 @@ A pipeline can:
 - leave it unhandled
 - resolve it into a route
 - require authentication
-- convert the route into a ``NavigationPlan``
+- convert the route into a `NavigationPlan`
 
 ## Pending deep links
 
-When authentication is required but not currently satisfied, the pipeline returns ``DeepLinkDecision/pending(_:)``.
+When authentication is required but not currently satisfied, the pipeline returns `DeepLinkDecision.pending(_:)`.
 
 This is deliberate:
 

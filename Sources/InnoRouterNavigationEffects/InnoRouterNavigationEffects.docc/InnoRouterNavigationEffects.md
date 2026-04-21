@@ -1,4 +1,4 @@
-# ``InnoRouterNavigationEffects``
+# InnoRouterNavigationEffects
 
 Synchronous `@MainActor` helpers for executing navigation commands at app and coordinator boundaries.
 
@@ -14,7 +14,3 @@ This module is intentionally navigation-only. It does not depend on deep-link pa
 
 - <doc:Boundary-Execution>
 - <doc:Guarded-Execution>
-
-### Key Types
-
-- ``NavigationEffectHandler``

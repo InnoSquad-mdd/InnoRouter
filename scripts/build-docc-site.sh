@@ -158,7 +158,20 @@ DOCC_MODULES=(
   "InnoRouterTesting|Sources/InnoRouterTesting/InnoRouterTesting.docc|testing|InnoRouterTesting|com.innosquad.innorouter.docs.testing"
 )
 
+SYMBOL_GRAPH_MODULES=(
+  "InnoRouter"
+  "InnoRouterCore"
+  "InnoRouterSwiftUI"
+  "InnoRouterDeepLink"
+  "InnoRouterNavigationEffects"
+  "InnoRouterDeepLinkEffects"
+  "InnoRouterEffects"
+  "InnoRouterMacros"
+  "InnoRouterTesting"
+)
+
 temp_root="$(mktemp -d "${TMPDIR:-/tmp}/innorouter-docc.XXXXXX")"
+build_log="$(mktemp "${TMPDIR:-/tmp}/innorouter-docc-log.XXXXXX")"
 build_bin_dir=""
 modules_dir=""
 module_cache_dir=""
@@ -171,8 +184,11 @@ docc_bin=""
 
 cleanup() {
   rm -rf "$temp_root"
+  rm -f "$build_log"
 }
 trap cleanup EXIT
+
+exec > >(tee "$build_log") 2>&1
 
 echo "[build-docc-site] Preparing output directory: $OUTPUT_DIR"
 rm -rf "$OUTPUT_DIR"
@@ -263,6 +279,7 @@ build_module_archive() {
 
   "$docc_bin" convert "$ROOT_DIR/$catalog" \
     --additional-symbol-graph-dir "$module_symbols_dir" \
+    "${all_symbol_graph_args[@]}" \
     --output-dir "$output" \
     --fallback-display-name "$display_name" \
     --fallback-bundle-identifier "$bundle_id" \
@@ -422,11 +439,17 @@ render_root_portal() {
 EOF
 }
 
+all_symbol_graph_args=()
+echo "[build-docc-site] Extracting public symbol graphs for DocC cross-module links"
+for symbol_module in "${SYMBOL_GRAPH_MODULES[@]}"; do
+  extract_module_symbols "$symbol_module" "$temp_root/symbol-graphs/$symbol_module"
+  all_symbol_graph_args+=(--additional-symbol-graph-dir "$temp_root/symbol-graphs/$symbol_module")
+done
+
 for module in "${DOCC_MODULES[@]}"; do
   IFS='|' read -r target catalog slug display_name bundle_id <<<"$module"
   echo "[build-docc-site] Building ${target}"
-  extract_module_symbols "$target" "$temp_root/${slug}-symbols"
-
+  extract_module_symbols "$target" "$temp_root/current-module-symbols/$target"
   build_module_archive \
     "$target" \
     "$catalog" \
@@ -434,7 +457,7 @@ for module in "${DOCC_MODULES[@]}"; do
     "$bundle_id" \
     "$display_name" \
     "/${REPO_NAME}/${VERSION}/${slug}" \
-    "$temp_root/${slug}-symbols"
+    "$temp_root/current-module-symbols/$target"
   render_module_entry_redirect "$OUTPUT_DIR/$VERSION/$slug" "$target"
 
   build_module_archive \
@@ -444,7 +467,7 @@ for module in "${DOCC_MODULES[@]}"; do
     "$bundle_id" \
     "$display_name" \
     "/${REPO_NAME}/latest/${slug}" \
-    "$temp_root/${slug}-symbols"
+    "$temp_root/current-module-symbols/$target"
   render_module_entry_redirect "$OUTPUT_DIR/latest/$slug" "$target"
 done
 
@@ -452,5 +475,11 @@ render_version_portal "$OUTPUT_DIR/$VERSION" "InnoRouter ${VERSION}"
 render_version_portal "$OUTPUT_DIR/latest" "InnoRouter latest"
 render_root_portal "$OUTPUT_DIR/index.html"
 touch "$OUTPUT_DIR/.nojekyll"
+
+if grep -n "warning:" "$build_log" >/dev/null 2>&1; then
+  echo "[build-docc-site] Failed: build emitted warnings"
+  grep -n "warning:" "$build_log"
+  exit 1
+fi
 
 echo "[build-docc-site] Site generated at $OUTPUT_DIR"

@@ -28,7 +28,7 @@ That means:
 
 ## Diagnostics
 
-``DeepLinkMatcherConfiguration`` can surface diagnostics for common authoring mistakes:
+`DeepLinkMatcherConfiguration` can surface diagnostics for common authoring mistakes:
 
 - duplicate patterns
 - wildcard shadowing

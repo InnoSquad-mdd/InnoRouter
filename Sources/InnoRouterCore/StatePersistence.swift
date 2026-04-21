@@ -48,7 +48,7 @@ public struct StatePersistence<R: Route & Codable>: Sendable {
         try encoder.encode(plan)
     }
 
-    /// Decodes a `FlowPlan` previously written by ``encode(_:)-9ykqt``.
+    /// Decodes a `FlowPlan` previously written by `encode(_:)`.
     public func decode(_ data: Data) throws -> FlowPlan<R> {
         try decoder.decode(FlowPlan<R>.self, from: data)
     }
@@ -60,7 +60,7 @@ public struct StatePersistence<R: Route & Codable>: Sendable {
         try encoder.encode(stack)
     }
 
-    /// Decodes a `RouteStack` previously written by ``encode(_:)-29bv9``.
+    /// Decodes a `RouteStack` previously written by `encode(_:)`.
     public func decodeStack(_ data: Data) throws -> RouteStack<R> {
         try decoder.decode(RouteStack<R>.self, from: data)
     }

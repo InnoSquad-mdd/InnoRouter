@@ -5,7 +5,7 @@
 import InnoRouterCore
 import InnoRouterSwiftUI
 
-/// Legacy alias for ``InnoRouterSwiftUI/FlowEvent``.
+/// Legacy alias for `FlowEvent`.
 ///
 /// `FlowTestEvent` shipped with the initial `InnoRouterTesting`
 /// release before the event taxonomy was promoted into

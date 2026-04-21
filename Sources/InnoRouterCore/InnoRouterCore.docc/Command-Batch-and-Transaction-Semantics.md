@@ -8,7 +8,7 @@ InnoRouter exposes three different execution semantics on purpose.
 
 ## Single-command execution
 
-``NavigationCommand`` models one navigation transition or a recursive command composition.
+`NavigationCommand` models one navigation transition or a recursive command composition.
 
 Important cases:
 
@@ -22,7 +22,7 @@ Important cases:
 - `.sequence`
 - `.whenCancelled`
 
-``NavigationEngine`` executes these commands against a `RouteStack`.
+`NavigationEngine` executes these commands against a `RouteStack`.
 
 ## Sequence semantics
 
@@ -33,7 +33,7 @@ That means:
 - commands execute left-to-right
 - earlier successful steps stay applied even if a later step fails
 - later steps still run unless the sequence itself has no more elements
-- the final result is ``NavigationResult/multiple(_:)``
+- the final result is `NavigationResult.multiple(_:)`
 
 Use `.sequence` when partial success is acceptable and the command stream itself is the point.
 
@@ -53,7 +53,7 @@ Use `.whenCancelled` when rollback-to-fallback semantics belong to one logical c
 
 ## Batch semantics
 
-``NavigationBatchExecutor/executeBatch(_:stopOnFailure:)`` is for observation batching.
+`NavigationBatchExecutor.executeBatch(_:stopOnFailure:)` is for observation batching.
 
 Batch execution still runs commands one step at a time, but it lets higher layers coalesce observation:
 
@@ -61,13 +61,13 @@ Batch execution still runs commands one step at a time, but it lets higher layer
 - `stopOnFailure: false` keeps later commands running after a failure
 - `stopOnFailure: true` stops the batch after the first failed step
 - the store can emit one aggregated callback
-- the caller gets a structured ``NavigationBatchResult``
+- the caller gets a structured `NavigationBatchResult`
 
 Use batch execution when the caller wants one “transition event” while still preserving per-step execution.
 
 ## Transaction semantics
 
-``NavigationTransactionExecutor/executeTransaction(_:)`` is the atomic option.
+`NavigationTransactionExecutor.executeTransaction(_:)` is the atomic option.
 
 Transactions:
 
@@ -84,10 +84,10 @@ Use transactions when all-or-nothing semantics are required.
 
 Core legality failures stay in typed results instead of exceptions:
 
-- ``NavigationResult/emptyStack``
-- ``NavigationResult/invalidPopCount(_:)``
-- ``NavigationResult/insufficientStackDepth(requested:available:)``
-- ``NavigationResult/routeNotFound(_:)``
-- ``NavigationResult/cancelled(_:)``
+- `NavigationResult.emptyStack`
+- `NavigationResult.invalidPopCount(_:)`
+- `NavigationResult.insufficientStackDepth(requested:available:)`
+- `NavigationResult.routeNotFound(_:)`
+- `NavigationResult.cancelled(_:)`
 
 This keeps navigation failure in normal control flow and makes policy handling easy to pattern-match.

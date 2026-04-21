@@ -144,7 +144,9 @@ sanity checks.
 
 ## Next steps
 
-- Read <doc:../../InnoRouterSwiftUI.docc/Articles/Tutorial-LoginOnboarding>
-  for the end-to-end flow being tested here.
-- Read <doc:../../InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition>
-  for the middleware surfaces the harness asserts against.
+- Read the `Tutorial-LoginOnboarding` guide in the
+  `InnoRouterSwiftUI` documentation catalog for the end-to-end flow
+  being tested here.
+- Read the `Tutorial-MiddlewareComposition` guide in the
+  `InnoRouterSwiftUI` documentation catalog for the middleware
+  surfaces the harness asserts against.

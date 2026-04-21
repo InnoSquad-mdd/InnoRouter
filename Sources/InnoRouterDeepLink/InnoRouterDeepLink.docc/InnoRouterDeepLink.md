@@ -1,4 +1,4 @@
-# ``InnoRouterDeepLink``
+# InnoRouterDeepLink
 
 Pattern matching, pipeline planning, and pending deep-link handling for InnoRouter.
 
@@ -8,14 +8,14 @@ Pattern matching, pipeline planning, and pending deep-link handling for InnoRout
 
 This module owns:
 
-- ``DeepLinkMatcher``
-- ``DeepLinkPattern``
-- ``DeepLinkMatcherConfiguration``
-- ``DeepLinkPipeline``
-- ``DeepLinkDecision``
-- ``PendingDeepLink``
-- ``NavigationPlan``
-- ``FlowDeepLinkMatcher`` + ``FlowDeepLinkPipeline`` for composite
+- `DeepLinkMatcher`
+- `DeepLinkPattern`
+- `DeepLinkMatcherConfiguration`
+- `DeepLinkPipeline`
+- `DeepLinkDecision`
+- `PendingDeepLink`
+- `NavigationPlan`
+- `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` for composite
   flows (push prefix + modal terminal step).
 
 The key idea is that deep links are not executed ad hoc. They are matched, validated, authorized, and planned first.
@@ -30,21 +30,3 @@ The key idea is that deep links are not executed ad hoc. They are matched, valid
 ### Tutorials
 
 - <doc:Tutorial-FlowDeepLinkPipeline>
-
-### Push-only pipeline
-
-- ``DeepLinkMatcher``
-- ``DeepLinkMatcherConfiguration``
-- ``DeepLinkPattern``
-- ``DeepLinkPipeline``
-- ``DeepLinkDecision``
-- ``PendingDeepLink``
-- ``NavigationPlan``
-
-### Composite (push + modal) pipeline
-
-- ``FlowDeepLinkMatcher``
-- ``FlowDeepLinkMapping``
-- ``FlowDeepLinkPipeline``
-- ``FlowDeepLinkDecision``
-- ``FlowPendingDeepLink``

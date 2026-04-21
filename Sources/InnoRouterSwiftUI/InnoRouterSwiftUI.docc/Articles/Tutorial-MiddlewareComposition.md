@@ -167,5 +167,6 @@ func entitlementGateBlocksPremiumPush() {
 
 - Read <doc:Tutorial-LoginOnboarding> to see how middleware
   interacts with a multi-step flow plus a child coordinator.
-- Read <doc:Tutorial-TestingFlows> for the full host-less test
-  harness tour.
+- Read the `Tutorial-TestingFlows` guide in the
+  `InnoRouterTesting` documentation catalog for the full host-less
+  test harness tour.

@@ -1,6 +1,6 @@
 # Competitive Analysis and Improvement Roadmap
 
-_Last updated: 2026-04-20 · Base: main @ `d1d89920` (post PR #12 merge + atomic-commit follow-up `47467b50`)_
+_Last updated: 2026-04-21 · Maintainer snapshot after PR #18 execution-model, spec-test, and performance groundwork_
 
 This document positions InnoRouter against comparable SwiftUI navigation
 libraries and derives a prioritised improvement backlog from the gaps.
@@ -69,9 +69,9 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 - **Lag (narrowed)**: `FlowStore<R>` now exposes
   `path: [RouteStep<R>]` as a single source of truth over the internal
   `NavigationStore` + `ModalStore`, so push + sheet + cover serialise as
-  one value. Remaining gap: `RouteStep` / `FlowPlan` are not yet
-  `Codable`, so state restoration still requires hand-rolling a plan.
-  Tracked under P0-3 and P2-2.
+  one value and opt-in `Codable` state restoration now falls out of the
+  same `RouteStep` / `FlowPlan` surface. Remaining lag is adoption
+  simplicity, not value-level restoration coverage.
 
 ### vs TCACoordinators — 498★
 - **Lead**: no TCA dependency, lower learning curve,
@@ -97,9 +97,10 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 ### vs LinkNavigator — 432★
 - **Lead**: type safety (LinkNavigator uses string paths).
 - **Lag**: string-path UX (`navigator.next(paths: ["a","b"])`) is
-  exceptionally strong for deep-link rehydration. InnoRouter's pipeline
-  resolves a URL to a single plan; multi-step path rehydration still
-  requires hand-rolling commands.
+  exceptionally strong for deep-link rehydration. InnoRouter now
+  rehydrates multi-step paths and modal-terminal URLs through a single
+  typed `FlowPlan`, but LinkNavigator still has the lighter-weight
+  string-path authoring story.
 
 ## 4. Improvement backlog
 
@@ -249,9 +250,10 @@ Shape (landed):
   fallback to `.push(route)`.
 - `NavigationIntent.pushUniqueRoot(R)` — dedupes when the current
   stack already contains the route, otherwise pushes.
-- `FlowIntent` parallels were intentionally skipped —
-  `FlowIntent` is a higher-level abstraction with modal-step
-  invariants, so low-level stack intents don't map 1:1.
+- `FlowIntent` keeps its own higher-level surface because modal-step
+  invariants still matter, but the missing ergonomic gap is now closed
+  by the shipped modal-aware variants (`.backOrPushDismissingModal`,
+  `.pushUniqueRootDismissingModal`) tracked later in the roadmap.
 
 #### P1-4 `ModalStore` middleware — **Shipped**
 

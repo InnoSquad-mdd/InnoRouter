@@ -1,8 +1,8 @@
 # Rehydrating Composite Flows from a URL
 
-Map a URL to a ``FlowPlan`` with push prefix and optional modal
+Map a URL to a `FlowPlan` with push prefix and optional modal
 terminal step, run it through authentication gating, and replay the
-deferred link through ``FlowDeepLinkEffectHandler`` — all in one
+deferred link through `FlowDeepLinkEffectHandler` — all in one
 atomic `FlowStore.apply(_:)`.
 
 ## Scenario
@@ -12,9 +12,9 @@ for order 42. `myapp://app/onboarding/privacy` should open a privacy
 sheet over the current screen. Authenticated routes like
 `myapp://app/secure` defer until sign-in completes, then replay.
 
-Push-only pipelines (``DeepLinkPipeline`` → `NavigationPlan<R>`) can't
+Push-only pipelines (`DeepLinkPipeline` → `NavigationPlan<R>`) can't
 express a URL that terminates on a modal. `FlowDeepLinkPipeline`
-solves that by emitting ``FlowPlan`` — a single value holding both
+solves that by emitting `FlowPlan` — a single value holding both
 the navigation prefix and the tail sheet/cover.
 
 ## Routes
@@ -31,9 +31,9 @@ enum AppRoute: Route {
 
 ## Defining the matcher
 
-``FlowDeepLinkMapping`` handlers return a **complete** ``FlowPlan`` so
+`FlowDeepLinkMapping` handlers return a **complete** `FlowPlan` so
 multi-segment URLs expand atomically. Pattern syntax matches
-``DeepLinkMapping``: `:parameter` for captures, terminal `*` wildcard,
+`DeepLinkMapping`: `:parameter` for captures, terminal `*` wildcard,
 path-only (host and scheme are filtered separately by the pipeline).
 
 ```swift
@@ -65,8 +65,8 @@ let matcher = FlowDeepLinkMatcher<AppRoute> {
 
 ## Wiring the pipeline
 
-``FlowDeepLinkPipeline`` composes scheme/host validation,
-``DeepLinkAuthenticationPolicy`` (reused from the push-only surface),
+`FlowDeepLinkPipeline` composes scheme/host validation,
+`DeepLinkAuthenticationPolicy` (reused from the push-only surface),
 and the matcher:
 
 ```swift
@@ -89,8 +89,8 @@ policy closure entirely.
 
 ## Applying through FlowStore
 
-``FlowDeepLinkEffectHandler`` bridges the pipeline output into any
-``FlowPlanApplier``. `FlowStore` already conforms:
+`FlowDeepLinkEffectHandler` bridges the pipeline output into any
+`FlowPlanApplier`. `FlowStore` already conforms:
 
 ```swift
 @main
@@ -121,11 +121,11 @@ struct DemoApp: App {
 A single `handler.handle(url)` call:
 
 1. Runs scheme/host validation.
-2. Walks the matcher for a ``FlowPlan``.
+2. Walks the matcher for a `FlowPlan`.
 3. Runs the authentication policy across the plan until it finds the
    first protected route.
 4. Either applies the plan through `flow.apply(_:)` or stores it as
-   a ``FlowPendingDeepLink``.
+   a `FlowPendingDeepLink`.
 
 ## Replaying after sign-in
 
@@ -157,7 +157,7 @@ The handler keeps a single pending slot:
 
 ## Observing the chain
 
-All three authorities surface on ``FlowStore/events`` as one
+All three authorities surface on `FlowStore.events` as one
 `AsyncStream`. A single subscriber sees the batch execution on the
 navigation store, the modal presentation (if any), and the
 settled FlowStore-level event as one merged chain. `FlowStore`
@@ -190,7 +190,7 @@ Task {
 
 ## Host-less testing
 
-``FlowTestStore`` wraps the same `flowStore.apply` path:
+`FlowTestStore` wraps the same `flowStore.apply` path:
 
 ```swift
 @Test
@@ -213,7 +213,7 @@ func multiSegmentURLRehydrates() {
 
 ## Next steps
 
-- See the push-only <doc:Tutorial-DeepLinkReconciliation>
+- See the push-only `Tutorial-DeepLinkReconciliation`
   walk-through in the `InnoRouterSwiftUI` catalog for apps that
   don't yet need modal-terminal URLs.
 - Read the `Tutorial-LoginOnboarding` guide in the
