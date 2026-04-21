@@ -561,6 +561,38 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 result: .multiple(outcomes.map(\.result))
             )
 
+        case .whenCancelled(let primary, let fallback):
+            // Run primary through the full middleware + engine path.
+            // On any non-success outcome (including middleware
+            // cancellation), roll back committed state and dispatch
+            // the fallback command — which ALSO passes through
+            // middleware and engine, so analytics / logging /
+            // telemetry observe both legs coherently.
+            let snapshot = currentState
+            let primaryOutcome = executeSingle(
+                primary,
+                state: &currentState,
+                shouldNotifyOnChange: shouldNotifyOnChange
+            )
+            if primaryOutcome.result.isSuccess {
+                return ExecutionOutcome(
+                    requestedCommand: command,
+                    executedCommands: primaryOutcome.executedCommands,
+                    result: primaryOutcome.result
+                )
+            }
+            currentState = snapshot
+            let fallbackOutcome = executeSingle(
+                fallback,
+                state: &currentState,
+                shouldNotifyOnChange: shouldNotifyOnChange
+            )
+            return ExecutionOutcome(
+                requestedCommand: command,
+                executedCommands: primaryOutcome.executedCommands + fallbackOutcome.executedCommands,
+                result: fallbackOutcome.result
+            )
+
         default:
             let stateBefore = currentState
             let interceptionOutcome = middlewareRegistry.intercept(command, state: stateBefore)

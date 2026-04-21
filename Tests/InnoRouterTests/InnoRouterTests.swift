@@ -1937,6 +1937,15 @@ private func applyReference(
     case .sequence(let commands):
         let results = commands.map { applyReference($0, to: &path) }
         return .multiple(results)
+
+    case .whenCancelled(let primary, let fallback):
+        let snapshot = path
+        let primaryResult = applyReference(primary, to: &path)
+        if primaryResult.isSuccess {
+            return primaryResult
+        }
+        path = snapshot
+        return applyReference(fallback, to: &path)
     }
 }
 
