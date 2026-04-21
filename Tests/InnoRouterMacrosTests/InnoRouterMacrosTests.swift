@@ -309,8 +309,92 @@ struct RoutableMacroTests {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: "@Routable can only be applied to enum declarations", line: 1, column: 1)
+                DiagnosticSpec(
+                    message: "@Routable can only be applied to enum declarations",
+                    line: 1,
+                    column: 1,
+                    fixIts: [FixItSpec(message: "Change `struct` to `enum`")]
+                )
             ],
+            macros: makeTestMacros()
+        )
+        #else
+        throw Skip("Macros not available")
+        #endif
+    }
+
+    @Test("Warns when applied to an enum without cases")
+    func testRoutableWarnsOnEmptyEnum() throws {
+        #if canImport(InnoRouterMacrosPlugin)
+        assertMacroExpansion(
+            """
+            @Routable
+            enum Empty {
+            }
+            """,
+            expandedSource: """
+            enum Empty {
+            }
+
+            extension Empty: Route {
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "@Routable applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro",
+                    line: 1,
+                    column: 1,
+                    severity: .warning
+                )
+            ],
+            macros: makeTestMacros()
+        )
+        #else
+        throw Skip("Macros not available")
+        #endif
+    }
+
+    @Test("Does NOT warn for an enum with at least one case")
+    func testRoutableDoesNotWarnOnNonEmptyEnum() throws {
+        #if canImport(InnoRouterMacrosPlugin)
+        assertMacroExpansion(
+            """
+            @Routable
+            enum Populated {
+                case home
+            }
+            """,
+            expandedSource: """
+            enum Populated {
+                case home
+
+                public enum Cases {
+                        public static let home = CasePath<Populated, Void>(
+                            embed: { _ in
+                                .home
+                            },
+                            extract: {
+                                if case .home = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                public subscript<Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension Populated: Route {
+            }
+            """,
+            diagnostics: [],   // no warning
             macros: makeTestMacros()
         )
         #else
@@ -438,7 +522,40 @@ struct CasePathableMacroTests {
             }
             """,
             diagnostics: [
-                DiagnosticSpec(message: "@CasePathable can only be applied to enum declarations", line: 1, column: 1)
+                DiagnosticSpec(
+                    message: "@CasePathable can only be applied to enum declarations",
+                    line: 1,
+                    column: 1,
+                    fixIts: [FixItSpec(message: "Change `class` to `enum`")]
+                )
+            ],
+            macros: makeTestMacros()
+        )
+        #else
+        throw Skip("Macros not available")
+        #endif
+    }
+
+    @Test("Warns when applied to an enum without cases")
+    func testCasePathableWarnsOnEmptyEnum() throws {
+        #if canImport(InnoRouterMacrosPlugin)
+        assertMacroExpansion(
+            """
+            @CasePathable
+            enum Empty {
+            }
+            """,
+            expandedSource: """
+            enum Empty {
+            }
+            """,
+            diagnostics: [
+                DiagnosticSpec(
+                    message: "@CasePathable applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro",
+                    line: 1,
+                    column: 1,
+                    severity: .warning
+                )
             ],
             macros: makeTestMacros()
         )

@@ -188,6 +188,16 @@ public final class FlowStore<R: Route> {
             dispatchBackOrPush(route, intent: intent)
         case .pushUniqueRoot(let route):
             dispatchPushUniqueRoot(route, intent: intent)
+        case .backOrPushDismissingModal(let route):
+            dispatchDismissingModal(
+                intent: intent,
+                inner: { self.dispatchBackOrPush(route, intent: intent) }
+            )
+        case .pushUniqueRootDismissingModal(let route):
+            dispatchDismissingModal(
+                intent: intent,
+                inner: { self.dispatchPushUniqueRoot(route, intent: intent) }
+            )
         }
     }
 
@@ -356,6 +366,29 @@ public final class FlowStore<R: Route> {
             return
         }
         dispatchPush(route, intent: intent)
+    }
+
+    /// Dismisses any active modal tail and then runs `inner`. If
+    /// the dismiss is cancelled by middleware, the outer intent is
+    /// rejected and `inner` does NOT run. If no modal is active,
+    /// `inner` runs directly. Promoting a queued modal does not count
+    /// as a successful dismissal for these intents; they only proceed
+    /// once the modal tail is fully gone, otherwise the outer intent
+    /// is rejected with `.pushBlockedByModalTail`.
+    private func dispatchDismissingModal(
+        intent: FlowIntent<R>,
+        inner: () -> Void
+    ) {
+        guard currentProjection.currentPresentation != nil else {
+            inner()
+            return
+        }
+        dispatchDismiss(intent: intent)
+        if modalStore.currentPresentation != nil {
+            emitIntentRejected(intent, reason: .pushBlockedByModalTail)
+            return
+        }
+        inner()
     }
 
     // MARK: - Reverse sync

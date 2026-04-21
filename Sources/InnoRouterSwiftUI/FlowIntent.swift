@@ -50,6 +50,24 @@ public enum FlowIntent<R: Route>: Sendable, Equatable {
     /// is active and the intent would otherwise push, it's rejected
     /// with `.pushBlockedByModalTail`, matching `.push` semantics.
     case pushUniqueRoot(R)
+
+    /// Dismiss any active modal tail, then behave like
+    /// ``backOrPush(_:)``. Equivalent to sending `.dismiss` followed
+    /// by `.backOrPush(route)` but as a single intent so
+    /// middleware / telemetry observes a coherent signal.
+    ///
+    /// If the modal dismiss is cancelled by middleware, the outer
+    /// intent surfaces the rejection and the inner operation does
+    /// **not** run. If dismissing the active modal promotes a queued
+    /// modal instead, the outer intent is rejected with
+    /// `.pushBlockedByModalTail` and the inner operation still does
+    /// not run.
+    case backOrPushDismissingModal(R)
+
+    /// Dismiss any active modal tail, then behave like
+    /// ``pushUniqueRoot(_:)``. Same cancellation propagation rules
+    /// as ``backOrPushDismissingModal(_:)``.
+    case pushUniqueRootDismissingModal(R)
 }
 
 /// Reason surfaced to `FlowStoreConfiguration.onIntentRejected` when

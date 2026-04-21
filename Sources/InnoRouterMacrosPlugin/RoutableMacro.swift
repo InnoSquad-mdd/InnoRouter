@@ -43,21 +43,22 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
     ) throws -> [DeclSyntax] {
         // enum인지 확인
         guard let enumDecl = declaration.as(EnumDeclSyntax.self) else {
-            context.diagnose(
-                Diagnostic(
-                    node: node,
-                    message: RoutableDiagnostic.requiresEnum
-                )
+            emitRequiresEnumDiagnostic(
+                macroName: "Routable",
+                node: node,
+                declaration: declaration,
+                context: context
             )
             return []
         }
-        
+
         // case들 추출
         let cases = enumDecl.memberBlock.members
             .compactMap { $0.decl.as(EnumCaseDeclSyntax.self) }
             .flatMap { $0.elements }
 
         guard !cases.isEmpty else {
+            emitEmptyEnumDiagnostic(macroName: "Routable", node: node, context: context)
             return []
         }
 
@@ -178,21 +179,5 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
     }
 }
 
-// MARK: - Diagnostics
-
-enum RoutableDiagnostic: String, DiagnosticMessage {
-    case requiresEnum
-    
-    var severity: DiagnosticSeverity { .error }
-    
-    var message: String {
-        switch self {
-        case .requiresEnum:
-            return "@Routable can only be applied to enum declarations"
-        }
-    }
-    
-    var diagnosticID: MessageID {
-        MessageID(domain: "InnoRouterMacros", id: rawValue)
-    }
-}
+// Diagnostics moved to `MacroDiagnostic.swift` (shared between
+// @Routable and @CasePathable).

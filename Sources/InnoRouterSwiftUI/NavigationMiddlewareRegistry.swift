@@ -1,4 +1,4 @@
-import InnoRouterCore
+@_spi(NavigationStoreInternals) import InnoRouterCore
 
 @MainActor
 final class NavigationMiddlewareRegistry<R: Route> {
@@ -165,6 +165,17 @@ final class NavigationMiddlewareRegistry<R: Route> {
             currentResult = entry.middleware.didExecute(command, result: currentResult, state: state)
         }
         return currentResult
+    }
+
+    func discardExecution(
+        _ command: NavigationCommand<R>,
+        result: NavigationResult<R>,
+        state: RouteStack<R>,
+        participantCount: Int
+    ) {
+        for entry in entries.prefix(participantCount) {
+            entry.middleware.discardExecution(command, result: result, state: state)
+        }
     }
 
     private func resolveCancellationReason(

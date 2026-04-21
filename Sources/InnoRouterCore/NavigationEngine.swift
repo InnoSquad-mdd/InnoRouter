@@ -40,6 +40,17 @@ public struct NavigationEngine<R: Route>: Sendable {
         case .sequence(let commands):
             let results = commands.map { apply($0, to: &state) }
             return .multiple(results)
+
+        case .whenCancelled(let primary, let fallback):
+            // Snapshot-and-rollback so a partial primary that later
+            // fails doesn't leak into the fallback execution.
+            let snapshot = state
+            let primaryResult = apply(primary, to: &state)
+            if primaryResult.isSuccess {
+                return primaryResult
+            }
+            state = snapshot
+            return apply(fallback, to: &state)
         }
     }
 }
