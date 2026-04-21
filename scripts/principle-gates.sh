@@ -9,6 +9,20 @@ if ! command -v rg >/dev/null 2>&1; then
   exit 1
 fi
 
+# --platforms=all (or any non-empty value) runs a per-platform build
+# probe after the core checks. macOS-only CI runners can pass it to
+# gate the Apple platform matrix locally without spinning up the
+# full GitHub Actions workflow. Individual platforms are space- or
+# comma-separated: `--platforms=watchOS,visionOS`.
+PLATFORMS_ARG=""
+for arg in "$@"; do
+  case "$arg" in
+    --platforms=*)
+      PLATFORMS_ARG="${arg#--platforms=}"
+      ;;
+  esac
+done
+
 echo "[principle-gates] Running swift test"
 swift test
 
@@ -147,6 +161,44 @@ if [[ -n "$PUBLIC_BOOL_NAMES" ]]; then
     echo "$INVALID_BOOL_NAMES"
     exit 1
   fi
+fi
+
+if [[ -n "$PLATFORMS_ARG" ]]; then
+  echo "[principle-gates] Running per-platform build probe ($PLATFORMS_ARG)"
+  if ! command -v xcodebuild >/dev/null 2>&1; then
+    echo "[principle-gates] Failed: xcodebuild is required for per-platform probe"
+    exit 1
+  fi
+
+  # Map shorthand platform names to xcodebuild destinations.
+  declare -a PLATFORM_ENTRIES
+  PLATFORM_ENTRIES=(
+    "iOS|platform=iOS Simulator,name=iPhone 16"
+    "iPadOS|platform=iOS Simulator,name=iPad Pro 11-inch (M4)"
+    "macOS|platform=macOS"
+    "tvOS|platform=tvOS Simulator,name=Apple TV"
+    "watchOS|platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)"
+    "visionOS|platform=visionOS Simulator,name=Apple Vision Pro"
+  )
+
+  # Normalise the user's filter list: lowercase, split on , or space.
+  REQUESTED="$(echo "$PLATFORMS_ARG" | tr '[:upper:]' '[:lower:]' | tr ',' ' ')"
+
+  for entry in "${PLATFORM_ENTRIES[@]}"; do
+    name="${entry%%|*}"
+    dest="${entry#*|}"
+    name_lc="$(echo "$name" | tr '[:upper:]' '[:lower:]')"
+
+    if [[ "$REQUESTED" != "all" && ! " $REQUESTED " =~ " $name_lc " ]]; then
+      continue
+    fi
+
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterSwiftUI ($name)"
+    xcodebuild build \
+      -scheme InnoRouterSwiftUI \
+      -destination "$dest" \
+      -quiet
+  done
 fi
 
 echo "[principle-gates] All checks passed"

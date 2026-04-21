@@ -21,7 +21,7 @@ This keeps shell state out of the stack authority.
 
 > Platform: `NavigationSplitHost` and `CoordinatorSplitHost` are **unavailable on watchOS**
 > because SwiftUI's `NavigationSplitView` is unavailable there. watchOS apps should fall back
-> to ``NavigationHost`` / ``CoordinatorHost`` inside a `#if !os(watchOS)` branch.
+> to `NavigationHost` / `CoordinatorHost` inside a `#if !os(watchOS)` branch.
 
 ## Modal navigation
 
