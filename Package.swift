@@ -156,7 +156,7 @@ let package = Package(
             name: "InnoRouterStandaloneExample",
             dependencies: ["InnoRouter", "InnoRouterMacros"],
             path: "Examples",
-            exclude: ["CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift"],
+            exclude: ["CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
             sources: ["StandaloneExample.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -164,7 +164,7 @@ let package = Package(
             name: "InnoRouterCoordinatorExample",
             dependencies: ["InnoRouter", "InnoRouterMacros"],
             path: "Examples",
-            exclude: ["StandaloneExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift"],
+            exclude: ["StandaloneExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
             sources: ["CoordinatorExample.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -172,7 +172,7 @@ let package = Package(
             name: "InnoRouterDeepLinkExample",
             dependencies: ["InnoRouter", "InnoRouterMacros"],
             path: "Examples",
-            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift"],
+            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
             sources: ["DeepLinkExample.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -180,7 +180,7 @@ let package = Package(
             name: "InnoRouterSplitCoordinatorExample",
             dependencies: ["InnoRouter", "InnoRouterMacros"],
             path: "Examples",
-            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "AppShellExample.swift"],
+            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
             sources: ["SplitCoordinatorExample.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -188,8 +188,24 @@ let package = Package(
             name: "InnoRouterAppShellExample",
             dependencies: ["InnoRouter", "InnoRouterMacros"],
             path: "Examples",
-            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift"],
+            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
             sources: ["AppShellExample.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterMultiPlatformExample",
+            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            path: "Examples",
+            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "VisionOSImmersiveExample.swift"],
+            sources: ["MultiPlatformExample.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterVisionOSImmersiveExample",
+            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            path: "Examples",
+            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift"],
+            sources: ["VisionOSImmersiveExample.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
@@ -198,7 +214,7 @@ let package = Package(
             name: "InnoRouterStandaloneExampleSmoke",
             dependencies: ["InnoRouter"],
             path: "ExamplesSmoke",
-            exclude: ["CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift"],
+            exclude: ["CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
             sources: ["StandaloneSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -206,7 +222,7 @@ let package = Package(
             name: "InnoRouterCoordinatorExampleSmoke",
             dependencies: ["InnoRouter"],
             path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift"],
+            exclude: ["StandaloneSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
             sources: ["CoordinatorSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -214,7 +230,7 @@ let package = Package(
             name: "InnoRouterDeepLinkExampleSmoke",
             dependencies: ["InnoRouter"],
             path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift"],
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
             sources: ["DeepLinkSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -222,7 +238,7 @@ let package = Package(
             name: "InnoRouterSplitCoordinatorExampleSmoke",
             dependencies: ["InnoRouter"],
             path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift"],
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
             sources: ["SplitCoordinatorSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -230,7 +246,7 @@ let package = Package(
             name: "InnoRouterAppShellExampleSmoke",
             dependencies: ["InnoRouter"],
             path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift"],
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
             sources: ["AppShellSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -238,7 +254,7 @@ let package = Package(
             name: "InnoRouterModalExampleSmoke",
             dependencies: ["InnoRouter"],
             path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "MacrosSmoke.swift"],
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
             sources: ["ModalSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
@@ -246,8 +262,24 @@ let package = Package(
             name: "InnoRouterMacrosExampleSmoke",
             dependencies: ["InnoRouter", "InnoRouterMacros"],
             path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift"],
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
             sources: ["MacrosSmoke.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterMultiPlatformExampleSmoke",
+            dependencies: ["InnoRouter"],
+            path: "ExamplesSmoke",
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "VisionOSImmersiveSmoke.swift"],
+            sources: ["MultiPlatformSmoke.swift"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "InnoRouterVisionOSImmersiveExampleSmoke",
+            dependencies: ["InnoRouter"],
+            path: "ExamplesSmoke",
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift"],
+            sources: ["VisionOSImmersiveSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 

@@ -43,6 +43,8 @@ swift build --target InnoRouterSplitCoordinatorExampleSmoke
 swift build --target InnoRouterAppShellExampleSmoke
 swift build --target InnoRouterModalExampleSmoke
 swift build --target InnoRouterMacrosExampleSmoke
+swift build --target InnoRouterMultiPlatformExampleSmoke
+swift build --target InnoRouterVisionOSImmersiveExampleSmoke
 swift build --target InnoRouterNavigationEffects
 swift build --target InnoRouterDeepLinkEffects
 swift build --target InnoRouterEffects
@@ -53,6 +55,8 @@ swift build --target InnoRouterCoordinatorExample
 swift build --target InnoRouterDeepLinkExample
 swift build --target InnoRouterSplitCoordinatorExample
 swift build --target InnoRouterAppShellExample
+swift build --target InnoRouterMultiPlatformExample
+swift build --target InnoRouterVisionOSImmersiveExample
 
 echo "[principle-gates] Checking Nav* public symbols"
 if rg -n "public .*\\bNav[A-Z]" Sources; then
