@@ -80,8 +80,116 @@ for product in package["products"]:
     print(f"{product['name']}\t{targets[0]}")
 PY
 
+check_sendable_contracts() {
+  local root="$1"
+
+  python3 - "$root" <<'PY'
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+
+checks = [
+    (
+        "Sources/InnoRouterDeepLink/DeepLinkPipeline.swift",
+        [
+            "shouldRequireAuthentication: @Sendable (R) -> Bool",
+            "isAuthenticated: @Sendable () -> Bool",
+            "public typealias Resolver = @Sendable (URL) -> R?",
+            "public typealias Planner = @Sendable (R) -> NavigationPlan<R>",
+        ],
+    ),
+    (
+        "Sources/InnoRouterDeepLink/DeepLink.swift",
+        [
+            "handler: @escaping @Sendable (DeepLinkParameters) -> R?",
+        ],
+    ),
+    (
+        "Sources/InnoRouterDeepLink/FlowDeepLinkMatcher.swift",
+        [
+            "handler: @escaping @Sendable (DeepLinkParameters) -> FlowPlan<R>?",
+        ],
+    ),
+    (
+        "Sources/InnoRouterNavigationEffects/NavigationEffectHandler.swift",
+        [
+            "_ shouldExecute: @escaping @Sendable () -> Bool",
+            "prepare: @escaping @MainActor @Sendable (NavigationCommand<R>) async -> NavigationInterception<R>",
+        ],
+    ),
+    (
+        "Sources/InnoRouterDeepLinkEffects/DeepLinkEffectHandler.swift",
+        [
+            "_ authorize: @escaping @MainActor @Sendable (PendingDeepLink<R>) async -> Bool",
+        ],
+    ),
+    (
+        "Sources/InnoRouterDeepLinkEffects/FlowDeepLinkEffectHandler.swift",
+        [
+            "_ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async -> Bool",
+        ],
+    ),
+    (
+        "Sources/InnoRouterSwiftUI/FlowStoreConfiguration.swift",
+        [
+            "public let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?",
+            "public let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?",
+        ],
+    ),
+    (
+        "Sources/InnoRouterSwiftUI/ModalStoreConfiguration.swift",
+        [
+            "public let onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)?",
+            "public let onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?",
+        ],
+    ),
+    (
+        "Sources/InnoRouterSwiftUI/NavigationStoreConfiguration.swift",
+        [
+            "public let onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)?",
+            "public let onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)?",
+        ],
+    ),
+    (
+        "Sources/InnoRouterSwiftUI/ChildCoordinator.swift",
+        [
+            "var onFinish: (@MainActor @Sendable (Result) -> Void)? { get set }",
+            "var onCancel: (@MainActor @Sendable () -> Void)? { get set }",
+        ],
+    ),
+    (
+        "Sources/InnoRouterSwiftUI/ChildCoordinatorTaskTracker.swift",
+        [
+            "_ operation: @escaping @MainActor @Sendable () async -> Void",
+        ],
+    ),
+]
+
+missing: list[str] = []
+for rel_path, patterns in checks:
+    file_path = root / rel_path
+    if not file_path.exists():
+        missing.append(f"{rel_path}: missing file")
+        continue
+    content = file_path.read_text()
+    for pattern in patterns:
+        if pattern not in content:
+            missing.append(f"{rel_path}: missing `{pattern}`")
+
+if missing:
+    print("[check-public-api] Missing source-level @Sendable contracts:", file=sys.stderr)
+    for item in missing:
+        print(f"  - {item}", file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
 echo "[check-public-api] Building package for symbol extraction"
 swift build >/dev/null
+
+echo "[check-public-api] Verifying source-level @Sendable contracts"
+check_sendable_contracts "$ROOT_DIR"
 
 build_bin_dir="$(swift build --show-bin-path)"
 modules_dir="$build_bin_dir/Modules"
@@ -124,6 +232,7 @@ normalize_symbol_graph() {
   python3 - "$product_name" "$raw_dir" "$output_path" "$repo_root" <<'PY'
 import json
 import pathlib
+import re
 import sys
 import urllib.parse
 
@@ -134,6 +243,13 @@ kept_symbols = {}
 
 def normalize_text(value: str) -> str:
     return " ".join(value.split())
+
+def normalize_declaration(value: str) -> str:
+    # Swift 6.2.1 and 6.3 disagree on whether public symbol graphs retain
+    # closure-level @Sendable in declaration fragments. Keep the baseline
+    # stable here and enforce @Sendable separately against source above.
+    value = re.sub(r"(?<!\w)@Sendable\b\s*", "", value)
+    return normalize_text(value)
 
 def repo_source_path(symbol: dict) -> pathlib.Path | None:
     precise = symbol.get("identifier", {}).get("precise", "")
@@ -168,7 +284,7 @@ for symbol_graph_path in sorted(pathlib.Path(raw_dir).glob("*.symbols.json")):
         path = ".".join(path_components) if path_components else symbol.get("names", {}).get("title", "")
         title = symbol.get("names", {}).get("title", "")
         declaration = "".join(fragment.get("spelling", "") for fragment in symbol.get("declarationFragments", []))
-        declaration = normalize_text(declaration)
+        declaration = normalize_declaration(declaration)
         if not declaration:
             declaration = title
         availability = normalize_text(
