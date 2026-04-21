@@ -8,11 +8,11 @@ Coordinators in InnoRouter are SwiftUI-adapted reference authorities, not UIKit-
 
 ## Coordinator role
 
-``Coordinator`` exists for cases where view intent should flow through a policy object before it reaches the store.
+`Coordinator` exists for cases where view intent should flow through a policy object before it reaches the store.
 
 A coordinator:
 
-- receives ``NavigationIntent``
+- receives `NavigationIntent`
 - decides whether to forward, rewrite, or replace commands
 - maps routes to destinations
 - stays observable for SwiftUI
@@ -21,7 +21,7 @@ A coordinator:
 
 ## Environment intent
 
-``EnvironmentNavigationIntent`` and `EnvironmentModalIntent` are the primary view-facing APIs.
+`EnvironmentNavigationIntent` and `EnvironmentModalIntent` are the primary view-facing APIs.
 
 This keeps view code declarative:
 
@@ -31,7 +31,7 @@ This keeps view code declarative:
 
 ## Flow and tab coordinators
 
-``FlowCoordinator`` and ``TabCoordinator`` complement `NavigationStore`; they do not replace it.
+`FlowCoordinator` and `TabCoordinator` complement `NavigationStore`; they do not replace it.
 
 Recommended mental model:
 

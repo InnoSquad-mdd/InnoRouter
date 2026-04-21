@@ -15,6 +15,12 @@ swift test
 echo "[principle-gates] Building DocC preview site"
 ./scripts/build-docc-site.sh --version preview
 
+echo "[principle-gates] Checking public API baselines"
+./scripts/check-public-api.sh
+
+echo "[principle-gates] Checking maintainer docs consistency"
+./scripts/check-docs-consistency.sh
+
 echo "[principle-gates] Building example smoke targets"
 swift build --target InnoRouterStandaloneExampleSmoke
 swift build --target InnoRouterCoordinatorExampleSmoke

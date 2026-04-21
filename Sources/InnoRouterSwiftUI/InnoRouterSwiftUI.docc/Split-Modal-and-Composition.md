@@ -8,7 +8,7 @@ Stack navigation, split detail navigation, and modal presentation are intentiona
 
 ## Split navigation
 
-Use ``NavigationSplitHost`` or ``CoordinatorSplitHost`` when the app has a sidebar/detail layout.
+Use `NavigationSplitHost` or `CoordinatorSplitHost` when the app has a sidebar/detail layout.
 
 Important scope boundary:
 
@@ -21,17 +21,17 @@ This keeps shell state out of the stack authority.
 
 ## Modal navigation
 
-Use ``ModalStore`` with ``ModalHost`` when `sheet` or `fullScreenCover` should be routed with the same discipline as stack navigation.
+Use `ModalStore` with `ModalHost` when `sheet` or `fullScreenCover` should be routed with the same discipline as stack navigation.
 
-On iOS and tvOS, ``ModalHost`` uses native `sheet` and `fullScreenCover` presentation.
+On iOS and tvOS, `ModalHost` uses native `sheet` and `fullScreenCover` presentation.
 On other supported platforms, `fullScreenCover` requests degrade to `sheet`.
 
 Modal routing intentionally stays separate from stack routing:
 
-- modal intent uses ``ModalIntent``
-- stack intent uses ``NavigationIntent``
-- modal queue state lives in ``ModalStore``
-- stack state lives in ``NavigationStore``
+- modal intent uses `ModalIntent`
+- stack intent uses `NavigationIntent`
+- modal queue state lives in `ModalStore`
+- stack state lives in `NavigationStore`
 
 `alert` and `confirmationDialog` stay outside this framework surface and should remain feature-owned state.
 

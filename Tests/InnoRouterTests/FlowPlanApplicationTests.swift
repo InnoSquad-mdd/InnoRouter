@@ -99,4 +99,64 @@ struct FlowPlanApplicationTests {
         #expect(store.modalStore.currentPresentation?.route == .sheetStep)
         #expect(store.modalStore.queuedPresentations.isEmpty)
     }
+
+    @Test("apply keeps a matching modal tail without lifecycle churn when queue is empty")
+    @MainActor
+    func applyMatchingModalTailIsNoopForModalLifecycle() {
+        let presented = Mutex<[FlowPlanRoute]>([])
+        let dismissed = Mutex<[ModalDismissalReason]>([])
+        let store = FlowStore<FlowPlanRoute>(
+            configuration: .init(
+                modal: .init(
+                    onPresented: { presentation in
+                        presented.withLock { $0.append(presentation.route) }
+                    },
+                    onDismissed: { _, reason in
+                        dismissed.withLock { $0.append(reason) }
+                    }
+                )
+            )
+        )
+        store.send(.push(.start))
+        store.send(.presentSheet(.sheetStep))
+
+        let presentedMarker = presented.withLock { $0.count }
+        let dismissedMarker = dismissed.withLock { $0.count }
+        let beforeID = store.modalStore.currentPresentation?.id
+
+        let result = store.apply(
+            FlowPlan<FlowPlanRoute>(steps: [.push(.start), .sheet(.sheetStep)])
+        )
+
+        let newPresented = presented.withLock { Array($0.dropFirst(presentedMarker)) }
+        let newDismissed = dismissed.withLock { Array($0.dropFirst(dismissedMarker)) }
+
+        #expect(result == .applied(path: [.push(.start), .sheet(.sheetStep)]))
+        #expect(beforeID == store.modalStore.currentPresentation?.id)
+        #expect(newPresented.isEmpty)
+        #expect(newDismissed.isEmpty)
+    }
+
+    @Test("apply with the same push path and modal tail does not emit pathChanged")
+    @MainActor
+    func applyMatchingPlanDoesNotEmitPathChanged() {
+        let changes = Mutex<[([RouteStep<FlowPlanRoute>], [RouteStep<FlowPlanRoute>])]>([])
+        let store = FlowStore<FlowPlanRoute>(
+            configuration: .init(
+                onPathChanged: { old, new in
+                    changes.withLock { $0.append((old, new)) }
+                }
+            )
+        )
+        store.send(.push(.start))
+        store.send(.presentSheet(.sheetStep))
+
+        let marker = changes.withLock { $0.count }
+        let result = store.apply(
+            FlowPlan<FlowPlanRoute>(steps: [.push(.start), .sheet(.sheetStep)])
+        )
+
+        #expect(result == .applied(path: [.push(.start), .sheet(.sheetStep)]))
+        #expect(changes.withLock { Array($0.dropFirst(marker)) }.isEmpty)
+    }
 }

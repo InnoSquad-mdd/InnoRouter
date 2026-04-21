@@ -1,7 +1,8 @@
+import OSLog
 import Observation
 import SwiftUI
 
-import InnoRouterCore
+@_spi(InternalTrace) import InnoRouterCore
 
 public enum ModalIntent<M: Route>: Sendable, Equatable {
     case present(M, style: ModalPresentationStyle)
@@ -21,6 +22,8 @@ public final class ModalStore<M: Route> {
     private let telemetrySink: ModalStoreTelemetrySink<M>
     private let middlewareRegistry: ModalMiddlewareRegistry<M>
     private let broadcaster: EventBroadcaster<ModalEvent<M>>
+    private let traceLogger: Logger?
+    private var traceRecorder: InternalExecutionTraceRecorder?
 
     public var middlewareHandles: [ModalMiddlewareHandle] {
         middlewareRegistry.handles
@@ -43,20 +46,6 @@ public final class ModalStore<M: Route> {
     /// or store deallocation) cleans up the associated continuation.
     public var events: AsyncStream<ModalEvent<M>> {
         broadcaster.stream()
-    }
-
-    struct ModalStateSnapshot: Equatable {
-        let currentPresentation: ModalPresentation<M>?
-        let queuedPresentations: [ModalPresentation<M>]
-    }
-
-    struct FlowCommandPreview {
-        let requestedCommand: ModalCommand<M>
-        let effectiveCommand: ModalCommand<M>
-        let result: ModalExecutionResult<M>
-        let participantCount: Int
-        let stateBefore: ModalStateSnapshot
-        let stateAfter: ModalStateSnapshot
     }
 
     public init(
@@ -90,6 +79,8 @@ public final class ModalStore<M: Route> {
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.broadcaster = broadcaster
+        self.traceLogger = configuration.logger
+        self.traceRecorder = nil
     }
 
     init(
@@ -128,6 +119,8 @@ public final class ModalStore<M: Route> {
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.broadcaster = broadcaster
+        self.traceLogger = configuration.logger
+        self.traceRecorder = nil
     }
 
     // MARK: - Public telemetry adapters
@@ -246,6 +239,55 @@ public final class ModalStore<M: Route> {
         }
     }
 
+    func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
+        self.traceRecorder = recorder
+    }
+
+    private var effectiveTraceRecorder: InternalExecutionTraceRecorder? {
+        if traceRecorder == nil && traceLogger == nil {
+            return nil
+        }
+
+        return { [weak self] record in
+            self?.traceRecorder?(record)
+            self?.logTraceRecord(record)
+        }
+    }
+
+    private func logTraceRecord(_ record: InternalExecutionTraceRecord) {
+        guard let traceLogger else { return }
+
+        switch record {
+        case .start(let context, let operation, let metadata):
+            let metadataSummary = metadata
+                .sorted { $0.key < $1.key }
+                .map { "\($0.key)=\($0.value)" }
+                .joined(separator: ",")
+            traceLogger.debug(
+                """
+                modal trace start \
+                root=\(context.rootID, privacy: .public) \
+                span=\(context.spanID, privacy: .public) \
+                parent=\(context.parentSpanID ?? "nil", privacy: .public) \
+                operation=\(operation, privacy: .public) \
+                metadata=\(metadataSummary, privacy: .public)
+                """
+            )
+
+        case .finish(let context, let operation, let outcome):
+            traceLogger.debug(
+                """
+                modal trace finish \
+                root=\(context.rootID, privacy: .public) \
+                span=\(context.spanID, privacy: .public) \
+                parent=\(context.parentSpanID ?? "nil", privacy: .public) \
+                operation=\(operation, privacy: .public) \
+                outcome=\(outcome, privacy: .public)
+                """
+            )
+        }
+    }
+
     // MARK: - Public middleware API
 
     @discardableResult
@@ -299,46 +341,55 @@ public final class ModalStore<M: Route> {
 
     @discardableResult
     public func execute(_ command: ModalCommand<M>) -> ModalExecutionResult<M> {
-        let outcome = middlewareRegistry.intercept(
-            command,
-            currentPresentation: currentPresentation,
-            queuedPresentations: queuedPresentations
-        )
-
-        switch outcome.interception {
-        case .cancel(let reason):
-            let result: ModalExecutionResult<M> = .cancelled(reason)
-            middlewareRegistry.didExecute(
-                outcome.command,
+        InternalExecutionTrace.withSpan(
+            domain: .modal,
+            operation: "execute",
+            recorder: effectiveTraceRecorder,
+            metadata: ["command": String(describing: command)]
+        ) {
+            let outcome = middlewareRegistry.intercept(
+                command,
                 currentPresentation: currentPresentation,
-                queuedPresentations: queuedPresentations,
-                participantCount: outcome.participantCount
-            )
-            telemetrySink.recordCommandIntercepted(
-                command: outcome.command,
-                outcome: .cancelled,
-                cancellationReason: reason
-            )
-            onCommandIntercepted?(outcome.command, result)
-            return result
-
-        case .proceed(let effectiveCommand):
-            let result = applyCommand(effectiveCommand)
-
-            middlewareRegistry.didExecute(
-                effectiveCommand,
-                currentPresentation: currentPresentation,
-                queuedPresentations: queuedPresentations,
-                participantCount: outcome.participantCount
+                queuedPresentations: queuedPresentations
             )
 
-            telemetrySink.recordCommandIntercepted(
-                command: effectiveCommand,
-                outcome: Self.outcomeKind(for: result),
-                cancellationReason: nil
-            )
-            onCommandIntercepted?(effectiveCommand, result)
-            return result
+            switch outcome.interception {
+            case .cancel(let reason):
+                let result: ModalExecutionResult<M> = .cancelled(reason)
+                middlewareRegistry.didExecute(
+                    outcome.command,
+                    currentPresentation: currentPresentation,
+                    queuedPresentations: queuedPresentations,
+                    participantCount: outcome.participantCount
+                )
+                telemetrySink.recordCommandIntercepted(
+                    command: outcome.command,
+                    outcome: .cancelled,
+                    cancellationReason: reason
+                )
+                onCommandIntercepted?(outcome.command, result)
+                return result
+
+            case .proceed(let effectiveCommand):
+                let result = applyCommand(effectiveCommand)
+
+                middlewareRegistry.didExecute(
+                    effectiveCommand,
+                    currentPresentation: currentPresentation,
+                    queuedPresentations: queuedPresentations,
+                    participantCount: outcome.participantCount
+                )
+
+                telemetrySink.recordCommandIntercepted(
+                    command: effectiveCommand,
+                    outcome: Self.outcomeKind(for: result),
+                    cancellationReason: nil
+                )
+                onCommandIntercepted?(effectiveCommand, result)
+                return result
+            }
+        } outcome: { result in
+            String(describing: result)
         }
     }
 
@@ -373,21 +424,21 @@ public final class ModalStore<M: Route> {
         _ = execute(.dismissAll)
     }
 
-    var flowStateSnapshot: ModalStateSnapshot {
+    var flowStateSnapshot: ModalExecutionState<M> {
         Self.makeSnapshot(
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
     }
 
-    func previewFlowCommand(_ command: ModalCommand<M>) -> FlowCommandPreview {
+    func previewFlowCommand(_ command: ModalCommand<M>) -> ModalExecutionJournal<M> {
         previewFlowCommand(command, from: flowStateSnapshot)
     }
 
     func previewFlowCommand(
         _ command: ModalCommand<M>,
-        from stateBefore: ModalStateSnapshot
-    ) -> FlowCommandPreview {
+        from stateBefore: ModalExecutionState<M>
+    ) -> ModalExecutionJournal<M> {
         let outcome = middlewareRegistry.intercept(
             command,
             currentPresentation: stateBefore.currentPresentation,
@@ -396,7 +447,7 @@ public final class ModalStore<M: Route> {
 
         switch outcome.interception {
         case .cancel(let reason):
-            return FlowCommandPreview(
+            return ModalExecutionJournal(
                 requestedCommand: command,
                 effectiveCommand: outcome.command,
                 result: .cancelled(reason),
@@ -406,7 +457,7 @@ public final class ModalStore<M: Route> {
             )
         case .proceed(let effectiveCommand):
             let previewOutcome = previewApplyCommand(effectiveCommand, to: stateBefore)
-            return FlowCommandPreview(
+            return ModalExecutionJournal(
                 requestedCommand: command,
                 effectiveCommand: effectiveCommand,
                 result: previewOutcome.result,
@@ -418,38 +469,47 @@ public final class ModalStore<M: Route> {
     }
 
     @discardableResult
-    func commitFlowPreview(_ preview: FlowCommandPreview) -> ModalExecutionResult<M> {
-        currentPresentation = preview.stateAfter.currentPresentation
-        queuedPresentations = preview.stateAfter.queuedPresentations
+    func commitFlowPreview(_ preview: ModalExecutionJournal<M>) -> ModalExecutionResult<M> {
+        InternalExecutionTrace.withSpan(
+            domain: .modal,
+            operation: "commitFlowPreview",
+            recorder: effectiveTraceRecorder,
+            metadata: ["command": String(describing: preview.requestedCommand)]
+        ) {
+            currentPresentation = preview.stateAfter.currentPresentation
+            queuedPresentations = preview.stateAfter.queuedPresentations
 
-        emitCommittedEvents(for: preview)
+            emitCommittedEvents(for: preview)
 
-        middlewareRegistry.didExecute(
-            preview.effectiveCommand,
-            currentPresentation: currentPresentation,
-            queuedPresentations: queuedPresentations,
-            participantCount: preview.participantCount
-        )
-
-        if case .cancelled(let reason) = preview.result {
-            telemetrySink.recordCommandIntercepted(
-                command: preview.effectiveCommand,
-                outcome: .cancelled,
-                cancellationReason: reason
+            middlewareRegistry.didExecute(
+                preview.effectiveCommand,
+                currentPresentation: currentPresentation,
+                queuedPresentations: queuedPresentations,
+                participantCount: preview.participantCount
             )
-        } else {
-            telemetrySink.recordCommandIntercepted(
-                command: preview.effectiveCommand,
-                outcome: Self.outcomeKind(for: preview.result),
-                cancellationReason: nil
-            )
+
+            if case .cancelled(let reason) = preview.result {
+                telemetrySink.recordCommandIntercepted(
+                    command: preview.effectiveCommand,
+                    outcome: .cancelled,
+                    cancellationReason: reason
+                )
+            } else {
+                telemetrySink.recordCommandIntercepted(
+                    command: preview.effectiveCommand,
+                    outcome: Self.outcomeKind(for: preview.result),
+                    cancellationReason: nil
+                )
+            }
+
+            onCommandIntercepted?(preview.effectiveCommand, preview.result)
+            return preview.result
+        } outcome: { result in
+            String(describing: result)
         }
-
-        onCommandIntercepted?(preview.effectiveCommand, preview.result)
-        return preview.result
     }
 
-    func commitFlowPreviews(_ previews: [FlowCommandPreview]) {
+    func commitFlowPreviews(_ previews: [ModalExecutionJournal<M>]) {
         for preview in previews {
             _ = commitFlowPreview(preview)
         }
@@ -472,8 +532,8 @@ public final class ModalStore<M: Route> {
 
     private func previewApplyCommand(
         _ command: ModalCommand<M>,
-        to snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        to snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         switch command {
         case .present(let presentation):
             return previewPresent(presentation, on: snapshot)
@@ -488,8 +548,8 @@ public final class ModalStore<M: Route> {
 
     private func previewPresent(
         _ presentation: ModalPresentation<M>,
-        on snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        on snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         if snapshot.currentPresentation == nil {
             return (
                 .executed(.present(presentation)),
@@ -511,8 +571,8 @@ public final class ModalStore<M: Route> {
 
     private func previewDismissCurrent(
         reason: ModalDismissalReason,
-        on snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        on snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         guard snapshot.currentPresentation != nil else {
             return (.noop, snapshot)
         }
@@ -532,8 +592,8 @@ public final class ModalStore<M: Route> {
     }
 
     private func previewDismissAll(
-        on snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        on snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         guard snapshot.currentPresentation != nil || !snapshot.queuedPresentations.isEmpty else {
             return (.noop, snapshot)
         }
@@ -546,8 +606,8 @@ public final class ModalStore<M: Route> {
 
     private func previewReplaceCurrent(
         _ presentation: ModalPresentation<M>,
-        on snapshot: ModalStateSnapshot
-    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalStateSnapshot) {
+        on snapshot: ModalExecutionState<M>
+    ) -> (result: ModalExecutionResult<M>, stateAfter: ModalExecutionState<M>) {
         guard let currentPresentation = snapshot.currentPresentation else {
             return (.noop, snapshot)
         }
@@ -697,7 +757,7 @@ public final class ModalStore<M: Route> {
         onPresented?(promotedPresentation)
     }
 
-    private func emitCommittedEvents(for preview: FlowCommandPreview) {
+    private func emitCommittedEvents(for preview: ModalExecutionJournal<M>) {
         switch preview.result {
         case .executed(.present(let presentation)):
             telemetrySink.recordPresented(presentation)
@@ -754,12 +814,12 @@ public final class ModalStore<M: Route> {
     private static func makeSnapshot(
         currentPresentation: ModalPresentation<M>?,
         queuedPresentations: [ModalPresentation<M>]
-    ) -> ModalStateSnapshot {
+    ) -> ModalExecutionState<M> {
         let normalized = normalize(
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
-        return ModalStateSnapshot(
+        return ModalExecutionState(
             currentPresentation: normalized.current,
             queuedPresentations: normalized.queue
         )

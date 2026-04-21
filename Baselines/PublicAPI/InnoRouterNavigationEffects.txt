@@ -1,0 +1,36 @@
+# Public API baseline for InnoRouterNavigationEffects
+relationship | memberOf | NavigationEffectHandler.execute(_:) | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.execute(_:stopOnFailure:) | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.executeGuarded(_:prepare:) | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.executeIf(_:command:) | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.executeTransaction(_:) | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.handle(_:) | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.init(navigator:) | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.lastBatchResult | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.lastResult | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.pop() | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.popToRoot() | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.push(_:) | NavigationEffectHandler |  |
+relationship | memberOf | NavigationEffectHandler.replace(with:) | NavigationEffectHandler |  |
+relationship | requirementOf | NavigationEffect.RouteType | NavigationEffect |  |
+relationship | requirementOf | NavigationEffect.navigation(_:) | NavigationEffect |  |
+relationship | requirementOf | NavigationEffect.navigationCommand | NavigationEffect |  |
+symbol | swift.associatedtype | NavigationEffect.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.class | NavigationEffectHandler | NavigationEffectHandler | @MainActor final class NavigationEffectHandler<R> where R : Route | []
+symbol | swift.init | NavigationEffectHandler.init(navigator:) | init(navigator:) | @MainActor init<N>(navigator: N) where R == N.RouteType, N : NavigationBatchExecutor, N : NavigationCommandExecutor, N : NavigationStateReader, N : NavigationTransactionExecutor | []
+symbol | swift.method | NavigationEffectHandler.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> | []
+symbol | swift.method | NavigationEffectHandler.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ commands: [NavigationCommand<R>]) -> NavigationBatchResult<R> | []
+symbol | swift.method | NavigationEffectHandler.execute(_:stopOnFailure:) | execute(_:stopOnFailure:) | @discardableResult @MainActor func execute(_ commands: [NavigationCommand<R>], stopOnFailure: Bool) -> NavigationBatchResult<R> | []
+symbol | swift.method | NavigationEffectHandler.executeGuarded(_:prepare:) | executeGuarded(_:prepare:) | @discardableResult @MainActor func executeGuarded(_ command: NavigationCommand<R>, prepare: @escaping @MainActor (NavigationCommand<R>) async -> NavigationInterception<R>) async -> NavigationResult<R> | []
+symbol | swift.method | NavigationEffectHandler.executeIf(_:command:) | executeIf(_:command:) | @discardableResult @MainActor func executeIf(_ shouldExecute: @escaping () -> Bool, command: NavigationCommand<R>) -> NavigationResult<R> | []
+symbol | swift.method | NavigationEffectHandler.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<R>]) -> NavigationTransactionResult<R> | []
+symbol | swift.method | NavigationEffectHandler.handle(_:) | handle(_:) | @discardableResult @MainActor func handle<E>(_ effect: E) -> NavigationResult<R>? where R == E.RouteType, E : NavigationEffect | []
+symbol | swift.method | NavigationEffectHandler.pop() | pop() | @MainActor func pop() | []
+symbol | swift.method | NavigationEffectHandler.popToRoot() | popToRoot() | @MainActor func popToRoot() | []
+symbol | swift.method | NavigationEffectHandler.push(_:) | push(_:) | @MainActor func push(_ route: R) | []
+symbol | swift.method | NavigationEffectHandler.replace(with:) | replace(with:) | @MainActor func replace(with routes: [R]) | []
+symbol | swift.property | NavigationEffect.navigationCommand | navigationCommand | var navigationCommand: NavigationCommand<Self.RouteType>? { get } | []
+symbol | swift.property | NavigationEffectHandler.lastBatchResult | lastBatchResult | @MainActor var lastBatchResult: NavigationBatchResult<R>? { get } | []
+symbol | swift.property | NavigationEffectHandler.lastResult | lastResult | @MainActor var lastResult: NavigationResult<R>? { get } | []
+symbol | swift.protocol | NavigationEffect | NavigationEffect | protocol NavigationEffect | []
+symbol | swift.type.method | NavigationEffect.navigation(_:) | navigation(_:) | static func navigation(_ command: NavigationCommand<Self.RouteType>) -> Self | []

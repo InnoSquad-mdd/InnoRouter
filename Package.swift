@@ -137,6 +137,12 @@ let package = Package(
             path: "Sources/ChildCoordinatorFailFastProbe",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .executableTarget(
+            name: "InnoRouterPerformanceSmoke",
+            dependencies: ["InnoRouter", "InnoRouterDeepLinkEffects"],
+            path: "Sources/InnoRouterPerformanceSmoke",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
 
         // MARK: - Example Build Gates (human-facing Examples/*.swift)
         //
@@ -278,7 +284,8 @@ let package = Package(
         // MARK: - Tests
         .testTarget(
             name: "InnoRouterTests",
-            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSwiftUI"]
+            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSwiftUI"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "InnoRouterMacrosTests",

@@ -180,6 +180,72 @@ struct NavigationCommandWhenCancelledTests {
         }
     }
 
+    @Test("Store: didExecute-cancelled primary triggers fallback")
+    @MainActor
+    func storeDidExecuteCancelledPrimaryRunsFallback() {
+        var didExecuteCommands: [NavigationCommand<WCRoute>] = []
+        let store = NavigationStore<WCRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [
+                    .init(
+                        middleware: AnyNavigationMiddleware(
+                            willExecute: { command, _ in .proceed(command) },
+                            didExecute: { command, result, _ in
+                                didExecuteCommands.append(command)
+                                if case .push(.detail) = command {
+                                    return .cancelled(.custom("post-execution cancel"))
+                                }
+                                return result
+                            }
+                        ),
+                        debugName: "post"
+                    )
+                ]
+            )
+        )
+
+        let result = store.execute(
+            .whenCancelled(.push(.detail), fallback: .push(.home))
+        )
+
+        #expect(result == .success)
+        #expect(store.state.path == [.home])
+        #expect(didExecuteCommands == [.push(.detail), .push(.home)])
+    }
+
+    @Test("Store: didExecute-promoted success skips fallback")
+    @MainActor
+    func storeDidExecutePromotedSuccessSkipsFallback() {
+        var didExecuteCommands: [NavigationCommand<WCRoute>] = []
+        let store = NavigationStore<WCRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [
+                    .init(
+                        middleware: AnyNavigationMiddleware(
+                            willExecute: { command, _ in .proceed(command) },
+                            didExecute: { command, result, _ in
+                                didExecuteCommands.append(command)
+                                if case .pop = command {
+                                    return .success
+                                }
+                                return result
+                            }
+                        ),
+                        debugName: "post"
+                    )
+                ]
+            )
+        )
+
+        let result = store.execute(
+            .whenCancelled(.pop, fallback: .push(.home))
+        )
+
+        #expect(result == .success)
+        #expect(store.state.path.isEmpty)
+        #expect(didExecuteCommands == [.pop])
+    }
+
     @Test("Store: rollback path emits only the committed change")
     @MainActor
     func storeRollbackNotifiesOnlyCommittedState() async throws {

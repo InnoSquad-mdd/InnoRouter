@@ -1,4 +1,4 @@
-# ``InnoRouterDeepLinkEffects``
+# InnoRouterDeepLinkEffects
 
 Deep-link execution helpers layered on the navigation effect boundary.
 
@@ -17,7 +17,3 @@ This module is where app-boundary code can:
 ### Essentials
 
 - <doc:Deep-Link-Effect-Handling>
-
-### Key Types
-
-- ``DeepLinkEffectHandler``

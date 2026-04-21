@@ -3,6 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
+@_spi(InternalTrace) import InnoRouterCore
 @_exported import InnoRouterCore
 @_exported import InnoRouterDeepLink
 
@@ -42,6 +43,7 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
     public private(set) var pendingDeepLink: FlowPendingDeepLink<R>?
     public let pipeline: FlowDeepLinkPipeline<R>
     private let applier: any FlowPlanApplier<R>
+    private var traceRecorder: InternalExecutionTraceRecorder?
 
     public init(
         pipeline: FlowDeepLinkPipeline<R>,
@@ -49,22 +51,32 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
     ) {
         self.pipeline = pipeline
         self.applier = applier
+        self.traceRecorder = nil
     }
 
     /// Processes a URL through the pipeline and applies the outcome.
     @discardableResult
     public func handle(_ url: URL) -> Result {
-        switch pipeline.decide(for: url) {
-        case .rejected(let reason):
-            return .rejected(reason: reason)
-        case .unhandled(let unhandledURL):
-            return .unhandled(url: unhandledURL)
-        case .pending(let pending):
-            self.pendingDeepLink = pending
-            return .pending(pending)
-        case .flowPlan(let plan):
-            self.pendingDeepLink = nil
-            return result(for: plan)
+        InternalExecutionTrace.withSpan(
+            domain: .deepLink,
+            operation: "handle",
+            recorder: traceRecorder,
+            metadata: ["url": url.absoluteString]
+        ) {
+            switch pipeline.decide(for: url) {
+            case .rejected(let reason):
+                return .rejected(reason: reason)
+            case .unhandled(let unhandledURL):
+                return .unhandled(url: unhandledURL)
+            case .pending(let pending):
+                self.pendingDeepLink = pending
+                return .pending(pending)
+            case .flowPlan(let plan):
+                self.pendingDeepLink = nil
+                return result(for: plan)
+            }
+        } outcome: { result in
+            Self.traceOutcome(for: result)
         }
     }
 
@@ -81,14 +93,22 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
     /// permits it, the plan is applied.
     @discardableResult
     public func resumePendingDeepLink() -> Result {
-        guard let pending = pendingDeepLink else {
-            return .noPendingDeepLink
+        InternalExecutionTrace.withSpan(
+            domain: .deepLink,
+            operation: "resumePendingDeepLink",
+            recorder: traceRecorder
+        ) {
+            guard let pending = pendingDeepLink else {
+                return .noPendingDeepLink
+            }
+            guard canResume(pending) else {
+                return .pending(pending)
+            }
+            self.pendingDeepLink = nil
+            return result(for: pending.plan)
+        } outcome: { result in
+            Self.traceOutcome(for: result)
         }
-        guard canResume(pending) else {
-            return .pending(pending)
-        }
-        self.pendingDeepLink = nil
-        return result(for: pending.plan)
     }
 
     /// Async variant: allows the caller to await a live
@@ -98,23 +118,31 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
     public func resumePendingDeepLinkIfAllowed(
         _ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async -> Bool
     ) async -> Result {
-        guard let pending = pendingDeepLink else {
-            return .noPendingDeepLink
-        }
-        let captured = pending
-        let isAuthorized = await authorize(captured)
-
-        guard self.pendingDeepLink == captured else {
-            if let current = self.pendingDeepLink {
-                return .pending(current)
+        await InternalExecutionTrace.withSpan(
+            domain: .deepLink,
+            operation: "resumePendingDeepLinkIfAllowed",
+            recorder: traceRecorder
+        ) {
+            guard let pending = pendingDeepLink else {
+                return .noPendingDeepLink
             }
-            return .noPendingDeepLink
-        }
+            let captured = pending
+            let isAuthorized = await authorize(captured)
 
-        guard isAuthorized else {
-            return .pending(captured)
+            guard self.pendingDeepLink == captured else {
+                if let current = self.pendingDeepLink {
+                    return .pending(current)
+                }
+                return .noPendingDeepLink
+            }
+
+            guard isAuthorized else {
+                return .pending(captured)
+            }
+            return resumePendingDeepLink()
+        } outcome: { result in
+            Self.traceOutcome(for: result)
         }
-        return resumePendingDeepLink()
     }
 
     public var hasPendingDeepLink: Bool {
@@ -123,6 +151,10 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
 
     public func clearPendingDeepLink() {
         pendingDeepLink = nil
+    }
+
+    func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
+        self.traceRecorder = recorder
     }
 
     /// Restores a previously persisted pending deep link (for
@@ -155,6 +187,27 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
             return .executed(plan: plan, path: path)
         case .rejected(let currentPath):
             return .applicationRejected(plan: plan, path: currentPath)
+        }
+    }
+
+    private static func traceOutcome(for result: Result) -> String {
+        switch result {
+        case .executed:
+            return "executed"
+        case .applicationRejected:
+            return "applicationRejected"
+        case .pending:
+            return "pending"
+        case .rejected:
+            return "rejected"
+        case .unhandled:
+            return "unhandled"
+        case .invalidURL:
+            return "invalidURL"
+        case .missingDeepLinkURL:
+            return "missingDeepLinkURL"
+        case .noPendingDeepLink:
+            return "noPendingDeepLink"
         }
     }
 }

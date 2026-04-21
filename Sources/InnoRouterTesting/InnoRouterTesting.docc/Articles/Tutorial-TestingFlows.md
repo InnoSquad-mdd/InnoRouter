@@ -112,7 +112,7 @@ store.receiveIntentRejected(intent: .push(.preAuth), reason: .pushBlockedByModal
 
 ## Exhaustivity
 
-Default is ``TestExhaustivity/strict`` — any unasserted event at
+Default is `TestExhaustivity.strict` — any unasserted event at
 `finish()` (or at deinit of the test store) triggers a Swift
 Testing `Issue.record`. This catches the common mistake of
 "missed that the modal also fired a `.presented` after the
@@ -144,7 +144,9 @@ sanity checks.
 
 ## Next steps
 
-- Read <doc:../../InnoRouterSwiftUI.docc/Articles/Tutorial-LoginOnboarding>
-  for the end-to-end flow being tested here.
-- Read <doc:../../InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition>
-  for the middleware surfaces the harness asserts against.
+- Read the `Tutorial-LoginOnboarding` guide in the
+  `InnoRouterSwiftUI` documentation catalog for the end-to-end flow
+  being tested here.
+- Read the `Tutorial-MiddlewareComposition` guide in the
+  `InnoRouterSwiftUI` documentation catalog for the middleware
+  surfaces the harness asserts against.

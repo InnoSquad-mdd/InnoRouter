@@ -18,18 +18,18 @@
 - middleware registry orchestration
 - telemetry and lifecycle callbacks
 
-Configuration is centralized in ``NavigationStoreConfiguration``.
+Configuration is centralized in `NavigationStoreConfiguration`.
 
 ## Host responsibilities
 
-``NavigationHost`` and ``CoordinatorHost`` connect SwiftUI navigation UI to the store or coordinator:
+`NavigationHost` and `CoordinatorHost` connect SwiftUI navigation UI to the store or coordinator:
 
 - render the root view
 - render destinations for pushed routes
 - inject environment intent dispatchers
 - bridge system path changes back into router commands
 
-Views should not mutate a store directly. They should emit ``NavigationIntent`` through the environment.
+Views should not mutate a store directly. They should emit `NavigationIntent` through the environment.
 
 ## Path reconciliation
 
@@ -37,6 +37,6 @@ When SwiftUI changes the path, InnoRouter translates that change back into seman
 
 - prefix shrink -> `.popCount` or `.popToRoot`
 - prefix expand -> per-step `.push` batch
-- mismatch -> ``NavigationPathMismatchPolicy``
+- mismatch -> `NavigationPathMismatchPolicy`
 
 This preserves command meaning instead of treating every path change as a blind replacement.

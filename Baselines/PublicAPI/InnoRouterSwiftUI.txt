@@ -1,0 +1,600 @@
+# Public API baseline for InnoRouterSwiftUI
+relationship | conformsTo | AnyFlowIntentDispatcher | FlowIntentDispatching |  |
+relationship | conformsTo | AnyModalIntentDispatcher | ModalIntentDispatching |  |
+relationship | conformsTo | AnyNavigationIntentDispatcher | NavigationIntentDispatching |  |
+relationship | defaultImplementationOf | ChildCoordinator.parentDidCancel() | ChildCoordinator.parentDidCancel() |  |
+relationship | defaultImplementationOf | Coordinator.handle(_:) | Coordinator.handle(_:) |  |
+relationship | defaultImplementationOf | FlowCoordinator.canProceed(from:) | FlowCoordinator.canProceed(from:) |  |
+relationship | defaultImplementationOf | FlowNavigating.handle(_:) | FlowNavigating.handle(_:) |  |
+relationship | defaultImplementationOf | StoreObserver.handle(_:) | StoreObserver.handle(_:) |  |
+relationship | memberOf | AnyFlowIntentDispatcher.RouteType | AnyFlowIntentDispatcher |  |
+relationship | memberOf | AnyFlowIntentDispatcher.init(send:) | AnyFlowIntentDispatcher |  |
+relationship | memberOf | AnyFlowIntentDispatcher.send(_:) | AnyFlowIntentDispatcher |  |
+relationship | memberOf | AnyModalIntentDispatcher.RouteType | AnyModalIntentDispatcher |  |
+relationship | memberOf | AnyModalIntentDispatcher.init(send:) | AnyModalIntentDispatcher |  |
+relationship | memberOf | AnyModalIntentDispatcher.send(_:) | AnyModalIntentDispatcher |  |
+relationship | memberOf | AnyNavigationIntentDispatcher.RouteType | AnyNavigationIntentDispatcher |  |
+relationship | memberOf | AnyNavigationIntentDispatcher.init(send:) | AnyNavigationIntentDispatcher |  |
+relationship | memberOf | AnyNavigationIntentDispatcher.send(_:) | AnyNavigationIntentDispatcher |  |
+relationship | memberOf | ChildCoordinatorTaskTracker.activeCount | ChildCoordinatorTaskTracker |  |
+relationship | memberOf | ChildCoordinatorTaskTracker.cancelAll() | ChildCoordinatorTaskTracker |  |
+relationship | memberOf | ChildCoordinatorTaskTracker.init() | ChildCoordinatorTaskTracker |  |
+relationship | memberOf | ChildCoordinatorTaskTracker.track(priority:_:) | ChildCoordinatorTaskTracker |  |
+relationship | memberOf | Coordinator.push(child:) | Coordinator |  |
+relationship | memberOf | Coordinator.send(_:) | Coordinator |  |
+relationship | memberOf | CoordinatorHost.body | CoordinatorHost |  |
+relationship | memberOf | CoordinatorHost.init(coordinator:root:) | CoordinatorHost |  |
+relationship | memberOf | CoordinatorSplitHost.body | CoordinatorSplitHost |  |
+relationship | memberOf | CoordinatorSplitHost.init(coordinator:sidebar:root:) | CoordinatorSplitHost |  |
+relationship | memberOf | EnvironmentFlowIntent.init(_:) | EnvironmentFlowIntent |  |
+relationship | memberOf | EnvironmentFlowIntent.wrappedValue | EnvironmentFlowIntent |  |
+relationship | memberOf | EnvironmentModalIntent.init(_:) | EnvironmentModalIntent |  |
+relationship | memberOf | EnvironmentModalIntent.wrappedValue | EnvironmentModalIntent |  |
+relationship | memberOf | EnvironmentNavigationIntent.init(_:) | EnvironmentNavigationIntent |  |
+relationship | memberOf | EnvironmentNavigationIntent.wrappedValue | EnvironmentNavigationIntent |  |
+relationship | memberOf | FlowCoordinator.isAtEnd | FlowCoordinator |  |
+relationship | memberOf | FlowCoordinator.isAtStart | FlowCoordinator |  |
+relationship | memberOf | FlowCoordinator.jump(to:) | FlowCoordinator |  |
+relationship | memberOf | FlowCoordinator.next() | FlowCoordinator |  |
+relationship | memberOf | FlowCoordinator.previous() | FlowCoordinator |  |
+relationship | memberOf | FlowCoordinator.progress | FlowCoordinator |  |
+relationship | memberOf | FlowCoordinator.reset() | FlowCoordinator |  |
+relationship | memberOf | FlowCoordinator.totalSteps | FlowCoordinator |  |
+relationship | memberOf | FlowCoordinatorView.body | FlowCoordinatorView |  |
+relationship | memberOf | FlowCoordinatorView.init(coordinator:showProgress:content:) | FlowCoordinatorView |  |
+relationship | memberOf | FlowEvent.description | FlowEvent |  |
+relationship | memberOf | FlowEvent.intentRejected(_:_:) | FlowEvent |  |
+relationship | memberOf | FlowEvent.modal(_:) | FlowEvent |  |
+relationship | memberOf | FlowEvent.navigation(_:) | FlowEvent |  |
+relationship | memberOf | FlowEvent.pathChanged(old:new:) | FlowEvent |  |
+relationship | memberOf | FlowHost.body | FlowHost |  |
+relationship | memberOf | FlowHost.init(store:destination:root:) | FlowHost |  |
+relationship | memberOf | FlowIntent.backOrPush(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.backOrPushDismissingModal(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.dismiss | FlowIntent |  |
+relationship | memberOf | FlowIntent.pop | FlowIntent |  |
+relationship | memberOf | FlowIntent.presentCover(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.presentSheet(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.push(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.pushUniqueRoot(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.pushUniqueRootDismissingModal(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.replaceStack(_:) | FlowIntent |  |
+relationship | memberOf | FlowIntent.reset(_:) | FlowIntent |  |
+relationship | memberOf | FlowRejectionReason.invalidResetPath | FlowRejectionReason |  |
+relationship | memberOf | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason |  |
+relationship | memberOf | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason |  |
+relationship | memberOf | FlowStore.RouteType | FlowStore |  |
+relationship | memberOf | FlowStore.apply(_:) | FlowStore |  |
+relationship | memberOf | FlowStore.events | FlowStore |  |
+relationship | memberOf | FlowStore.init(initial:configuration:) | FlowStore |  |
+relationship | memberOf | FlowStore.modalStore | FlowStore |  |
+relationship | memberOf | FlowStore.navigationStore | FlowStore |  |
+relationship | memberOf | FlowStore.observe(_:) | FlowStore |  |
+relationship | memberOf | FlowStore.path | FlowStore |  |
+relationship | memberOf | FlowStore.send(_:) | FlowStore |  |
+relationship | memberOf | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:) | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.modal | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.navigation | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.onIntentRejected | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.onPathChanged | FlowStoreConfiguration |  |
+relationship | memberOf | MiddlewareMutationEvent.Action | MiddlewareMutationEvent |  |
+relationship | memberOf | MiddlewareMutationEvent.Action.added | MiddlewareMutationEvent.Action |  |
+relationship | memberOf | MiddlewareMutationEvent.Action.inserted | MiddlewareMutationEvent.Action |  |
+relationship | memberOf | MiddlewareMutationEvent.Action.moved | MiddlewareMutationEvent.Action |  |
+relationship | memberOf | MiddlewareMutationEvent.Action.removed | MiddlewareMutationEvent.Action |  |
+relationship | memberOf | MiddlewareMutationEvent.Action.replaced | MiddlewareMutationEvent.Action |  |
+relationship | memberOf | MiddlewareMutationEvent.action | MiddlewareMutationEvent |  |
+relationship | memberOf | MiddlewareMutationEvent.index | MiddlewareMutationEvent |  |
+relationship | memberOf | MiddlewareMutationEvent.init(action:metadata:index:) | MiddlewareMutationEvent |  |
+relationship | memberOf | MiddlewareMutationEvent.metadata | MiddlewareMutationEvent |  |
+relationship | memberOf | ModalEvent.commandIntercepted(command:result:) | ModalEvent |  |
+relationship | memberOf | ModalEvent.description | ModalEvent |  |
+relationship | memberOf | ModalEvent.dismissed(_:reason:) | ModalEvent |  |
+relationship | memberOf | ModalEvent.middlewareMutation(_:) | ModalEvent |  |
+relationship | memberOf | ModalEvent.presented(_:) | ModalEvent |  |
+relationship | memberOf | ModalEvent.queueChanged(old:new:) | ModalEvent |  |
+relationship | memberOf | ModalExecutionResult.cancelled(_:) | ModalExecutionResult |  |
+relationship | memberOf | ModalExecutionResult.executed(_:) | ModalExecutionResult |  |
+relationship | memberOf | ModalExecutionResult.noop | ModalExecutionResult |  |
+relationship | memberOf | ModalExecutionResult.queued(_:) | ModalExecutionResult |  |
+relationship | memberOf | ModalHost.body | ModalHost |  |
+relationship | memberOf | ModalHost.init(store:destination:content:) | ModalHost |  |
+relationship | memberOf | ModalIntent.dismiss | ModalIntent |  |
+relationship | memberOf | ModalIntent.dismissAll | ModalIntent |  |
+relationship | memberOf | ModalIntent.present(_:style:) | ModalIntent |  |
+relationship | memberOf | ModalMiddlewareHandle.init() | ModalMiddlewareHandle |  |
+relationship | memberOf | ModalMiddlewareMetadata.debugName | ModalMiddlewareMetadata |  |
+relationship | memberOf | ModalMiddlewareMetadata.handle | ModalMiddlewareMetadata |  |
+relationship | memberOf | ModalMiddlewareMetadata.init(handle:debugName:) | ModalMiddlewareMetadata |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.Action | ModalMiddlewareMutationEvent |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.Action.added | ModalMiddlewareMutationEvent.Action |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.Action.inserted | ModalMiddlewareMutationEvent.Action |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.Action.moved | ModalMiddlewareMutationEvent.Action |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.Action.removed | ModalMiddlewareMutationEvent.Action |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.Action.replaced | ModalMiddlewareMutationEvent.Action |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.action | ModalMiddlewareMutationEvent |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.index | ModalMiddlewareMutationEvent |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.init(action:metadata:index:) | ModalMiddlewareMutationEvent |  |
+relationship | memberOf | ModalMiddlewareMutationEvent.metadata | ModalMiddlewareMutationEvent |  |
+relationship | memberOf | ModalMiddlewareRegistration.debugName | ModalMiddlewareRegistration |  |
+relationship | memberOf | ModalMiddlewareRegistration.init(middleware:debugName:) | ModalMiddlewareRegistration |  |
+relationship | memberOf | ModalMiddlewareRegistration.middleware | ModalMiddlewareRegistration |  |
+relationship | memberOf | ModalStore.addMiddleware(_:debugName:) | ModalStore |  |
+relationship | memberOf | ModalStore.binding(case:style:) | ModalStore |  |
+relationship | memberOf | ModalStore.currentPresentation | ModalStore |  |
+relationship | memberOf | ModalStore.dismissAll() | ModalStore |  |
+relationship | memberOf | ModalStore.dismissCurrent() | ModalStore |  |
+relationship | memberOf | ModalStore.events | ModalStore |  |
+relationship | memberOf | ModalStore.execute(_:) | ModalStore |  |
+relationship | memberOf | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | ModalStore |  |
+relationship | memberOf | ModalStore.insertMiddleware(_:at:debugName:) | ModalStore |  |
+relationship | memberOf | ModalStore.middlewareHandles | ModalStore |  |
+relationship | memberOf | ModalStore.middlewareMetadata | ModalStore |  |
+relationship | memberOf | ModalStore.moveMiddleware(_:to:) | ModalStore |  |
+relationship | memberOf | ModalStore.observe(_:) | ModalStore |  |
+relationship | memberOf | ModalStore.present(_:style:) | ModalStore |  |
+relationship | memberOf | ModalStore.queuedPresentations | ModalStore |  |
+relationship | memberOf | ModalStore.removeMiddleware(_:) | ModalStore |  |
+relationship | memberOf | ModalStore.replaceCurrent(_:style:) | ModalStore |  |
+relationship | memberOf | ModalStore.replaceMiddleware(_:with:debugName:) | ModalStore |  |
+relationship | memberOf | ModalStore.send(_:) | ModalStore |  |
+relationship | memberOf | ModalStoreConfiguration.init(logger:middlewares:onPresented:onDismissed:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:) | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.logger | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.middlewares | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.onCommandIntercepted | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.onDismissed | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.onMiddlewareMutation | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.onPresented | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.onQueueChanged | ModalStoreConfiguration |  |
+relationship | memberOf | NavigationEvent.batchExecuted(_:) | NavigationEvent |  |
+relationship | memberOf | NavigationEvent.changed(from:to:) | NavigationEvent |  |
+relationship | memberOf | NavigationEvent.description | NavigationEvent |  |
+relationship | memberOf | NavigationEvent.middlewareMutation(_:) | NavigationEvent |  |
+relationship | memberOf | NavigationEvent.pathMismatch(_:) | NavigationEvent |  |
+relationship | memberOf | NavigationEvent.transactionExecuted(_:) | NavigationEvent |  |
+relationship | memberOf | NavigationHost.body | NavigationHost |  |
+relationship | memberOf | NavigationHost.init(store:destination:root:) | NavigationHost |  |
+relationship | memberOf | NavigationIntent.back | NavigationIntent |  |
+relationship | memberOf | NavigationIntent.backBy(_:) | NavigationIntent |  |
+relationship | memberOf | NavigationIntent.backOrPush(_:) | NavigationIntent |  |
+relationship | memberOf | NavigationIntent.backTo(_:) | NavigationIntent |  |
+relationship | memberOf | NavigationIntent.backToRoot | NavigationIntent |  |
+relationship | memberOf | NavigationIntent.go(_:) | NavigationIntent |  |
+relationship | memberOf | NavigationIntent.goMany(_:) | NavigationIntent |  |
+relationship | memberOf | NavigationIntent.pushUniqueRoot(_:) | NavigationIntent |  |
+relationship | memberOf | NavigationIntent.replaceStack(_:) | NavigationIntent |  |
+relationship | memberOf | NavigationIntent.resetTo(_:) | NavigationIntent |  |
+relationship | memberOf | NavigationMiddlewareHandle.init() | NavigationMiddlewareHandle |  |
+relationship | memberOf | NavigationMiddlewareMetadata.debugName | NavigationMiddlewareMetadata |  |
+relationship | memberOf | NavigationMiddlewareMetadata.handle | NavigationMiddlewareMetadata |  |
+relationship | memberOf | NavigationMiddlewareMetadata.init(handle:debugName:) | NavigationMiddlewareMetadata |  |
+relationship | memberOf | NavigationMiddlewareRegistration.debugName | NavigationMiddlewareRegistration |  |
+relationship | memberOf | NavigationMiddlewareRegistration.init(middleware:debugName:) | NavigationMiddlewareRegistration |  |
+relationship | memberOf | NavigationMiddlewareRegistration.middleware | NavigationMiddlewareRegistration |  |
+relationship | memberOf | NavigationPathMismatchEvent.Policy | NavigationPathMismatchEvent |  |
+relationship | memberOf | NavigationPathMismatchEvent.Policy.assertAndReplace | NavigationPathMismatchEvent.Policy |  |
+relationship | memberOf | NavigationPathMismatchEvent.Policy.custom | NavigationPathMismatchEvent.Policy |  |
+relationship | memberOf | NavigationPathMismatchEvent.Policy.ignore | NavigationPathMismatchEvent.Policy |  |
+relationship | memberOf | NavigationPathMismatchEvent.Policy.replace | NavigationPathMismatchEvent.Policy |  |
+relationship | memberOf | NavigationPathMismatchEvent.Resolution | NavigationPathMismatchEvent |  |
+relationship | memberOf | NavigationPathMismatchEvent.Resolution.batch(_:) | NavigationPathMismatchEvent.Resolution |  |
+relationship | memberOf | NavigationPathMismatchEvent.Resolution.ignore | NavigationPathMismatchEvent.Resolution |  |
+relationship | memberOf | NavigationPathMismatchEvent.Resolution.single(_:) | NavigationPathMismatchEvent.Resolution |  |
+relationship | memberOf | NavigationPathMismatchEvent.init(policy:resolution:oldPath:newPath:) | NavigationPathMismatchEvent |  |
+relationship | memberOf | NavigationPathMismatchEvent.newPath | NavigationPathMismatchEvent |  |
+relationship | memberOf | NavigationPathMismatchEvent.oldPath | NavigationPathMismatchEvent |  |
+relationship | memberOf | NavigationPathMismatchEvent.policy | NavigationPathMismatchEvent |  |
+relationship | memberOf | NavigationPathMismatchEvent.resolution | NavigationPathMismatchEvent |  |
+relationship | memberOf | NavigationPathMismatchPolicy.assertAndReplace | NavigationPathMismatchPolicy |  |
+relationship | memberOf | NavigationPathMismatchPolicy.custom(_:) | NavigationPathMismatchPolicy |  |
+relationship | memberOf | NavigationPathMismatchPolicy.ignore | NavigationPathMismatchPolicy |  |
+relationship | memberOf | NavigationPathMismatchPolicy.replace | NavigationPathMismatchPolicy |  |
+relationship | memberOf | NavigationPathMismatchResolution.batch(_:) | NavigationPathMismatchResolution |  |
+relationship | memberOf | NavigationPathMismatchResolution.ignore | NavigationPathMismatchResolution |  |
+relationship | memberOf | NavigationPathMismatchResolution.single(_:) | NavigationPathMismatchResolution |  |
+relationship | memberOf | NavigationSplitHost.body | NavigationSplitHost |  |
+relationship | memberOf | NavigationSplitHost.init(store:sidebar:destination:root:) | NavigationSplitHost |  |
+relationship | memberOf | NavigationStore.RouteType | NavigationStore |  |
+relationship | memberOf | NavigationStore.addMiddleware(_:debugName:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.binding(case:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.events | NavigationStore |  |
+relationship | memberOf | NavigationStore.execute(_:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.executeBatch(_:stopOnFailure:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.executeTransaction(_:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.init(initial:configuration:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.init(initialPath:configuration:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.insertMiddleware(_:at:debugName:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.middlewareHandles | NavigationStore |  |
+relationship | memberOf | NavigationStore.middlewareMetadata | NavigationStore |  |
+relationship | memberOf | NavigationStore.moveMiddleware(_:to:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.observe(_:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.pathBinding | NavigationStore |  |
+relationship | memberOf | NavigationStore.removeMiddleware(_:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.replaceMiddleware(_:with:debugName:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.send(_:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.state | NavigationStore |  |
+relationship | memberOf | NavigationStoreConfiguration.engine | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:) | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.logger | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.middlewares | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.onBatchExecuted | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.onChange | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.onMiddlewareMutation | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.onPathMismatch | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.onTransactionExecuted | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.pathMismatchPolicy | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.routeStackValidator | NavigationStoreConfiguration |  |
+relationship | memberOf | StoreObserverSubscription.cancel() | StoreObserverSubscription |  |
+relationship | memberOf | Tab.id | Tab |  |
+relationship | memberOf | TabCoordinator.badge(for:) | TabCoordinator |  |
+relationship | memberOf | TabCoordinator.clearAllBadges() | TabCoordinator |  |
+relationship | memberOf | TabCoordinator.setBadge(_:for:) | TabCoordinator |  |
+relationship | memberOf | TabCoordinator.switchTab(to:) | TabCoordinator |  |
+relationship | memberOf | TabCoordinatorView.body | TabCoordinatorView |  |
+relationship | memberOf | TabCoordinatorView.init(coordinator:) | TabCoordinatorView |  |
+relationship | memberOf | ThrottleNavigationMiddleware.Key | ThrottleNavigationMiddleware |  |
+relationship | memberOf | ThrottleNavigationMiddleware.RouteType | ThrottleNavigationMiddleware |  |
+relationship | memberOf | ThrottleNavigationMiddleware.didExecute(_:result:state:) | ThrottleNavigationMiddleware |  |
+relationship | memberOf | ThrottleNavigationMiddleware.globalKey | ThrottleNavigationMiddleware |  |
+relationship | memberOf | ThrottleNavigationMiddleware.init(interval:) | ThrottleNavigationMiddleware |  |
+relationship | memberOf | ThrottleNavigationMiddleware.init(interval:clock:key:) | ThrottleNavigationMiddleware |  |
+relationship | memberOf | ThrottleNavigationMiddleware.init(interval:key:) | ThrottleNavigationMiddleware |  |
+relationship | memberOf | ThrottleNavigationMiddleware.willExecute(_:state:) | ThrottleNavigationMiddleware |  |
+relationship | requirementOf | ChildCoordinator.Result | ChildCoordinator |  |
+relationship | requirementOf | ChildCoordinator.onCancel | ChildCoordinator |  |
+relationship | requirementOf | ChildCoordinator.onFinish | ChildCoordinator |  |
+relationship | requirementOf | ChildCoordinator.parentDidCancel() | ChildCoordinator |  |
+relationship | requirementOf | Coordinator.Destination | Coordinator |  |
+relationship | requirementOf | Coordinator.RouteType | Coordinator |  |
+relationship | requirementOf | Coordinator.destination(for:) | Coordinator |  |
+relationship | requirementOf | Coordinator.handle(_:) | Coordinator |  |
+relationship | requirementOf | Coordinator.store | Coordinator |  |
+relationship | requirementOf | FlowCoordinator.Result | FlowCoordinator |  |
+relationship | requirementOf | FlowCoordinator.Step | FlowCoordinator |  |
+relationship | requirementOf | FlowCoordinator.canProceed(from:) | FlowCoordinator |  |
+relationship | requirementOf | FlowCoordinator.complete(with:) | FlowCoordinator |  |
+relationship | requirementOf | FlowCoordinator.completedSteps | FlowCoordinator |  |
+relationship | requirementOf | FlowCoordinator.currentStep | FlowCoordinator |  |
+relationship | requirementOf | FlowCoordinator.onComplete | FlowCoordinator |  |
+relationship | requirementOf | FlowIntentDispatching.RouteType | FlowIntentDispatching |  |
+relationship | requirementOf | FlowIntentDispatching.send(_:) | FlowIntentDispatching |  |
+relationship | requirementOf | FlowNavigating.RouteType | FlowNavigating |  |
+relationship | requirementOf | FlowNavigating.flowStore | FlowNavigating |  |
+relationship | requirementOf | FlowNavigating.handle(_:) | FlowNavigating |  |
+relationship | requirementOf | FlowStep.index | FlowStep |  |
+relationship | requirementOf | ModalIntentDispatching.RouteType | ModalIntentDispatching |  |
+relationship | requirementOf | ModalIntentDispatching.send(_:) | ModalIntentDispatching |  |
+relationship | requirementOf | NavigationIntentDispatching.RouteType | NavigationIntentDispatching |  |
+relationship | requirementOf | NavigationIntentDispatching.send(_:) | NavigationIntentDispatching |  |
+relationship | requirementOf | StoreObserver.RouteType | StoreObserver |  |
+relationship | requirementOf | StoreObserver.handle(_:) | StoreObserver |  |
+relationship | requirementOf | Tab.icon | Tab |  |
+relationship | requirementOf | Tab.title | Tab |  |
+relationship | requirementOf | TabCoordinator.TabContent | TabCoordinator |  |
+relationship | requirementOf | TabCoordinator.TabType | TabCoordinator |  |
+relationship | requirementOf | TabCoordinator.content(for:) | TabCoordinator |  |
+relationship | requirementOf | TabCoordinator.selectedTab | TabCoordinator |  |
+relationship | requirementOf | TabCoordinator.tabBadges | TabCoordinator |  |
+symbol | swift.associatedtype | ChildCoordinator.Result | Result | associatedtype Result : Sendable | []
+symbol | swift.associatedtype | Coordinator.Destination | Destination | associatedtype Destination : View | []
+symbol | swift.associatedtype | Coordinator.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | FlowCoordinator.Result | Result | associatedtype Result | []
+symbol | swift.associatedtype | FlowCoordinator.Step | Step | associatedtype Step : FlowStep | []
+symbol | swift.associatedtype | FlowIntentDispatching.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | FlowNavigating.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | ModalIntentDispatching.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | NavigationIntentDispatching.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | StoreObserver.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | TabCoordinator.TabContent | TabContent | associatedtype TabContent : View | []
+symbol | swift.associatedtype | TabCoordinator.TabType | TabType | associatedtype TabType : Tab | []
+symbol | swift.class | AnyFlowIntentDispatcher | AnyFlowIntentDispatcher | @MainActor final class AnyFlowIntentDispatcher<R> where R : Route | []
+symbol | swift.class | AnyModalIntentDispatcher | AnyModalIntentDispatcher | @MainActor final class AnyModalIntentDispatcher<M> where M : Route | []
+symbol | swift.class | AnyNavigationIntentDispatcher | AnyNavigationIntentDispatcher | @MainActor final class AnyNavigationIntentDispatcher<R> where R : Route | []
+symbol | swift.class | ChildCoordinatorTaskTracker | ChildCoordinatorTaskTracker | @MainActor final class ChildCoordinatorTaskTracker | []
+symbol | swift.class | FlowStore | FlowStore | @MainActor final class FlowStore<R> where R : Route | []
+symbol | swift.class | ModalStore | ModalStore | @MainActor final class ModalStore<M> where M : Route | []
+symbol | swift.class | NavigationStore | NavigationStore | @MainActor final class NavigationStore<R> where R : Route | []
+symbol | swift.class | StoreObserverSubscription | StoreObserverSubscription | @MainActor final class StoreObserverSubscription | []
+symbol | swift.class | ThrottleNavigationMiddleware | ThrottleNavigationMiddleware | @MainActor final class ThrottleNavigationMiddleware<R, C> where R : Route, C : Clock, C.Duration == Duration | []
+symbol | swift.enum | FlowEvent | FlowEvent | enum FlowEvent<R> where R : Route | []
+symbol | swift.enum | FlowIntent | FlowIntent | enum FlowIntent<R> where R : Route | []
+symbol | swift.enum | FlowRejectionReason | FlowRejectionReason | enum FlowRejectionReason | []
+symbol | swift.enum | MiddlewareMutationEvent.Action | MiddlewareMutationEvent.Action | enum Action | []
+symbol | swift.enum | ModalEvent | ModalEvent | enum ModalEvent<M> where M : Route | []
+symbol | swift.enum | ModalExecutionResult | ModalExecutionResult | enum ModalExecutionResult<M> where M : Route | []
+symbol | swift.enum | ModalIntent | ModalIntent | enum ModalIntent<M> where M : Route | []
+symbol | swift.enum | ModalMiddlewareMutationEvent.Action | ModalMiddlewareMutationEvent.Action | enum Action | []
+symbol | swift.enum | NavigationEvent | NavigationEvent | enum NavigationEvent<R> where R : Route | []
+symbol | swift.enum | NavigationIntent | NavigationIntent | enum NavigationIntent<R> where R : Route | []
+symbol | swift.enum | NavigationPathMismatchEvent.Policy | NavigationPathMismatchEvent.Policy | enum Policy | []
+symbol | swift.enum | NavigationPathMismatchEvent.Resolution | NavigationPathMismatchEvent.Resolution | enum Resolution | []
+symbol | swift.enum | NavigationPathMismatchPolicy | NavigationPathMismatchPolicy | enum NavigationPathMismatchPolicy<R> where R : Route | []
+symbol | swift.enum | NavigationPathMismatchResolution | NavigationPathMismatchResolution | enum NavigationPathMismatchResolution<R> where R : Route | []
+symbol | swift.enum.case | FlowEvent.intentRejected(_:_:) | FlowEvent.intentRejected(_:_:) | case intentRejected(FlowIntent<R>, FlowRejectionReason) | []
+symbol | swift.enum.case | FlowEvent.modal(_:) | FlowEvent.modal(_:) | case modal(ModalEvent<R>) | []
+symbol | swift.enum.case | FlowEvent.navigation(_:) | FlowEvent.navigation(_:) | case navigation(NavigationEvent<R>) | []
+symbol | swift.enum.case | FlowEvent.pathChanged(old:new:) | FlowEvent.pathChanged(old:new:) | case pathChanged(old: [RouteStep<R>], new: [RouteStep<R>]) | []
+symbol | swift.enum.case | FlowIntent.backOrPush(_:) | FlowIntent.backOrPush(_:) | case backOrPush(R) | []
+symbol | swift.enum.case | FlowIntent.backOrPushDismissingModal(_:) | FlowIntent.backOrPushDismissingModal(_:) | case backOrPushDismissingModal(R) | []
+symbol | swift.enum.case | FlowIntent.dismiss | FlowIntent.dismiss | case dismiss | []
+symbol | swift.enum.case | FlowIntent.pop | FlowIntent.pop | case pop | []
+symbol | swift.enum.case | FlowIntent.presentCover(_:) | FlowIntent.presentCover(_:) | case presentCover(R) | []
+symbol | swift.enum.case | FlowIntent.presentSheet(_:) | FlowIntent.presentSheet(_:) | case presentSheet(R) | []
+symbol | swift.enum.case | FlowIntent.push(_:) | FlowIntent.push(_:) | case push(R) | []
+symbol | swift.enum.case | FlowIntent.pushUniqueRoot(_:) | FlowIntent.pushUniqueRoot(_:) | case pushUniqueRoot(R) | []
+symbol | swift.enum.case | FlowIntent.pushUniqueRootDismissingModal(_:) | FlowIntent.pushUniqueRootDismissingModal(_:) | case pushUniqueRootDismissingModal(R) | []
+symbol | swift.enum.case | FlowIntent.replaceStack(_:) | FlowIntent.replaceStack(_:) | case replaceStack([R]) | []
+symbol | swift.enum.case | FlowIntent.reset(_:) | FlowIntent.reset(_:) | case reset([RouteStep<R>]) | []
+symbol | swift.enum.case | FlowRejectionReason.invalidResetPath | FlowRejectionReason.invalidResetPath | case invalidResetPath | []
+symbol | swift.enum.case | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason.middlewareRejected(debugName:) | case middlewareRejected(debugName: String?) | []
+symbol | swift.enum.case | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason.pushBlockedByModalTail | case pushBlockedByModalTail | []
+symbol | swift.enum.case | MiddlewareMutationEvent.Action.added | MiddlewareMutationEvent.Action.added | case added | []
+symbol | swift.enum.case | MiddlewareMutationEvent.Action.inserted | MiddlewareMutationEvent.Action.inserted | case inserted | []
+symbol | swift.enum.case | MiddlewareMutationEvent.Action.moved | MiddlewareMutationEvent.Action.moved | case moved | []
+symbol | swift.enum.case | MiddlewareMutationEvent.Action.removed | MiddlewareMutationEvent.Action.removed | case removed | []
+symbol | swift.enum.case | MiddlewareMutationEvent.Action.replaced | MiddlewareMutationEvent.Action.replaced | case replaced | []
+symbol | swift.enum.case | ModalEvent.commandIntercepted(command:result:) | ModalEvent.commandIntercepted(command:result:) | case commandIntercepted(command: ModalCommand<M>, result: ModalExecutionResult<M>) | []
+symbol | swift.enum.case | ModalEvent.dismissed(_:reason:) | ModalEvent.dismissed(_:reason:) | case dismissed(ModalPresentation<M>, reason: ModalDismissalReason) | []
+symbol | swift.enum.case | ModalEvent.middlewareMutation(_:) | ModalEvent.middlewareMutation(_:) | case middlewareMutation(ModalMiddlewareMutationEvent<M>) | []
+symbol | swift.enum.case | ModalEvent.presented(_:) | ModalEvent.presented(_:) | case presented(ModalPresentation<M>) | []
+symbol | swift.enum.case | ModalEvent.queueChanged(old:new:) | ModalEvent.queueChanged(old:new:) | case queueChanged(old: [ModalPresentation<M>], new: [ModalPresentation<M>]) | []
+symbol | swift.enum.case | ModalExecutionResult.cancelled(_:) | ModalExecutionResult.cancelled(_:) | case cancelled(ModalCancellationReason<M>) | []
+symbol | swift.enum.case | ModalExecutionResult.executed(_:) | ModalExecutionResult.executed(_:) | case executed(ModalCommand<M>) | []
+symbol | swift.enum.case | ModalExecutionResult.noop | ModalExecutionResult.noop | case noop | []
+symbol | swift.enum.case | ModalExecutionResult.queued(_:) | ModalExecutionResult.queued(_:) | case queued(ModalPresentation<M>) | []
+symbol | swift.enum.case | ModalIntent.dismiss | ModalIntent.dismiss | case dismiss | []
+symbol | swift.enum.case | ModalIntent.dismissAll | ModalIntent.dismissAll | case dismissAll | []
+symbol | swift.enum.case | ModalIntent.present(_:style:) | ModalIntent.present(_:style:) | case present(M, style: ModalPresentationStyle) | []
+symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.added | ModalMiddlewareMutationEvent.Action.added | case added | []
+symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.inserted | ModalMiddlewareMutationEvent.Action.inserted | case inserted | []
+symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.moved | ModalMiddlewareMutationEvent.Action.moved | case moved | []
+symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.removed | ModalMiddlewareMutationEvent.Action.removed | case removed | []
+symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.replaced | ModalMiddlewareMutationEvent.Action.replaced | case replaced | []
+symbol | swift.enum.case | NavigationEvent.batchExecuted(_:) | NavigationEvent.batchExecuted(_:) | case batchExecuted(NavigationBatchResult<R>) | []
+symbol | swift.enum.case | NavigationEvent.changed(from:to:) | NavigationEvent.changed(from:to:) | case changed(from: RouteStack<R>, to: RouteStack<R>) | []
+symbol | swift.enum.case | NavigationEvent.middlewareMutation(_:) | NavigationEvent.middlewareMutation(_:) | case middlewareMutation(MiddlewareMutationEvent<R>) | []
+symbol | swift.enum.case | NavigationEvent.pathMismatch(_:) | NavigationEvent.pathMismatch(_:) | case pathMismatch(NavigationPathMismatchEvent<R>) | []
+symbol | swift.enum.case | NavigationEvent.transactionExecuted(_:) | NavigationEvent.transactionExecuted(_:) | case transactionExecuted(NavigationTransactionResult<R>) | []
+symbol | swift.enum.case | NavigationIntent.back | NavigationIntent.back | case back | []
+symbol | swift.enum.case | NavigationIntent.backBy(_:) | NavigationIntent.backBy(_:) | case backBy(Int) | []
+symbol | swift.enum.case | NavigationIntent.backOrPush(_:) | NavigationIntent.backOrPush(_:) | case backOrPush(R) | []
+symbol | swift.enum.case | NavigationIntent.backTo(_:) | NavigationIntent.backTo(_:) | case backTo(R) | []
+symbol | swift.enum.case | NavigationIntent.backToRoot | NavigationIntent.backToRoot | case backToRoot | []
+symbol | swift.enum.case | NavigationIntent.go(_:) | NavigationIntent.go(_:) | case go(R) | []
+symbol | swift.enum.case | NavigationIntent.goMany(_:) | NavigationIntent.goMany(_:) | case goMany([R]) | []
+symbol | swift.enum.case | NavigationIntent.pushUniqueRoot(_:) | NavigationIntent.pushUniqueRoot(_:) | case pushUniqueRoot(R) | []
+symbol | swift.enum.case | NavigationIntent.replaceStack(_:) | NavigationIntent.replaceStack(_:) | case replaceStack([R]) | []
+symbol | swift.enum.case | NavigationIntent.resetTo(_:) | NavigationIntent.resetTo(_:) | case resetTo([R]) | []
+symbol | swift.enum.case | NavigationPathMismatchEvent.Policy.assertAndReplace | NavigationPathMismatchEvent.Policy.assertAndReplace | case assertAndReplace | []
+symbol | swift.enum.case | NavigationPathMismatchEvent.Policy.custom | NavigationPathMismatchEvent.Policy.custom | case custom | []
+symbol | swift.enum.case | NavigationPathMismatchEvent.Policy.ignore | NavigationPathMismatchEvent.Policy.ignore | case ignore | []
+symbol | swift.enum.case | NavigationPathMismatchEvent.Policy.replace | NavigationPathMismatchEvent.Policy.replace | case replace | []
+symbol | swift.enum.case | NavigationPathMismatchEvent.Resolution.batch(_:) | NavigationPathMismatchEvent.Resolution.batch(_:) | case batch([NavigationCommand<R>]) | []
+symbol | swift.enum.case | NavigationPathMismatchEvent.Resolution.ignore | NavigationPathMismatchEvent.Resolution.ignore | case ignore | []
+symbol | swift.enum.case | NavigationPathMismatchEvent.Resolution.single(_:) | NavigationPathMismatchEvent.Resolution.single(_:) | case single(NavigationCommand<R>) | []
+symbol | swift.enum.case | NavigationPathMismatchPolicy.assertAndReplace | NavigationPathMismatchPolicy.assertAndReplace | case assertAndReplace | []
+symbol | swift.enum.case | NavigationPathMismatchPolicy.custom(_:) | NavigationPathMismatchPolicy.custom(_:) | case custom(@MainActor ([R], [R]) -> NavigationPathMismatchResolution<R>) | []
+symbol | swift.enum.case | NavigationPathMismatchPolicy.ignore | NavigationPathMismatchPolicy.ignore | case ignore | []
+symbol | swift.enum.case | NavigationPathMismatchPolicy.replace | NavigationPathMismatchPolicy.replace | case replace | []
+symbol | swift.enum.case | NavigationPathMismatchResolution.batch(_:) | NavigationPathMismatchResolution.batch(_:) | case batch([NavigationCommand<R>]) | []
+symbol | swift.enum.case | NavigationPathMismatchResolution.ignore | NavigationPathMismatchResolution.ignore | case ignore | []
+symbol | swift.enum.case | NavigationPathMismatchResolution.single(_:) | NavigationPathMismatchResolution.single(_:) | case single(NavigationCommand<R>) | []
+symbol | swift.init | AnyFlowIntentDispatcher.init(send:) | init(send:) | @MainActor init(send: @escaping @MainActor (FlowIntent<R>) -> Void) | []
+symbol | swift.init | AnyModalIntentDispatcher.init(send:) | init(send:) | @MainActor init(send: @escaping @MainActor (ModalIntent<M>) -> Void) | []
+symbol | swift.init | AnyNavigationIntentDispatcher.init(send:) | init(send:) | @MainActor init(send: @escaping @MainActor (NavigationIntent<R>) -> Void) | []
+symbol | swift.init | ChildCoordinatorTaskTracker.init() | init() | @MainActor init() | []
+symbol | swift.init | CoordinatorHost.init(coordinator:root:) | init(coordinator:root:) | @MainActor init(coordinator: C, @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | CoordinatorSplitHost.init(coordinator:sidebar:root:) | init(coordinator:sidebar:root:) | @MainActor init(coordinator: C, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | EnvironmentFlowIntent.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
+symbol | swift.init | EnvironmentModalIntent.init(_:) | init(_:) | @MainActor init(_ routeType: M.Type) | []
+symbol | swift.init | EnvironmentNavigationIntent.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
+symbol | swift.init | FlowCoordinatorView.init(coordinator:showProgress:content:) | init(coordinator:showProgress:content:) | @MainActor init(coordinator: C, showProgress: Bool = true, @ViewBuilder content: @escaping (C.Step) -> Content) | []
+symbol | swift.init | FlowHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder destination: @escaping (R) -> Destination, @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init()) | []
+symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:) | init(navigation:modal:onPathChanged:onIntentRejected:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil, onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil) | []
+symbol | swift.init | MiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: MiddlewareMutationEvent<R>.Action, metadata: NavigationMiddlewareMetadata, index: Int?) | []
+symbol | swift.init | ModalHost.init(store:destination:content:) | init(store:destination:content:) | @MainActor init(store: ModalStore<M>, @ViewBuilder destination: @escaping (M) -> Destination, @ViewBuilder content: @escaping () -> Content) | []
+symbol | swift.init | ModalMiddlewareHandle.init() | init() | init() | []
+symbol | swift.init | ModalMiddlewareMetadata.init(handle:debugName:) | init(handle:debugName:) | init(handle: ModalMiddlewareHandle, debugName: String? = nil) | []
+symbol | swift.init | ModalMiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: ModalMiddlewareMutationEvent<M>.Action, metadata: ModalMiddlewareMetadata, index: Int?) | []
+symbol | swift.init | ModalMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyModalMiddleware<M>, debugName: String? = nil) | []
+symbol | swift.init | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | init(currentPresentation:queuedPresentations:configuration:) | @MainActor init(currentPresentation: ModalPresentation<M>? = nil, queuedPresentations: [ModalPresentation<M>] = [], configuration: ModalStoreConfiguration<M> = .init()) | []
+symbol | swift.init | ModalStoreConfiguration.init(logger:middlewares:onPresented:onDismissed:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:) | init(logger:middlewares:onPresented:onDismissed:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:) | init(logger: Logger? = nil, middlewares: [ModalMiddlewareRegistration<M>] = [], onPresented: (@MainActor (ModalPresentation<M>) -> Void)? = nil, onDismissed: (@MainActor (ModalPresentation<M>, ModalDismissalReason) -> Void)? = nil, onQueueChanged: (@MainActor ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? = nil, onMiddlewareMutation: (@MainActor (ModalMiddlewareMutationEvent<M>) -> Void)? = nil, onCommandIntercepted: (@MainActor (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? = nil) | []
+symbol | swift.init | NavigationHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | NavigationMiddlewareHandle.init() | init() | init() | []
+symbol | swift.init | NavigationMiddlewareMetadata.init(handle:debugName:) | init(handle:debugName:) | init(handle: NavigationMiddlewareHandle, debugName: String? = nil) | []
+symbol | swift.init | NavigationMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) | []
+symbol | swift.init | NavigationPathMismatchEvent.init(policy:resolution:oldPath:newPath:) | init(policy:resolution:oldPath:newPath:) | init(policy: NavigationPathMismatchEvent<R>.Policy, resolution: NavigationPathMismatchEvent<R>.Resolution, oldPath: [R], newPath: [R]) | []
+symbol | swift.init | NavigationSplitHost.init(store:sidebar:destination:root:) | init(store:sidebar:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init()) | []
+symbol | swift.init | NavigationStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init()) throws | []
+symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:) | init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:) | init(engine: NavigationEngine<R> = .init(), middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? = nil, onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? = nil, onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? = nil, onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? = nil, onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? = nil) | []
+symbol | swift.init | TabCoordinatorView.init(coordinator:) | init(coordinator:) | @MainActor init(coordinator: C) | []
+symbol | swift.init | ThrottleNavigationMiddleware.init(interval:) | init(interval:) | @MainActor convenience init(interval: Duration) | []
+symbol | swift.init | ThrottleNavigationMiddleware.init(interval:clock:key:) | init(interval:clock:key:) | @MainActor init(interval: Duration, clock: C, key: @escaping @MainActor (NavigationCommand<R>) -> ThrottleNavigationMiddleware<R, C>.Key?) | []
+symbol | swift.init | ThrottleNavigationMiddleware.init(interval:key:) | init(interval:key:) | @MainActor convenience init(interval: Duration, key: @escaping @MainActor (NavigationCommand<R>) -> String?) | []
+symbol | swift.method | AnyFlowIntentDispatcher.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<R>) | []
+symbol | swift.method | AnyModalIntentDispatcher.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
+symbol | swift.method | AnyNavigationIntentDispatcher.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<R>) | []
+symbol | swift.method | ChildCoordinator.parentDidCancel() | parentDidCancel() | @MainActor func parentDidCancel() | []
+symbol | swift.method | ChildCoordinatorTaskTracker.cancelAll() | cancelAll() | @MainActor func cancelAll() | []
+symbol | swift.method | ChildCoordinatorTaskTracker.track(priority:_:) | track(priority:_:) | @discardableResult @MainActor func track(priority: TaskPriority? = nil, _ operation: @escaping @MainActor () async -> Void) -> Task<Void, Never> | []
+symbol | swift.method | Coordinator.destination(for:) | destination(for:) | @ViewBuilder @MainActor func destination(for route: Self.RouteType) -> Self.Destination | []
+symbol | swift.method | Coordinator.handle(_:) | handle(_:) | @MainActor func handle(_ intent: NavigationIntent<Self.RouteType>) | []
+symbol | swift.method | Coordinator.push(child:) | push(child:) | @discardableResult @MainActor func push<Child>(child: Child) -> Task<Child.Result?, Never> where Child : ChildCoordinator | []
+symbol | swift.method | Coordinator.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<Self.RouteType>) | []
+symbol | swift.method | FlowCoordinator.canProceed(from:) | canProceed(from:) | @MainActor func canProceed(from step: Self.Step) -> Bool | []
+symbol | swift.method | FlowCoordinator.complete(with:) | complete(with:) | @MainActor func complete(with result: Self.Result) | []
+symbol | swift.method | FlowCoordinator.jump(to:) | jump(to:) | @MainActor func jump(to step: Self.Step) | []
+symbol | swift.method | FlowCoordinator.next() | next() | @MainActor func next() | []
+symbol | swift.method | FlowCoordinator.previous() | previous() | @MainActor func previous() | []
+symbol | swift.method | FlowCoordinator.reset() | reset() | @MainActor func reset() | []
+symbol | swift.method | FlowIntentDispatching.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<Self.RouteType>) | []
+symbol | swift.method | FlowNavigating.handle(_:) | handle(_:) | @MainActor func handle(_ intent: FlowIntent<Self.RouteType>) | []
+symbol | swift.method | FlowStore.apply(_:) | apply(_:) | @discardableResult @MainActor func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> | []
+symbol | swift.method | FlowStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where R == O.RouteType, O : StoreObserver | []
+symbol | swift.method | FlowStore.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<R>) | []
+symbol | swift.method | ModalIntentDispatching.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<Self.RouteType>) | []
+symbol | swift.method | ModalStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> ModalMiddlewareHandle | []
+symbol | swift.method | ModalStore.binding(case:style:) | binding(case:style:) | @MainActor func binding<Value>(case casePath: CasePath<M, Value>, style: ModalPresentationStyle = .sheet) -> Binding<Value?> | []
+symbol | swift.method | ModalStore.dismissAll() | dismissAll() | @MainActor func dismissAll() | []
+symbol | swift.method | ModalStore.dismissCurrent() | dismissCurrent() | @MainActor func dismissCurrent() | []
+symbol | swift.method | ModalStore.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: ModalCommand<M>) -> ModalExecutionResult<M> | []
+symbol | swift.method | ModalStore.insertMiddleware(_:at:debugName:) | insertMiddleware(_:at:debugName:) | @discardableResult @MainActor func insertMiddleware(_ middleware: AnyModalMiddleware<M>, at index: Int, debugName: String? = nil) -> ModalMiddlewareHandle | []
+symbol | swift.method | ModalStore.moveMiddleware(_:to:) | moveMiddleware(_:to:) | @discardableResult @MainActor func moveMiddleware(_ handle: ModalMiddlewareHandle, to index: Int) -> Bool | []
+symbol | swift.method | ModalStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where M == O.RouteType, O : StoreObserver | []
+symbol | swift.method | ModalStore.present(_:style:) | present(_:style:) | @MainActor func present(_ route: M, style: ModalPresentationStyle) | []
+symbol | swift.method | ModalStore.removeMiddleware(_:) | removeMiddleware(_:) | @discardableResult @MainActor func removeMiddleware(_ handle: ModalMiddlewareHandle) -> AnyModalMiddleware<M>? | []
+symbol | swift.method | ModalStore.replaceCurrent(_:style:) | replaceCurrent(_:style:) | @MainActor func replaceCurrent(_ route: M, style: ModalPresentationStyle) | []
+symbol | swift.method | ModalStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: ModalMiddlewareHandle, with middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> Bool | []
+symbol | swift.method | ModalStore.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
+symbol | swift.method | NavigationIntentDispatching.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<Self.RouteType>) | []
+symbol | swift.method | NavigationStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> NavigationMiddlewareHandle | []
+symbol | swift.method | NavigationStore.binding(case:) | binding(case:) | @MainActor func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> | []
+symbol | swift.method | NavigationStore.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> | []
+symbol | swift.method | NavigationStore.executeBatch(_:stopOnFailure:) | executeBatch(_:stopOnFailure:) | @discardableResult @MainActor func executeBatch(_ commands: [NavigationCommand<R>], stopOnFailure: Bool = false) -> NavigationBatchResult<R> | []
+symbol | swift.method | NavigationStore.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<R>]) -> NavigationTransactionResult<R> | []
+symbol | swift.method | NavigationStore.insertMiddleware(_:at:debugName:) | insertMiddleware(_:at:debugName:) | @discardableResult @MainActor func insertMiddleware(_ middleware: AnyNavigationMiddleware<R>, at index: Int, debugName: String? = nil) -> NavigationMiddlewareHandle | []
+symbol | swift.method | NavigationStore.moveMiddleware(_:to:) | moveMiddleware(_:to:) | @discardableResult @MainActor func moveMiddleware(_ handle: NavigationMiddlewareHandle, to index: Int) -> Bool | []
+symbol | swift.method | NavigationStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where R == O.RouteType, O : StoreObserver | []
+symbol | swift.method | NavigationStore.removeMiddleware(_:) | removeMiddleware(_:) | @discardableResult @MainActor func removeMiddleware(_ handle: NavigationMiddlewareHandle) -> AnyNavigationMiddleware<R>? | []
+symbol | swift.method | NavigationStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: NavigationMiddlewareHandle, with middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> Bool | []
+symbol | swift.method | NavigationStore.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<R>) | []
+symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: FlowEvent<Self.RouteType>) | []
+symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: ModalEvent<Self.RouteType>) | []
+symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: NavigationEvent<Self.RouteType>) | []
+symbol | swift.method | StoreObserverSubscription.cancel() | cancel() | @MainActor func cancel() | []
+symbol | swift.method | TabCoordinator.badge(for:) | badge(for:) | @MainActor func badge(for tab: Self.TabType) -> Int? | []
+symbol | swift.method | TabCoordinator.clearAllBadges() | clearAllBadges() | @MainActor func clearAllBadges() | []
+symbol | swift.method | TabCoordinator.content(for:) | content(for:) | @ViewBuilder @MainActor func content(for tab: Self.TabType) -> Self.TabContent | []
+symbol | swift.method | TabCoordinator.setBadge(_:for:) | setBadge(_:for:) | @MainActor func setBadge(_ count: Int, for tab: Self.TabType) | []
+symbol | swift.method | TabCoordinator.switchTab(to:) | switchTab(to:) | @MainActor func switchTab(to tab: Self.TabType) | []
+symbol | swift.method | ThrottleNavigationMiddleware.didExecute(_:result:state:) | didExecute(_:result:state:) | @MainActor func didExecute(_ command: NavigationCommand<R>, result: NavigationResult<R>, state: RouteStack<R>) -> NavigationResult<R> | []
+symbol | swift.method | ThrottleNavigationMiddleware.willExecute(_:state:) | willExecute(_:state:) | @MainActor func willExecute(_ command: NavigationCommand<R>, state: RouteStack<R>) -> NavigationInterception<R> | []
+symbol | swift.property | ChildCoordinator.onCancel | onCancel | @MainActor var onCancel: (@MainActor () -> Void)? { get set } | []
+symbol | swift.property | ChildCoordinator.onFinish | onFinish | @MainActor var onFinish: (@MainActor (Self.Result) -> Void)? { get set } | []
+symbol | swift.property | ChildCoordinatorTaskTracker.activeCount | activeCount | @MainActor var activeCount: Int { get } | []
+symbol | swift.property | Coordinator.store | store | @MainActor var store: NavigationStore<Self.RouteType> { get } | []
+symbol | swift.property | CoordinatorHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | CoordinatorSplitHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | EnvironmentFlowIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: AnyFlowIntentDispatcher<R> { get } | []
+symbol | swift.property | EnvironmentModalIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: AnyModalIntentDispatcher<M> { get } | []
+symbol | swift.property | EnvironmentNavigationIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: AnyNavigationIntentDispatcher<R> { get } | []
+symbol | swift.property | FlowCoordinator.completedSteps | completedSteps | @MainActor var completedSteps: Set<Self.Step> { get set } | []
+symbol | swift.property | FlowCoordinator.currentStep | currentStep | @MainActor var currentStep: Self.Step { get set } | []
+symbol | swift.property | FlowCoordinator.isAtEnd | isAtEnd | @MainActor var isAtEnd: Bool { get } | []
+symbol | swift.property | FlowCoordinator.isAtStart | isAtStart | @MainActor var isAtStart: Bool { get } | []
+symbol | swift.property | FlowCoordinator.onComplete | onComplete | @MainActor var onComplete: ((Self.Result) -> Void)? { get set } | []
+symbol | swift.property | FlowCoordinator.progress | progress | @MainActor var progress: Double { get } | []
+symbol | swift.property | FlowCoordinator.totalSteps | totalSteps | @MainActor var totalSteps: Int { get } | []
+symbol | swift.property | FlowCoordinatorView.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | FlowEvent.description | description | var description: String { get } | []
+symbol | swift.property | FlowHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | FlowNavigating.flowStore | flowStore | @MainActor var flowStore: FlowStore<Self.RouteType> { get } | []
+symbol | swift.property | FlowStep.index | index | var index: Int { get } | []
+symbol | swift.property | FlowStore.events | events | @MainActor var events: AsyncStream<FlowEvent<R>> { get } | []
+symbol | swift.property | FlowStore.modalStore | modalStore | @MainActor let modalStore: ModalStore<R> | []
+symbol | swift.property | FlowStore.navigationStore | navigationStore | @MainActor let navigationStore: NavigationStore<R> | []
+symbol | swift.property | FlowStore.path | path | @MainActor var path: [RouteStep<R>] { get set } | []
+symbol | swift.property | FlowStoreConfiguration.modal | modal | let modal: ModalStoreConfiguration<R> | []
+symbol | swift.property | FlowStoreConfiguration.navigation | navigation | let navigation: NavigationStoreConfiguration<R> | []
+symbol | swift.property | FlowStoreConfiguration.onIntentRejected | onIntentRejected | let onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? | []
+symbol | swift.property | FlowStoreConfiguration.onPathChanged | onPathChanged | let onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? | []
+symbol | swift.property | MiddlewareMutationEvent.action | action | let action: MiddlewareMutationEvent<R>.Action | []
+symbol | swift.property | MiddlewareMutationEvent.index | index | let index: Int? | []
+symbol | swift.property | MiddlewareMutationEvent.metadata | metadata | let metadata: NavigationMiddlewareMetadata | []
+symbol | swift.property | ModalEvent.description | description | var description: String { get } | []
+symbol | swift.property | ModalHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | ModalMiddlewareMetadata.debugName | debugName | let debugName: String? | []
+symbol | swift.property | ModalMiddlewareMetadata.handle | handle | let handle: ModalMiddlewareHandle | []
+symbol | swift.property | ModalMiddlewareMutationEvent.action | action | let action: ModalMiddlewareMutationEvent<M>.Action | []
+symbol | swift.property | ModalMiddlewareMutationEvent.index | index | let index: Int? | []
+symbol | swift.property | ModalMiddlewareMutationEvent.metadata | metadata | let metadata: ModalMiddlewareMetadata | []
+symbol | swift.property | ModalMiddlewareRegistration.debugName | debugName | let debugName: String? | []
+symbol | swift.property | ModalMiddlewareRegistration.middleware | middleware | let middleware: AnyModalMiddleware<M> | []
+symbol | swift.property | ModalStore.currentPresentation | currentPresentation | @MainActor var currentPresentation: ModalPresentation<M>? { get set } | []
+symbol | swift.property | ModalStore.events | events | @MainActor var events: AsyncStream<ModalEvent<M>> { get } | []
+symbol | swift.property | ModalStore.middlewareHandles | middlewareHandles | @MainActor var middlewareHandles: [ModalMiddlewareHandle] { get } | []
+symbol | swift.property | ModalStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [ModalMiddlewareMetadata] { get } | []
+symbol | swift.property | ModalStore.queuedPresentations | queuedPresentations | @MainActor var queuedPresentations: [ModalPresentation<M>] { get set } | []
+symbol | swift.property | ModalStoreConfiguration.logger | logger | let logger: Logger? | []
+symbol | swift.property | ModalStoreConfiguration.middlewares | middlewares | let middlewares: [ModalMiddlewareRegistration<M>] | []
+symbol | swift.property | ModalStoreConfiguration.onCommandIntercepted | onCommandIntercepted | let onCommandIntercepted: (@MainActor (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.onDismissed | onDismissed | let onDismissed: (@MainActor (ModalPresentation<M>, ModalDismissalReason) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.onMiddlewareMutation | onMiddlewareMutation | let onMiddlewareMutation: (@MainActor (ModalMiddlewareMutationEvent<M>) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.onPresented | onPresented | let onPresented: (@MainActor (ModalPresentation<M>) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.onQueueChanged | onQueueChanged | let onQueueChanged: (@MainActor ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? | []
+symbol | swift.property | NavigationEvent.description | description | var description: String { get } | []
+symbol | swift.property | NavigationHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | NavigationMiddlewareMetadata.debugName | debugName | let debugName: String? | []
+symbol | swift.property | NavigationMiddlewareMetadata.handle | handle | let handle: NavigationMiddlewareHandle | []
+symbol | swift.property | NavigationMiddlewareRegistration.debugName | debugName | let debugName: String? | []
+symbol | swift.property | NavigationMiddlewareRegistration.middleware | middleware | let middleware: AnyNavigationMiddleware<R> | []
+symbol | swift.property | NavigationPathMismatchEvent.newPath | newPath | let newPath: [R] | []
+symbol | swift.property | NavigationPathMismatchEvent.oldPath | oldPath | let oldPath: [R] | []
+symbol | swift.property | NavigationPathMismatchEvent.policy | policy | let policy: NavigationPathMismatchEvent<R>.Policy | []
+symbol | swift.property | NavigationPathMismatchEvent.resolution | resolution | let resolution: NavigationPathMismatchEvent<R>.Resolution | []
+symbol | swift.property | NavigationSplitHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | NavigationStore.events | events | @MainActor var events: AsyncStream<NavigationEvent<R>> { get } | []
+symbol | swift.property | NavigationStore.middlewareHandles | middlewareHandles | @MainActor var middlewareHandles: [NavigationMiddlewareHandle] { get } | []
+symbol | swift.property | NavigationStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [NavigationMiddlewareMetadata] { get } | []
+symbol | swift.property | NavigationStore.pathBinding | pathBinding | @MainActor var pathBinding: Binding<[R]> { get } | []
+symbol | swift.property | NavigationStore.state | state | @MainActor var state: RouteStack<R> { get set } | []
+symbol | swift.property | NavigationStoreConfiguration.engine | engine | let engine: NavigationEngine<R> | []
+symbol | swift.property | NavigationStoreConfiguration.logger | logger | let logger: Logger? | []
+symbol | swift.property | NavigationStoreConfiguration.middlewares | middlewares | let middlewares: [NavigationMiddlewareRegistration<R>] | []
+symbol | swift.property | NavigationStoreConfiguration.onBatchExecuted | onBatchExecuted | let onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.onChange | onChange | let onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.onMiddlewareMutation | onMiddlewareMutation | let onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.onPathMismatch | onPathMismatch | let onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.onTransactionExecuted | onTransactionExecuted | let onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.pathMismatchPolicy | pathMismatchPolicy | let pathMismatchPolicy: NavigationPathMismatchPolicy<R> | []
+symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | let routeStackValidator: RouteStackValidator<R> | []
+symbol | swift.property | Tab.icon | icon | var icon: String { get } | []
+symbol | swift.property | Tab.id | id | var id: Self { get } | []
+symbol | swift.property | Tab.title | title | var title: String { get } | []
+symbol | swift.property | TabCoordinator.selectedTab | selectedTab | @MainActor var selectedTab: Self.TabType { get set } | []
+symbol | swift.property | TabCoordinator.tabBadges | tabBadges | @MainActor var tabBadges: [Self.TabType : Int] { get set } | []
+symbol | swift.property | TabCoordinatorView.body | body | @MainActor var body: some View { get } | []
+symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor protocol ChildCoordinator : AnyObject | []
+symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
+symbol | swift.protocol | FlowCoordinator | FlowCoordinator | @MainActor protocol FlowCoordinator : AnyObject, Observable | []
+symbol | swift.protocol | FlowIntentDispatching | FlowIntentDispatching | @MainActor protocol FlowIntentDispatching : AnyObject | []
+symbol | swift.protocol | FlowNavigating | FlowNavigating | @MainActor protocol FlowNavigating : AnyObject | []
+symbol | swift.protocol | FlowStep | FlowStep | protocol FlowStep : CaseIterable, Hashable, Sendable | []
+symbol | swift.protocol | ModalIntentDispatching | ModalIntentDispatching | @MainActor protocol ModalIntentDispatching : AnyObject | []
+symbol | swift.protocol | NavigationIntentDispatching | NavigationIntentDispatching | @MainActor protocol NavigationIntentDispatching : AnyObject | []
+symbol | swift.protocol | StoreObserver | StoreObserver | @MainActor protocol StoreObserver : AnyObject | []
+symbol | swift.protocol | Tab | Tab | protocol Tab : CaseIterable, Hashable, Identifiable, Sendable | []
+symbol | swift.protocol | TabCoordinator | TabCoordinator | @MainActor protocol TabCoordinator : AnyObject, Observable | []
+symbol | swift.struct | CoordinatorHost | CoordinatorHost | @MainActor struct CoordinatorHost<C, Root> where C : Coordinator, Root : View | []
+symbol | swift.struct | CoordinatorSplitHost | CoordinatorSplitHost | @MainActor struct CoordinatorSplitHost<C, Sidebar, Root> where C : Coordinator, Sidebar : View, Root : View | []
+symbol | swift.struct | EnvironmentFlowIntent | EnvironmentFlowIntent | @MainActor @propertyWrapper struct EnvironmentFlowIntent<R> where R : Route | []
+symbol | swift.struct | EnvironmentModalIntent | EnvironmentModalIntent | @MainActor @propertyWrapper struct EnvironmentModalIntent<M> where M : Route | []
+symbol | swift.struct | EnvironmentNavigationIntent | EnvironmentNavigationIntent | @MainActor @propertyWrapper struct EnvironmentNavigationIntent<R> where R : Route | []
+symbol | swift.struct | FlowCoordinatorView | FlowCoordinatorView | @MainActor struct FlowCoordinatorView<C, Content> where C : FlowCoordinator, Content : View | []
+symbol | swift.struct | FlowHost | FlowHost | @MainActor struct FlowHost<R, Destination, Root> where R : Route, Destination : View, Root : View | []
+symbol | swift.struct | FlowStoreConfiguration | FlowStoreConfiguration | struct FlowStoreConfiguration<R> where R : Route | []
+symbol | swift.struct | MiddlewareMutationEvent | MiddlewareMutationEvent | struct MiddlewareMutationEvent<R> where R : Route | []
+symbol | swift.struct | ModalHost | ModalHost | @MainActor struct ModalHost<M, Destination, Content> where M : Route, Destination : View, Content : View | []
+symbol | swift.struct | ModalMiddlewareHandle | ModalMiddlewareHandle | struct ModalMiddlewareHandle | []
+symbol | swift.struct | ModalMiddlewareMetadata | ModalMiddlewareMetadata | struct ModalMiddlewareMetadata | []
+symbol | swift.struct | ModalMiddlewareMutationEvent | ModalMiddlewareMutationEvent | struct ModalMiddlewareMutationEvent<M> where M : Route | []
+symbol | swift.struct | ModalMiddlewareRegistration | ModalMiddlewareRegistration | struct ModalMiddlewareRegistration<M> where M : Route | []
+symbol | swift.struct | ModalStoreConfiguration | ModalStoreConfiguration | struct ModalStoreConfiguration<M> where M : Route | []
+symbol | swift.struct | NavigationHost | NavigationHost | @MainActor struct NavigationHost<R, DestinationView, Root> where R : Route, DestinationView : View, Root : View | []
+symbol | swift.struct | NavigationMiddlewareHandle | NavigationMiddlewareHandle | struct NavigationMiddlewareHandle | []
+symbol | swift.struct | NavigationMiddlewareMetadata | NavigationMiddlewareMetadata | struct NavigationMiddlewareMetadata | []
+symbol | swift.struct | NavigationMiddlewareRegistration | NavigationMiddlewareRegistration | struct NavigationMiddlewareRegistration<R> where R : Route | []
+symbol | swift.struct | NavigationPathMismatchEvent | NavigationPathMismatchEvent | struct NavigationPathMismatchEvent<R> where R : Route | []
+symbol | swift.struct | NavigationSplitHost | NavigationSplitHost | @MainActor struct NavigationSplitHost<R, Sidebar, DestinationView, Root> where R : Route, Sidebar : View, DestinationView : View, Root : View | []
+symbol | swift.struct | NavigationStoreConfiguration | NavigationStoreConfiguration | struct NavigationStoreConfiguration<R> where R : Route | []
+symbol | swift.struct | TabCoordinatorView | TabCoordinatorView | @MainActor struct TabCoordinatorView<C> where C : TabCoordinator | []
+symbol | swift.type.property | ThrottleNavigationMiddleware.globalKey | globalKey | @MainActor static var globalKey: ThrottleNavigationMiddleware<R, C>.Key { get } | []
+symbol | swift.typealias | AnyFlowIntentDispatcher.RouteType | AnyFlowIntentDispatcher.RouteType | typealias RouteType = R | []
+symbol | swift.typealias | AnyModalIntentDispatcher.RouteType | AnyModalIntentDispatcher.RouteType | typealias RouteType = M | []
+symbol | swift.typealias | AnyNavigationIntentDispatcher.RouteType | AnyNavigationIntentDispatcher.RouteType | typealias RouteType = R | []
+symbol | swift.typealias | FlowStore.RouteType | FlowStore.RouteType | typealias RouteType = R | []
+symbol | swift.typealias | NavigationStore.RouteType | NavigationStore.RouteType | typealias RouteType = R | []
+symbol | swift.typealias | ThrottleNavigationMiddleware.Key | ThrottleNavigationMiddleware.Key | typealias Key = String | []
+symbol | swift.typealias | ThrottleNavigationMiddleware.RouteType | ThrottleNavigationMiddleware.RouteType | typealias RouteType = R | []

@@ -165,5 +165,6 @@ checkout, ...) is supported.
 
 - Read <doc:Tutorial-LoginOnboarding> to see a greenfield flow
   composed with `FlowHost` + `ChildCoordinator`.
-- Read <doc:Tutorial-TestingFlows> for the full host-less test
-  harness story.
+- Read the `Tutorial-TestingFlows` guide in the
+  `InnoRouterTesting` documentation catalog for the full host-less
+  test harness story.
