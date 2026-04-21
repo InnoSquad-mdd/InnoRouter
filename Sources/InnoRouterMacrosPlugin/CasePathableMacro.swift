@@ -34,20 +34,21 @@ public struct CasePathableMacro: MemberMacro {
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         guard let enumDecl = declaration.as(EnumDeclSyntax.self) else {
-            context.diagnose(
-                Diagnostic(
-                    node: node,
-                    message: CasePathableDiagnostic.requiresEnum
-                )
+            emitRequiresEnumDiagnostic(
+                macroName: "CasePathable",
+                node: node,
+                declaration: declaration,
+                context: context
             )
             return []
         }
-        
+
         let cases = enumDecl.memberBlock.members
             .compactMap { $0.decl.as(EnumCaseDeclSyntax.self) }
             .flatMap { $0.elements }
 
         guard !cases.isEmpty else {
+            emitEmptyEnumDiagnostic(macroName: "CasePathable", node: node, context: context)
             return []
         }
 
@@ -135,21 +136,5 @@ public struct CasePathableMacro: MemberMacro {
     }
 }
 
-// MARK: - Diagnostics
-
-enum CasePathableDiagnostic: String, DiagnosticMessage {
-    case requiresEnum
-    
-    var severity: DiagnosticSeverity { .error }
-    
-    var message: String {
-        switch self {
-        case .requiresEnum:
-            return "@CasePathable can only be applied to enum declarations"
-        }
-    }
-    
-    var diagnosticID: MessageID {
-        MessageID(domain: "InnoRouterMacros", id: rawValue)
-    }
-}
+// Diagnostics moved to `MacroDiagnostic.swift` (shared between
+// @Routable and @CasePathable).
