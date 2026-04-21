@@ -125,6 +125,16 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
         pendingDeepLink = nil
     }
 
+    /// Restores a previously persisted pending deep link (for
+    /// example, one decoded at launch via
+    /// `FlowPendingDeepLinkPersistence.decode(_:)`). After calling
+    /// this, `resumePendingDeepLink()` / `resumePendingDeepLinkIfAllowed(_:)`
+    /// re-consult the authentication policy and apply the stored
+    /// plan if permitted.
+    public func restore(pending: FlowPendingDeepLink<R>) {
+        self.pendingDeepLink = pending
+    }
+
     // MARK: - Internals
 
     private func canResume(_ pending: FlowPendingDeepLink<R>) -> Bool {

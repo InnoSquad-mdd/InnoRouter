@@ -25,6 +25,11 @@ public struct FlowPendingDeepLink<R: Route>: Sendable, Equatable {
     }
 }
 
+// MARK: - Codable (opt-in when the underlying route is Codable)
+
+extension FlowPendingDeepLink: Encodable where R: Encodable {}
+extension FlowPendingDeepLink: Decodable where R: Decodable {}
+
 /// Outcome of ``FlowDeepLinkPipeline/decide(for:)``.
 ///
 /// Parallels ``DeepLinkDecision``. Kept as a separate enum so adding
