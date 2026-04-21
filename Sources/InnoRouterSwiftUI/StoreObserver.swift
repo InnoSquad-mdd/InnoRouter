@@ -63,32 +63,20 @@ public final class StoreObserverSubscription {
     }
 }
 
-private final class WeakObserverBox<Observer: AnyObject>: @unchecked Sendable {
-    weak var observer: Observer?
-
-    init(_ observer: Observer) {
-        self.observer = observer
-    }
-}
-
-private struct ObserverStreamBox<Event>: @unchecked Sendable {
-    let stream: AsyncStream<Event>
-}
-
+@MainActor
 private func makeObserverTask<Observer: AnyObject, Event: Sendable>(
     observer: Observer,
     eventsStream: AsyncStream<Event>,
     deliver: @escaping @MainActor @Sendable (Observer, Event) -> Void
 ) -> Task<Void, Never> {
-    let observerBox = WeakObserverBox(observer)
-    let streamBox = ObserverStreamBox(stream: eventsStream)
-    return Task {
-        for await event in streamBox.stream {
-            let shouldContinue = await MainActor.run { () -> Bool in
-                guard let observer = observerBox.observer else { return false }
-                deliver(observer, event)
-                return true
-            }
+    let deliverEvent: @MainActor @Sendable (Event) -> Bool = { [weak observer] event in
+        guard let observer else { return false }
+        deliver(observer, event)
+        return true
+    }
+    return Task { @MainActor in
+        for await event in eventsStream {
+            let shouldContinue = deliverEvent(event)
             if !shouldContinue {
                 return
             }
