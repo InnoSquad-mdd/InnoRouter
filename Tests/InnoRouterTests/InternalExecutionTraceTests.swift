@@ -42,7 +42,7 @@ struct InternalExecutionTraceTests {
 
     @Test("FlowStore traces a root flow span and a correlated inner navigation span")
     @MainActor
-    func flowStoreTraceCorrelation() {
+    func flowStoreTraceCorrelation() throws {
         let records = Mutex<[InternalExecutionTraceRecord]>([])
         let store = FlowStore<PropertyRoute>()
         store.installTraceRecorder { record in
@@ -52,18 +52,12 @@ struct InternalExecutionTraceTests {
         store.send(.push(.home))
 
         let starts = traceStarts(from: records.withLock { $0 })
-        guard let flow = traceStart(domain: .flow, operation: "send", in: starts) else {
-            Issue.record("Expected a flow send trace start, got \(starts)")
-            return
-        }
-        guard let navigation = traceStart(
+        let flow = try #require(traceStart(domain: .flow, operation: "send", in: starts))
+        let navigation = try #require(traceStart(
             domain: .navigation,
             operation: "commitFlowPreview",
             in: starts
-        ) else {
-            Issue.record("Expected a navigation commitFlowPreview trace start, got \(starts)")
-            return
-        }
+        ))
 
         #expect(flow.context.rootID == navigation.context.rootID)
         #expect(navigation.context.parentSpanID == flow.context.spanID)
@@ -71,7 +65,7 @@ struct InternalExecutionTraceTests {
 
     @Test("Deep-link handling correlates deep-link, flow, navigation, and modal spans under one root")
     @MainActor
-    func deepLinkTraceCorrelation() {
+    func deepLinkTraceCorrelation() throws {
         let records = Mutex<[InternalExecutionTraceRecord]>([])
         let store = FlowStore<PropertyRoute>()
         store.installTraceRecorder { record in
@@ -88,30 +82,18 @@ struct InternalExecutionTraceTests {
         _ = handler.handle(PropertyURLCase.homeModalLegal.url)
 
         let starts = traceStarts(from: records.withLock { $0 })
-        guard let deepLink = traceStart(domain: .deepLink, operation: "handle", in: starts) else {
-            Issue.record("Expected a deep-link handle trace start, got \(starts)")
-            return
-        }
-        guard let flow = traceStart(domain: .flow, operation: "applyPlan", in: starts) else {
-            Issue.record("Expected a flow applyPlan trace start, got \(starts)")
-            return
-        }
-        guard let navigation = traceStart(
+        let deepLink = try #require(traceStart(domain: .deepLink, operation: "handle", in: starts))
+        let flow = try #require(traceStart(domain: .flow, operation: "applyPlan", in: starts))
+        let navigation = try #require(traceStart(
             domain: .navigation,
             operation: "commitFlowPreview",
             in: starts
-        ) else {
-            Issue.record("Expected a navigation commitFlowPreview trace start, got \(starts)")
-            return
-        }
-        guard let modal = traceStart(
+        ))
+        let modal = try #require(traceStart(
             domain: .modal,
             operation: "commitFlowPreview",
             in: starts
-        ) else {
-            Issue.record("Expected a modal commitFlowPreview trace start, got \(starts)")
-            return
-        }
+        ))
 
         #expect(deepLink.context.rootID == flow.context.rootID)
         #expect(flow.context.rootID == navigation.context.rootID)

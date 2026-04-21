@@ -6,9 +6,9 @@ Host-less, Swift-Testing native assertion harness for InnoRouter's navigation, m
 
 `InnoRouterTesting` ships three test stores that mirror the production stores' public API and transparently subscribe to every public observation callback:
 
-- ``NavigationTestStore`` — asserts `NavigationStore` events (push/pop/batch/transaction/middleware mutation/path mismatch).
-- ``ModalTestStore`` — asserts `ModalStore` events (present/dismiss/queue/intercept/middleware mutation).
-- ``FlowTestStore`` — asserts `FlowStore` intents end-to-end, including the inner navigation and modal emissions.
+- `NavigationTestStore` — asserts `NavigationStore` events (push/pop/batch/transaction/middleware mutation/path mismatch).
+- `ModalTestStore` — asserts `ModalStore` events (present/dismiss/queue/intercept/middleware mutation).
+- `FlowTestStore` — asserts `FlowStore` intents end-to-end, including the inner navigation and modal emissions.
 
 No `@testable import` is required. The harness uses only public API on `InnoRouterSwiftUI`.
 
@@ -34,7 +34,7 @@ func pushHomeLogsChangeEvent() {
 
 ### Exhaustivity
 
-The default mode is ``TestExhaustivity/strict``: unasserted events at store deinit (or at an explicit `finish()`) are reported as test issues. `TestExhaustivity/off` preserves the `receive(...)` assertions but silences the final drain check — useful when incrementally migrating large legacy suites.
+The default mode is `TestExhaustivity.strict`: unasserted events at store deinit (or at an explicit `finish()`) are reported as test issues. `TestExhaustivity.off` preserves the `receive(...)` assertions but silences the final drain check — useful when incrementally migrating large legacy suites.
 
 ### User callbacks are preserved
 
@@ -42,7 +42,7 @@ When you pass a production `NavigationStoreConfiguration`, `ModalStoreConfigurat
 
 ### End-to-end flow assertions
 
-``FlowTestStore`` subscribes to the inner `NavigationStore` and `ModalStore`'s full observation surface and wraps those emissions into `.navigation(...)` / `.modal(...)` events on a single queue. This lets a test assert the complete chain triggered by one `FlowIntent` — for instance, that a sheet-blocking middleware prevents the inner navigation store from seeing any command:
+`FlowTestStore` subscribes to the inner `NavigationStore` and `ModalStore`'s full observation surface and wraps those emissions into `.navigation(...)` / `.modal(...)` events on a single queue. This lets a test assert the complete chain triggered by one `FlowIntent` — for instance, that a sheet-blocking middleware prevents the inner navigation store from seeing any command:
 
 ```swift
 let store = FlowTestStore<AppRoute>()
@@ -62,19 +62,3 @@ store.expectNoMoreEvents()
 ### Tutorials
 
 - <doc:Tutorial-TestingFlows>
-
-### Test stores
-
-- ``NavigationTestStore``
-- ``ModalTestStore``
-- ``FlowTestStore``
-
-### Events
-
-- ``NavigationTestEvent``
-- ``ModalTestEvent``
-- ``FlowTestEvent``
-
-### Configuration
-
-- ``TestExhaustivity``

@@ -271,7 +271,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 span=\(context.spanID, privacy: .public) \
                 parent=\(context.parentSpanID ?? "nil", privacy: .public) \
                 operation=\(operation, privacy: .public) \
-                metadata=\(metadataSummary, privacy: .public)
+                metadata=\(metadataSummary, privacy: .private)
                 """
             )
 
@@ -283,7 +283,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 span=\(context.spanID, privacy: .public) \
                 parent=\(context.parentSpanID ?? "nil", privacy: .public) \
                 operation=\(operation, privacy: .public) \
-                outcome=\(outcome, privacy: .public)
+                outcome=\(outcome, privacy: .private)
                 """
             )
         }

@@ -188,6 +188,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
+exec 3>&1 4>&2
 exec > >(tee "$build_log") 2>&1
 
 echo "[build-docc-site] Preparing output directory: $OUTPUT_DIR"
@@ -274,12 +275,24 @@ build_module_archive() {
   local display_name="$5"
   local hosting_base_path="$6"
   local module_symbols_dir="$7"
+  local additional_symbol_graph_args=()
+  local duplicate_path="$temp_root/symbol-graphs/$target"
+  local index=0
 
   rm -rf "$output"
 
+  for ((index = 0; index < ${#all_symbol_graph_args[@]}; index += 2)); do
+    local flag="${all_symbol_graph_args[index]}"
+    local path="${all_symbol_graph_args[index + 1]}"
+    if [[ "$path" == "$duplicate_path" ]]; then
+      continue
+    fi
+    additional_symbol_graph_args+=("$flag" "$path")
+  done
+
   "$docc_bin" convert "$ROOT_DIR/$catalog" \
     --additional-symbol-graph-dir "$module_symbols_dir" \
-    "${all_symbol_graph_args[@]}" \
+    "${additional_symbol_graph_args[@]}" \
     --output-dir "$output" \
     --fallback-display-name "$display_name" \
     --fallback-bundle-identifier "$bundle_id" \
@@ -476,9 +489,10 @@ render_version_portal "$OUTPUT_DIR/latest" "InnoRouter latest"
 render_root_portal "$OUTPUT_DIR/index.html"
 touch "$OUTPUT_DIR/.nojekyll"
 
-if grep -n "warning:" "$build_log" >/dev/null 2>&1; then
-  echo "[build-docc-site] Failed: build emitted warnings"
-  grep -n "warning:" "$build_log"
+warning_output="$(grep -n "warning:" "$build_log" || true)"
+if [[ -n "$warning_output" ]]; then
+  echo "[build-docc-site] Failed: build emitted warnings" >&4
+  printf '%s\n' "$warning_output" >&4
   exit 1
 fi
 

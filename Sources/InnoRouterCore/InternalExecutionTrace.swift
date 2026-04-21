@@ -1,20 +1,36 @@
 import Foundation
 
+/// Logical execution domains used to correlate nested InnoRouter operations.
 @_spi(InternalTrace)
 public enum InternalExecutionTraceDomain: String, Sendable, Equatable {
+    /// Spans emitted by `NavigationStore` command execution and preview commit.
     case navigation
+    /// Spans emitted by `ModalStore` preview commit and modal execution.
     case modal
+    /// Spans emitted by `FlowStore` intent dispatch and plan application.
     case flow
+    /// Spans emitted by deep-link pipeline handlers and pending-link replay.
     case deepLink
 }
 
+/// Context carried by each trace record for a single execution span.
+///
+/// `rootID` is created once for the outermost span in a task-local chain and
+/// reused by every nested span. `spanID` is unique per `withSpan` invocation.
+/// `parentSpanID` is the caller's active span when nesting occurs, or `nil`
+/// for the root span.
 @_spi(InternalTrace)
 public struct InternalExecutionTraceContext: Sendable, Equatable {
+    /// Stable identifier shared by every span in the same traced operation tree.
     public let rootID: String
+    /// Identifier unique to this specific span.
     public let spanID: String
+    /// Parent span identifier when this span is nested inside another span.
     public let parentSpanID: String?
+    /// Domain that emitted the span.
     public let domain: InternalExecutionTraceDomain
 
+    /// Creates an explicit execution-trace context.
     public init(
         rootID: String,
         spanID: String,
@@ -28,13 +44,16 @@ public struct InternalExecutionTraceContext: Sendable, Equatable {
     }
 }
 
+/// Trace events emitted around the lifetime of a span.
 @_spi(InternalTrace)
 public enum InternalExecutionTraceRecord: Sendable, Equatable {
+    /// Emitted immediately before entering the traced body.
     case start(
         context: InternalExecutionTraceContext,
         operation: String,
         metadata: [String: String]
     )
+    /// Emitted immediately after the traced body finishes and its outcome string is computed.
     case finish(
         context: InternalExecutionTraceContext,
         operation: String,
@@ -42,15 +61,25 @@ public enum InternalExecutionTraceRecord: Sendable, Equatable {
     )
 }
 
+/// Main-actor recorder invoked for `start`/`finish` records around a span.
 @_spi(InternalTrace)
 public typealias InternalExecutionTraceRecorder =
     @MainActor @Sendable (InternalExecutionTraceRecord) -> Void
 
+/// Internal tracing helpers shared by stores and effect handlers.
 @_spi(InternalTrace)
 public enum InternalExecutionTrace {
+    /// Task-local root span identifier inherited by nested spans in the same task.
     @TaskLocal public static var currentRootID: String?
+    /// Task-local active span identifier inherited by nested spans in the same task.
     @TaskLocal public static var currentSpanID: String?
 
+    /// Runs a synchronous body inside a traced span on the main actor.
+    ///
+    /// Use this overload for non-async execution paths. The `outcome` closure is
+    /// evaluated inside the span after `body` returns, and the recorder receives
+    /// `.start` before execution and `.finish` after execution while task-local
+    /// root/span identifiers are active for nested calls.
     @MainActor
     public static func withSpan<T>(
         domain: InternalExecutionTraceDomain,
@@ -80,6 +109,12 @@ public enum InternalExecutionTrace {
         }
     }
 
+    /// Runs an asynchronous body inside a traced span on the main actor.
+    ///
+    /// Use this overload for async execution paths that must preserve root/span
+    /// correlation across suspension points. The task-local identifiers are set
+    /// for the duration of `body`, and `outcome` is evaluated before `.finish`
+    /// is emitted.
     @MainActor
     public static func withSpan<T>(
         domain: InternalExecutionTraceDomain,

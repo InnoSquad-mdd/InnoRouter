@@ -11,6 +11,12 @@ check_absent() {
   local pattern="$2"
   local message="$3"
 
+  if [[ ! -f "$file_path" ]]; then
+    echo "[check-docs-consistency] Failed: required file not found: $file_path" >&2
+    failures=1
+    return
+  fi
+
   if grep -Fn "$pattern" "$file_path" >/dev/null 2>&1; then
     echo "[check-docs-consistency] Failed: $message" >&2
     grep -Fn "$pattern" "$file_path" >&2

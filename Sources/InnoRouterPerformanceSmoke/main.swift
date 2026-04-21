@@ -55,18 +55,19 @@ private func makeRoutes(_ count: Int) -> [SmokeRoute] {
 @MainActor
 private func measureNavigationReplace(routeCount: Int) -> Double {
     let routes = makeRoutes(routeCount)
+    let store = NavigationStore<SmokeRoute>()
     return measureMilliseconds {
-        let store = NavigationStore<SmokeRoute>()
         _ = store.execute(.replace(routes))
         _ = store.execute(.popToRoot)
+        _ = store.execute(.replace([]))
     }
 }
 
 @MainActor
 private func measureModalQueue(queueCount: Int) -> Double {
     let routes = makeRoutes(queueCount)
+    let store = ModalStore<SmokeRoute>()
     return measureMilliseconds {
-        let store = ModalStore<SmokeRoute>()
         for route in routes {
             store.present(route, style: .sheet)
         }
@@ -95,16 +96,17 @@ private func makeNavigationMiddlewares(_ count: Int) -> [NavigationMiddlewareReg
 
 @MainActor
 private func measureMiddlewareChain(chainCount: Int) -> Double {
-    return measureMilliseconds {
-        let store = NavigationStore<SmokeRoute>(
-            configuration: NavigationStoreConfiguration(
-                middlewares: makeNavigationMiddlewares(chainCount)
-            )
+    let store = NavigationStore<SmokeRoute>(
+        configuration: NavigationStoreConfiguration(
+            middlewares: makeNavigationMiddlewares(chainCount)
         )
+    )
+    return measureMilliseconds {
         for index in 0..<200 {
             _ = store.execute(.replace([]))
             _ = store.execute(.push(SmokeRoute(id: index)))
         }
+        _ = store.execute(.replace([]))
     }
 }
 
@@ -132,6 +134,8 @@ private func measureDeepLinkPipeline(mappingCount: Int) -> Double {
     )
     let url = URL(string: "myapp://app/perf/\(mappingCount - 1)")!
 
+    // Keep setup out of the timed block so this measurement reflects repeated
+    // deep-link handling hot-path cost, matching the other smoke scenarios.
     return measureMilliseconds {
         for _ in 0..<200 {
             _ = handler.handle(url)
