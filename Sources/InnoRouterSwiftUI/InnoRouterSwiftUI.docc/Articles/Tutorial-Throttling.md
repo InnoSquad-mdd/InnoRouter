@@ -32,8 +32,9 @@ let store = NavigationStore<AppRoute>(
 
 The default initializer uses `ContinuousClock` and groups all
 commands under a single global window. Within 300 ms of a previous
-accepted command, the next one is cancelled with
-`.cancelled(.middleware(debugName: "throttle", command: …))`.
+successfully executed command, the next one is cancelled. If the
+middleware is registered with `debugName: "throttle"`, the surfaced
+reason becomes `.cancelled(.middleware(debugName: "throttle", command: …))`.
 
 ## Per-command keys
 

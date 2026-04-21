@@ -63,6 +63,39 @@ public final class StoreObserverSubscription {
     }
 }
 
+private final class WeakObserverBox<Observer: AnyObject>: @unchecked Sendable {
+    weak var observer: Observer?
+
+    init(_ observer: Observer) {
+        self.observer = observer
+    }
+}
+
+private struct ObserverStreamBox<Event>: @unchecked Sendable {
+    let stream: AsyncStream<Event>
+}
+
+private func makeObserverTask<Observer: AnyObject, Event: Sendable>(
+    observer: Observer,
+    eventsStream: AsyncStream<Event>,
+    deliver: @escaping @MainActor @Sendable (Observer, Event) -> Void
+) -> Task<Void, Never> {
+    let observerBox = WeakObserverBox(observer)
+    let streamBox = ObserverStreamBox(stream: eventsStream)
+    return Task {
+        for await event in streamBox.stream {
+            let shouldContinue = await MainActor.run { () -> Bool in
+                guard let observer = observerBox.observer else { return false }
+                deliver(observer, event)
+                return true
+            }
+            if !shouldContinue {
+                return
+            }
+        }
+    }
+}
+
 public extension NavigationStore {
     /// Subscribes `observer` to this store's `events` stream. The
     /// observer's `handle(_: NavigationEvent<R>)` is invoked for
@@ -71,13 +104,13 @@ public extension NavigationStore {
     @discardableResult
     func observe<O: StoreObserver>(_ observer: O) -> StoreObserverSubscription
     where O.RouteType == R {
-        let eventsStream = events
-        let task = Task { [weak observer] in
-            for await event in eventsStream {
-                guard let observer else { return }
+        let task = makeObserverTask(
+            observer: observer,
+            eventsStream: events,
+            deliver: { observer, event in
                 observer.handle(event)
             }
-        }
+        )
         return StoreObserverSubscription(task: task)
     }
 }
@@ -89,13 +122,13 @@ public extension ModalStore {
     @discardableResult
     func observe<O: StoreObserver>(_ observer: O) -> StoreObserverSubscription
     where O.RouteType == M {
-        let eventsStream = events
-        let task = Task { [weak observer] in
-            for await event in eventsStream {
-                guard let observer else { return }
+        let task = makeObserverTask(
+            observer: observer,
+            eventsStream: events,
+            deliver: { observer, event in
                 observer.handle(event)
             }
-        }
+        )
         return StoreObserverSubscription(task: task)
     }
 }
@@ -108,10 +141,10 @@ public extension FlowStore {
     @discardableResult
     func observe<O: StoreObserver>(_ observer: O) -> StoreObserverSubscription
     where O.RouteType == R {
-        let eventsStream = events
-        let task = Task { [weak observer] in
-            for await event in eventsStream {
-                guard let observer else { return }
+        let task = makeObserverTask(
+            observer: observer,
+            eventsStream: events,
+            deliver: { observer, event in
                 switch event {
                 case .navigation(let navEvent):
                     observer.handle(navEvent)
@@ -121,7 +154,7 @@ public extension FlowStore {
                     observer.handle(event)
                 }
             }
-        }
+        )
         return StoreObserverSubscription(task: task)
     }
 }

@@ -10,12 +10,13 @@ import InnoRouterCore
 /// "dedupe rapid taps" UX patterns without asking every call site to
 /// track timestamps manually.
 ///
-/// Throttle decisions are purely synchronous — the middleware stamps
-/// the last-accept time for a key and compares against the current
-/// `Clock.Instant` on the next call. That keeps the middleware
-/// concurrency-free and lets `NavigationEngine` stay `Clock`-free.
-/// (`.debounce` semantics — "wait, then dispatch the latest" — require
-/// a timer + cancellable `Task` and are intentionally deferred.)
+/// Throttle decisions are synchronous at interception time, but the
+/// last-accept timestamp is only committed after a successful
+/// execution. That keeps the middleware concurrency-free and lets
+/// `NavigationEngine` stay `Clock`-free while still matching the
+/// documented "previously accepted command" semantics. (`.debounce`
+/// semantics — "wait, then dispatch the latest" — require a timer +
+/// cancellable `Task` and are intentionally deferred.)
 ///
 /// The middleware is generic over `Clock`, so tests can inject a
 /// deterministic clock:
@@ -54,11 +55,19 @@ public final class ThrottleNavigationMiddleware<
     private let clock: C
     private let keyFor: @MainActor @Sendable (NavigationCommand<R>) -> Key?
     private var lastAccept: [Key: C.Instant] = [:]
+    private var pendingAttempts: [PendingAttempt] = []
+
+    private enum PendingAttempt {
+        case bypass
+        case rejected
+        case candidate(key: Key, acceptedAt: C.Instant)
+    }
 
     /// - Parameters:
     ///   - interval: Minimum time between two commands that share the
     ///     same key. Commands within `interval` of the last accept
-    ///     get cancelled with `.middleware(debugName: "throttle")`.
+    ///     get cancelled with `.middleware(debugName: nil, command: ...)`,
+    ///     letting the registry fill in the registered debug name.
     ///   - clock: Clock used to query `now`. Defaults to
     ///     `ContinuousClock`; tests can inject a synthetic clock.
     ///   - key: Maps a command to the throttle key. Default groups
@@ -80,16 +89,18 @@ public final class ThrottleNavigationMiddleware<
         state: RouteStack<R>
     ) -> NavigationInterception<R> {
         guard let key = keyFor(command) else {
+            pendingAttempts.append(.bypass)
             return .proceed(command)
         }
         let now = clock.now
         if let last = lastAccept[key] {
             let elapsed = last.duration(to: now)
             if elapsed < interval {
-                return .cancel(.middleware(debugName: "throttle", command: command))
+                pendingAttempts.append(.rejected)
+                return .cancel(.middleware(debugName: nil, command: command))
             }
         }
-        lastAccept[key] = now
+        pendingAttempts.append(.candidate(key: key, acceptedAt: now))
         return .proceed(command)
     }
 
@@ -98,7 +109,14 @@ public final class ThrottleNavigationMiddleware<
         result: NavigationResult<R>,
         state: RouteStack<R>
     ) -> NavigationResult<R> {
-        result
+        guard let pending = pendingAttempts.popLast() else {
+            return result
+        }
+
+        if case .candidate(let key, let acceptedAt) = pending, result.isSuccess {
+            lastAccept[key] = acceptedAt
+        }
+        return result
     }
 }
 

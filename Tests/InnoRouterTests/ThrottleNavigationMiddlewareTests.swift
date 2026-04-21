@@ -164,4 +164,93 @@ struct ThrottleNavigationMiddlewareTests {
 
         #expect(store.state.path == [.home, .detail, .settings])
     }
+
+    @Test("Engine failure does not arm the throttle window")
+    @MainActor
+    func engineFailureDoesNotArmWindow() {
+        let clock = TestClock()
+        let throttle = ThrottleNavigationMiddleware<ThrottleRoute, TestClock>(
+            interval: .milliseconds(300),
+            clock: clock,
+            key: { _ in "all" }
+        )
+        let store = NavigationStore<ThrottleRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [.init(middleware: AnyNavigationMiddleware(throttle), debugName: "throttle")]
+            )
+        )
+
+        let failure = store.execute(.pop)
+        clock.advance(by: .milliseconds(50))
+        let success = store.execute(.push(.home))
+
+        #expect(failure == .emptyStack)
+        #expect(success.isSuccess)
+        #expect(store.state.path == [.home])
+    }
+
+    @Test("Later middleware cancellation does not arm the throttle window")
+    @MainActor
+    func laterMiddlewareCancellationDoesNotArmWindow() {
+        let clock = TestClock()
+        let throttle = ThrottleNavigationMiddleware<ThrottleRoute, TestClock>(
+            interval: .milliseconds(300),
+            clock: clock,
+            key: { _ in "all" }
+        )
+        let gate = AnyNavigationMiddleware<ThrottleRoute>(
+            willExecute: { command, _ in
+                if case .push(.home) = command {
+                    return .cancel(.middleware(debugName: nil, command: command))
+                }
+                return .proceed(command)
+            }
+        )
+        let store = NavigationStore<ThrottleRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [
+                    .init(middleware: AnyNavigationMiddleware(throttle), debugName: "throttle"),
+                    .init(middleware: gate, debugName: "gate")
+                ]
+            )
+        )
+
+        let first = store.execute(.push(.home))
+        clock.advance(by: .milliseconds(50))
+        let second = store.execute(.push(.detail))
+
+        if case .cancelled(.middleware(let debugName, _)) = first {
+            #expect(debugName == "gate")
+        } else {
+            Issue.record("Expected first command to be cancelled by gate, got \(first)")
+        }
+        #expect(second.isSuccess)
+        #expect(store.state.path == [.detail])
+    }
+
+    @Test("Throttle cancellation uses the registered debug name")
+    @MainActor
+    func registeredDebugNameSurfacesInCancellationReason() {
+        let clock = TestClock()
+        let throttle = ThrottleNavigationMiddleware<ThrottleRoute, TestClock>(
+            interval: .milliseconds(300),
+            clock: clock,
+            key: { _ in "all" }
+        )
+        let store = NavigationStore<ThrottleRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [.init(middleware: AnyNavigationMiddleware(throttle), debugName: "nav-throttle")]
+            )
+        )
+
+        _ = store.execute(.push(.home))
+        clock.advance(by: .milliseconds(50))
+        let result = store.execute(.push(.detail))
+
+        if case .cancelled(.middleware(let debugName, _)) = result {
+            #expect(debugName == "nav-throttle")
+        } else {
+            Issue.record("Expected .cancelled(.middleware), got \(result)")
+        }
+    }
 }

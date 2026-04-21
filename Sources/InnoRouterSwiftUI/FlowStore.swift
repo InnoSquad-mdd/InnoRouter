@@ -371,7 +371,9 @@ public final class FlowStore<R: Route> {
     /// Dismisses any active modal tail and then runs `inner`. If
     /// the dismiss is cancelled by middleware, the outer intent is
     /// rejected and `inner` does NOT run. If no modal is active,
-    /// `inner` runs directly.
+    /// `inner` runs directly. Promoting a queued modal does not count
+    /// as a successful dismissal for these intents; they only proceed
+    /// once the modal tail is fully gone.
     private func dispatchDismissingModal(
         intent: FlowIntent<R>,
         inner: () -> Void
@@ -380,12 +382,8 @@ public final class FlowStore<R: Route> {
             inner()
             return
         }
-        let presentationBefore = modalStore.currentPresentation
         dispatchDismiss(intent: intent)
-        // If dismiss was cancelled by middleware, `modalStore`'s
-        // current presentation is unchanged — that's our signal
-        // that dismissal failed, so we don't run `inner`.
-        if modalStore.currentPresentation == presentationBefore {
+        if modalStore.currentPresentation != nil {
             return
         }
         inner()

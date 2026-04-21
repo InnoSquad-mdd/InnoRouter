@@ -13,6 +13,7 @@ private enum MARoute: Route {
     case detail
     case settings
     case sheet
+    case queuedSheet
 }
 
 @Suite("FlowIntent Modal-Aware Variant Tests")
@@ -81,5 +82,34 @@ struct FlowIntentModalAwareVariantsTests {
         // Modal dismissed; stack unchanged because .home already present.
         #expect(store.modalStore.currentPresentation == nil)
         #expect(store.navigationStore.state.path == [.home])
+    }
+
+    @Test(".backOrPushDismissingModal stops when a queued modal is promoted")
+    @MainActor
+    func backOrPushDismissingQueuedModalPromotion() {
+        let store = FlowStore<MARoute>()
+        store.send(.push(.home))
+        store.send(.presentSheet(.sheet))
+        store.send(.presentSheet(.queuedSheet))
+
+        store.send(.backOrPushDismissingModal(.detail))
+
+        #expect(store.modalStore.currentPresentation?.route == .queuedSheet)
+        #expect(store.modalStore.queuedPresentations.isEmpty)
+        #expect(store.navigationStore.state.path == [.home])
+    }
+
+    @Test(".pushUniqueRootDismissingModal stops when a queued modal is promoted")
+    @MainActor
+    func pushUniqueRootDismissingQueuedModalPromotion() {
+        let store = FlowStore<MARoute>()
+        store.send(.presentSheet(.sheet))
+        store.send(.presentSheet(.queuedSheet))
+
+        store.send(.pushUniqueRootDismissingModal(.home))
+
+        #expect(store.modalStore.currentPresentation?.route == .queuedSheet)
+        #expect(store.modalStore.queuedPresentations.isEmpty)
+        #expect(store.navigationStore.state.path.isEmpty)
     }
 }

@@ -572,9 +572,14 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             let primaryOutcome = executeSingle(
                 primary,
                 state: &currentState,
-                shouldNotifyOnChange: shouldNotifyOnChange
+                shouldNotifyOnChange: false
             )
             if primaryOutcome.result.isSuccess {
+                emitChangeIfNeeded(
+                    from: snapshot,
+                    to: currentState,
+                    shouldNotifyOnChange: shouldNotifyOnChange
+                )
                 return ExecutionOutcome(
                     requestedCommand: command,
                     executedCommands: primaryOutcome.executedCommands,
@@ -585,6 +590,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             let fallbackOutcome = executeSingle(
                 fallback,
                 state: &currentState,
+                shouldNotifyOnChange: false
+            )
+            emitChangeIfNeeded(
+                from: snapshot,
+                to: currentState,
                 shouldNotifyOnChange: shouldNotifyOnChange
             )
             return ExecutionOutcome(
@@ -642,10 +652,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             participantCount: participantCount
         )
 
-        if shouldNotifyOnChange, currentState != stateBefore {
-            onChange?(stateBefore, currentState)
-            broadcaster.broadcast(.changed(from: stateBefore, to: currentState))
-        }
+        emitChangeIfNeeded(
+            from: stateBefore,
+            to: currentState,
+            shouldNotifyOnChange: shouldNotifyOnChange
+        )
         return ExecutionOutcome(
             requestedCommand: requestedCommand,
             executedCommands: executedCommands,
@@ -681,6 +692,27 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 executedCommands: executedCommands,
                 result: .multiple(outcomes.map(\.result)),
                 node: .sequence(outcomes)
+            )
+
+        case .whenCancelled(let primary, let fallback):
+            let snapshot = currentState
+            let primaryOutcome = executeTransactionCommand(primary, state: &currentState)
+            if primaryOutcome.result.isSuccess {
+                return TransactionOutcome(
+                    requestedCommand: command,
+                    executedCommands: primaryOutcome.executedCommands,
+                    result: primaryOutcome.result,
+                    node: primaryOutcome.node
+                )
+            }
+
+            currentState = snapshot
+            let fallbackOutcome = executeTransactionCommand(fallback, state: &currentState)
+            return TransactionOutcome(
+                requestedCommand: command,
+                executedCommands: fallbackOutcome.executedCommands,
+                result: fallbackOutcome.result,
+                node: fallbackOutcome.node
             )
 
         default:
@@ -756,6 +788,17 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         )
         return resolution
     }
+
+    private func emitChangeIfNeeded(
+        from oldState: RouteStack<R>,
+        to newState: RouteStack<R>,
+        shouldNotifyOnChange: Bool
+    ) {
+        guard shouldNotifyOnChange, newState != oldState else { return }
+        onChange?(oldState, newState)
+        broadcaster.broadcast(.changed(from: oldState, to: newState))
+    }
+
     private static var defaultPathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void {
         { oldPath, newPath in
             assertionFailure(
