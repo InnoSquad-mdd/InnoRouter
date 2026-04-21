@@ -1,5 +1,4 @@
 import Foundation
-import Darwin
 import InnoRouter
 import InnoRouterDeepLinkEffects
 
@@ -25,6 +24,7 @@ private struct SmokeReport: Codable {
 }
 
 private let clock = ContinuousClock()
+private let measurementRetryLimit = 5
 
 @MainActor
 private func measureMilliseconds(
@@ -143,6 +143,28 @@ private func measureDeepLinkPipeline(mappingCount: Int) -> Double {
     }
 }
 
+private func averagedMeasurement(
+    input: Int,
+    requireNonZero: Bool = false,
+    retryLimit: Int = measurementRetryLimit,
+    measure: (Int) -> Double
+) -> Double? {
+    var samples: [Double] = []
+
+    for _ in 0..<retryLimit {
+        let value = measure(input)
+        if !requireNonZero || value > 0 {
+            samples.append(value)
+        }
+    }
+
+    guard !samples.isEmpty else {
+        return nil
+    }
+
+    return samples.reduce(0, +) / Double(samples.count)
+}
+
 private func makeSample(
     name: String,
     smallInput: Int,
@@ -150,9 +172,16 @@ private func makeSample(
     threshold: Double,
     measure: (Int) -> Double
 ) -> SmokeSample {
-    let small = measure(smallInput)
-    let large = measure(largeInput)
-    let ratio = small == 0 ? 0 : large / small
+    let small = averagedMeasurement(
+        input: smallInput,
+        requireNonZero: true,
+        measure: measure
+    ) ?? 0
+    let large = averagedMeasurement(
+        input: largeInput,
+        measure: measure
+    ) ?? 0
+    let ratio = small > 0 ? large / small : .infinity
     return SmokeSample(
         name: name,
         smallInput: smallInput,
@@ -161,7 +190,7 @@ private func makeSample(
         largeMilliseconds: large,
         ratio: ratio,
         threshold: threshold,
-        passed: ratio <= threshold
+        passed: small > 0 && ratio <= threshold
     )
 }
 
@@ -194,6 +223,11 @@ private func writeReport(_ report: SmokeReport, to path: String?) throws {
     )
     let data = try JSONEncoder.prettyPrinted.encode(report)
     try data.write(to: outputURL)
+}
+
+private func fail(_ message: String) -> Never {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+    exit(1)
 }
 
 private extension JSONEncoder {
@@ -248,12 +282,10 @@ enum InnoRouterPerformanceSmokeMain {
         do {
             try writeReport(report, to: outputPath())
             if !report.passed {
-                fputs("Performance smoke detected a gross regression.\n", stderr)
-                Darwin.exit(1)
+                fail("Performance smoke detected a gross regression.")
             }
         } catch {
-            fputs("Failed to write performance smoke report: \(error)\n", stderr)
-            Darwin.exit(1)
+            fail("Failed to write performance smoke report: \(error)")
         }
     }
 }

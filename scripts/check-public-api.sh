@@ -58,6 +58,8 @@ trap cleanup EXIT
 products_file="$temp_root/products.tsv"
 
 python3 - <<'PY' >"$products_file"
+from __future__ import annotations
+
 import json
 import subprocess
 import sys
@@ -84,6 +86,8 @@ check_sendable_contracts() {
   local root="$1"
 
   python3 - "$root" <<'PY'
+from __future__ import annotations
+
 import pathlib
 import sys
 
@@ -213,8 +217,17 @@ fi
 [[ -d "$module_cache_dir" ]] || { echo "[check-public-api] Missing module cache directory: $module_cache_dir" >&2; exit 1; }
 [[ -n "$sdk_path" ]] || { echo "[check-public-api] Failed to locate SDK path" >&2; exit 1; }
 
-target_triple="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["target"]["triple"])')"
-resource_dir="$(swift -print-target-info | python3 -c 'import json, sys; print(json.load(sys.stdin)["paths"]["runtimeResourcePath"])')"
+readarray -t target_info_parts < <(
+  swift -print-target-info | python3 -c '
+import json, sys
+
+info = json.load(sys.stdin)
+print(info["target"]["triple"])
+print(info["paths"]["runtimeResourcePath"])
+'
+)
+target_triple="${target_info_parts[0]:-}"
+resource_dir="${target_info_parts[1]:-}"
 toolchain_bin_dir="$(cd "$(dirname "$(dirname "$resource_dir")")/bin" && pwd -P)"
 swift_symbolgraph_extract_bin="$toolchain_bin_dir/swift-symbolgraph-extract"
 
@@ -230,6 +243,8 @@ normalize_symbol_graph() {
   local repo_root="$4"
 
   python3 - "$product_name" "$raw_dir" "$output_path" "$repo_root" <<'PY'
+from __future__ import annotations
+
 import json
 import pathlib
 import re
@@ -272,7 +287,24 @@ def repo_source_path(symbol: dict) -> pathlib.Path | None:
         return None
     return path
 
-for symbol_graph_path in sorted(pathlib.Path(raw_dir).glob("*.symbols.json")):
+symbol_graph_paths = sorted(pathlib.Path(raw_dir).glob("*.symbols.json"))
+
+for symbol_graph_path in symbol_graph_paths:
+    document = json.loads(symbol_graph_path.read_text())
+    for symbol in document.get("symbols", []):
+        if repo_source_path(symbol) is None:
+            continue
+
+        precise = symbol.get("identifier", {}).get("precise", "")
+        if not precise:
+            continue
+
+        path_components = symbol.get("pathComponents") or []
+        path = ".".join(path_components) if path_components else symbol.get("names", {}).get("title", "")
+        title = symbol.get("names", {}).get("title", "")
+        kept_symbols[precise] = path or title
+
+for symbol_graph_path in symbol_graph_paths:
     document = json.loads(symbol_graph_path.read_text())
     for symbol in document.get("symbols", []):
         if repo_source_path(symbol) is None:
@@ -291,9 +323,6 @@ for symbol_graph_path in sorted(pathlib.Path(raw_dir).glob("*.symbols.json")):
             json.dumps(symbol.get("availability", []), sort_keys=True, separators=(",", ":"))
         )
         rows.add(("symbol", kind, path, title, declaration, availability))
-
-        if precise:
-            kept_symbols[precise] = path or title
 
     for relationship in document.get("relationships", []):
         source = relationship.get("source", "")
