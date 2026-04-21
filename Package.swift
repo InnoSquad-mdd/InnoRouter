@@ -278,7 +278,8 @@ let package = Package(
         // MARK: - Tests
         .testTarget(
             name: "InnoRouterTests",
-            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSwiftUI"]
+            dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSwiftUI"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "InnoRouterMacrosTests",

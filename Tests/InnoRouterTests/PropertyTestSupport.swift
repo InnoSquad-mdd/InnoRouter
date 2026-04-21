@@ -408,14 +408,9 @@ struct FlowModelState: Equatable {
         middlewarePolicy: PropertyMiddlewarePolicy?,
         navigationChanged: Bool
     ) -> ModalResetPreview {
+        _ = navigationChanged
         let targetModal = modalTail.map {
             ModelModalState(route: $0.route, style: $0.modalStyle ?? .sheet)
-        }
-
-        if currentModal == targetModal,
-            queuedModals.isEmpty,
-            !navigationChanged {
-            return .applied(ModalMutationDelta())
         }
 
         var delta = ModalMutationDelta()
@@ -502,13 +497,8 @@ struct FlowModelState: Equatable {
 
         case .replaceCurrent(let presentation):
             let modal = ModelModalState(route: presentation.route, style: presentation.style)
-            if currentModal == nil {
-                currentModal = modal
-                delta.presented = true
-            } else {
-                currentModal = modal
-                delta.presented = true
-            }
+            currentModal = modal
+            delta.presented = true
 
         case .dismissCurrent:
             guard currentModal != nil else { return delta }
@@ -884,8 +874,9 @@ final class FlowEventRecorder<R: Route> {
 
     init(store: FlowStore<R>) {
         let stream = store.events
-        self.task = Task {
+        self.task = Task { [weak self] in
             for await event in stream {
+                guard let self else { return }
                 self.events.withLock { $0.append(event) }
             }
         }
@@ -911,8 +902,8 @@ final class FlowEventRecorder<R: Route> {
     private func waitForMinimumCount(
         since index: Int,
         minimumCount: Int,
-        maxPolls: Int = 80,
-        pollIntervalNanos: UInt64 = 300_000
+        maxPolls: Int = 200,
+        pollIntervalNanos: UInt64 = 2_000_000
     ) async {
         guard minimumCount > 0 else { return }
 
@@ -926,9 +917,9 @@ final class FlowEventRecorder<R: Route> {
     }
 
     private func waitForIdle(
-        maxPolls: Int = 80,
+        maxPolls: Int = 200,
         stablePasses: Int = 4,
-        pollIntervalNanos: UInt64 = 300_000
+        pollIntervalNanos: UInt64 = 2_000_000
     ) async {
         var lastCount = -1
         var stableCount = 0

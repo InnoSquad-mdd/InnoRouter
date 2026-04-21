@@ -25,80 +25,21 @@ struct NavigationExecutionJournal<R: Route> {
     let leafDisposition: LeafDisposition
     let executedCommands: [NavigationCommand<R>]
 
-    static func planLive(
+    static func preview(
         _ command: NavigationCommand<R>,
-        state currentState: inout RouteStack<R>,
+        from stateBefore: RouteStack<R>,
         middlewareRegistry: NavigationMiddlewareRegistry<R>,
         engine: NavigationEngine<R>
     ) -> Self {
         switch command {
-        case .sequence(let commands):
-            let stateBefore = currentState
-            var children: [Self] = []
-            var executedCommands: [NavigationCommand<R>] = []
-
-            for nestedCommand in commands {
-                let child = planLive(
-                    nestedCommand,
-                    state: &currentState,
-                    middlewareRegistry: middlewareRegistry,
-                    engine: engine
-                )
-                children.append(child)
-                executedCommands.append(contentsOf: child.executedCommands)
-            }
-
-            return .group(
-                kind: .sequence,
-                requestedCommand: command,
-                result: .multiple(children.map(\.result)),
-                stateBefore: stateBefore,
-                stateAfter: currentState,
-                children: children,
-                executedCommands: executedCommands
-            )
-
-        case .whenCancelled(let primary, let fallback):
-            let snapshot = currentState
-            let primaryJournal = planLive(
-                primary,
-                state: &currentState,
-                middlewareRegistry: middlewareRegistry,
-                engine: engine
-            )
-            if primaryJournal.result.isSuccess {
-                return .group(
-                    kind: .whenCancelled,
-                    requestedCommand: command,
-                    result: primaryJournal.result,
-                    stateBefore: snapshot,
-                    stateAfter: currentState,
-                    children: [primaryJournal],
-                    executedCommands: primaryJournal.executedCommands
-                )
-            }
-
-            currentState = snapshot
-            let fallbackJournal = planLive(
-                fallback,
-                state: &currentState,
-                middlewareRegistry: middlewareRegistry,
-                engine: engine
-            )
-            return .group(
-                kind: .whenCancelled,
-                requestedCommand: command,
-                result: fallbackJournal.result,
-                stateBefore: snapshot,
-                stateAfter: currentState,
-                children: [primaryJournal, fallbackJournal],
-                executedCommands: primaryJournal.executedCommands + fallbackJournal.executedCommands
-            )
+        case .sequence, .whenCancelled:
+            preconditionFailure("FlowStore preview does not support composite navigation commands.")
 
         default:
+            var shadowState = stateBefore
             return planLeaf(
                 command,
-                state: &currentState,
+                state: &shadowState,
                 middlewareRegistry: middlewareRegistry,
                 engine: engine,
                 disposition: .publicDidExecute
@@ -203,52 +144,16 @@ struct NavigationExecutionJournal<R: Route> {
         }
     }
 
-    func realizeLive(
-        using middlewareRegistry: NavigationMiddlewareRegistry<R>,
-        emitChange: @MainActor (RouteStack<R>, RouteStack<R>) -> Void,
-        shouldNotifyOnChange: Bool
+    func finalizePreview(
+        using middlewareRegistry: NavigationMiddlewareRegistry<R>
     ) -> NavigationResult<R> {
-        switch kind {
-        case .leaf:
-            guard let effectiveCommand, let participantCount else {
-                return result
-            }
-            let finalResult = middlewareRegistry.didExecute(
-                effectiveCommand,
-                result: result,
-                state: stateAfter,
-                participantCount: participantCount
-            )
-            if shouldNotifyOnChange, stateBefore != stateAfter {
-                emitChange(stateBefore, stateAfter)
-            }
-            return finalResult
-
-        case .sequence:
-            return .multiple(
-                children.map {
-                    $0.realizeLive(
-                        using: middlewareRegistry,
-                        emitChange: emitChange,
-                        shouldNotifyOnChange: shouldNotifyOnChange
-                    )
-                }
-            )
-
-        case .whenCancelled:
-            var finalResult = result
-            for child in children {
-                finalResult = child.realizeLive(
-                    using: middlewareRegistry,
-                    emitChange: emitChange,
-                    shouldNotifyOnChange: false
-                )
-            }
-            if shouldNotifyOnChange, stateBefore != stateAfter {
-                emitChange(stateBefore, stateAfter)
-            }
-            return finalResult
-        }
+        guard let effectiveCommand, let participantCount else { return result }
+        return middlewareRegistry.didExecute(
+            effectiveCommand,
+            result: result,
+            state: stateAfter,
+            participantCount: participantCount
+        )
     }
 
     func finalizeCommittedTransaction(

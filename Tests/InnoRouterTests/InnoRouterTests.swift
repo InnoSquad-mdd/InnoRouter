@@ -1417,6 +1417,57 @@ struct NavigationBatchTests {
         #expect(changeCount == 1)
     }
 
+    @Test("Execute batch stopOnFailure uses middleware-folded failures")
+    @MainActor
+    func testExecuteBatchStopOnMiddlewareFoldedFailure() {
+        let store = NavigationStore<TestRoute>()
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in .proceed(command) },
+                didExecute: { command, result, _ in
+                    if case .push(.home) = command {
+                        return .cancelled(.custom("folded failure"))
+                    }
+                    return result
+                }
+            ),
+            debugName: "fold"
+        )
+
+        let batch = store.executeBatch([.push(.home), .push(.settings)], stopOnFailure: true)
+
+        #expect(batch.executedCommands == [.push(.home)])
+        #expect(batch.results == [.cancelled(.custom("folded failure"))])
+        #expect(batch.hasStoppedOnFailure == true)
+        #expect(store.state.path == [.home])
+    }
+
+    @Test("Execute batch continues when middleware normalizes a raw failure to success")
+    @MainActor
+    func testExecuteBatchContinuesWhenMiddlewareNormalizesFailure() {
+        let store = NavigationStore<TestRoute>()
+        store.addMiddleware(
+            AnyNavigationMiddleware(
+                willExecute: { command, _ in .proceed(command) },
+                didExecute: { command, result, _ in
+                    if case .pop = command {
+                        return .success
+                    }
+                    return result
+                }
+            ),
+            debugName: "normalize"
+        )
+
+        let batch = store.executeBatch([.pop, .push(.home)], stopOnFailure: true)
+
+        #expect(batch.executedCommands == [.pop, .push(.home)])
+        #expect(batch.results == [.success, .success])
+        #expect(batch.hasStoppedOnFailure == false)
+        #expect(batch.isSuccess == true)
+        #expect(store.state.path == [.home])
+    }
+
     @Test("Execute batch records middleware-rewritten commands")
     @MainActor
     func testExecuteBatchTracksActualExecutedCommands() {

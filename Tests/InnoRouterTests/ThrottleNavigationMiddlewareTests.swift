@@ -110,6 +110,71 @@ struct ThrottleNavigationMiddlewareTests {
         #expect(store.state.path == [.home, .detail])
     }
 
+    @Test("Sequence interleaves didExecute so throttle blocks the second step")
+    @MainActor
+    func sequenceInterleavesThrottleWindow() {
+        let clock = TestClock()
+        let throttle = ThrottleNavigationMiddleware<ThrottleRoute, TestClock>(
+            interval: .milliseconds(300),
+            clock: clock,
+            key: { _ in "all" }
+        )
+        let store = NavigationStore<ThrottleRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [.init(middleware: AnyNavigationMiddleware(throttle), debugName: "throttle")]
+            )
+        )
+
+        let result = store.execute(.sequence([.push(.home), .push(.detail)]))
+
+        guard case .multiple(let results) = result else {
+            Issue.record("Expected .multiple, got \(result)")
+            return
+        }
+        guard results.count == 2 else {
+            Issue.record("Expected two sequence results, got \(results)")
+            return
+        }
+        #expect(results[0] == .success)
+        if case .cancelled(.middleware(let debugName, _)) = results[1] {
+            #expect(debugName == "throttle")
+        } else {
+            Issue.record("Expected second sequence step to be throttled, got \(results[1])")
+        }
+        #expect(store.state.path == [.home])
+    }
+
+    @Test("Batch interleaves didExecute so throttle blocks the second step")
+    @MainActor
+    func batchInterleavesThrottleWindow() {
+        let clock = TestClock()
+        let throttle = ThrottleNavigationMiddleware<ThrottleRoute, TestClock>(
+            interval: .milliseconds(300),
+            clock: clock,
+            key: { _ in "all" }
+        )
+        let store = NavigationStore<ThrottleRoute>(
+            configuration: NavigationStoreConfiguration(
+                middlewares: [.init(middleware: AnyNavigationMiddleware(throttle), debugName: "throttle")]
+            )
+        )
+
+        let batch = store.executeBatch([.push(.home), .push(.detail)], stopOnFailure: false)
+
+        #expect(batch.executedCommands == [.push(.home)])
+        guard batch.results.count == 2 else {
+            Issue.record("Expected two batch results, got \(batch.results)")
+            return
+        }
+        #expect(batch.results[0] == .success)
+        if case .cancelled(.middleware(let debugName, _)) = batch.results[1] {
+            #expect(debugName == "throttle")
+        } else {
+            Issue.record("Expected second batch step to be throttled, got \(batch.results[1])")
+        }
+        #expect(store.state.path == [.home])
+    }
+
     @Test("Per-command keys throttle independently")
     @MainActor
     func perCommandKeys() {

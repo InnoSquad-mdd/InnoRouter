@@ -12,6 +12,21 @@ import InnoRouterDeepLinkEffects
 
 @Suite("FlowDeepLink property-based tests")
 struct FlowDeepLinkPropertyBasedTests {
+    private final class AuthBox: @unchecked Sendable {
+        private let mutex: Mutex<Bool>
+
+        init(_ value: Bool) {
+            self.mutex = Mutex(value)
+        }
+
+        func get() -> Bool {
+            mutex.withLock { $0 }
+        }
+
+        func set(_ value: Bool) {
+            mutex.withLock { $0 = value }
+        }
+    }
 
     @Test(
         "FlowDeepLinkPipeline decisions match the closed URL grammar model",
@@ -20,14 +35,14 @@ struct FlowDeepLinkPropertyBasedTests {
     @MainActor
     func pipelineDecisionMatchesModel(seed: Int) {
         var rng = PropertyPBTGenerator(seed: seed)
-        let auth = Mutex(false)
+        let auth = AuthBox(false)
         let pipeline = makePropertyFlowPipeline(
-            isAuthenticated: { auth.withLock { $0 } }
+            isAuthenticated: { auth.get() }
         )
 
         for step in 0..<20 {
             let isAuthenticated = rng.nextBool()
-            auth.withLock { $0 = isAuthenticated }
+            auth.set(isAuthenticated)
             let urlCase = rng.nextURLCase()
 
             let actual = pipeline.decide(for: urlCase.url)
@@ -49,9 +64,9 @@ struct FlowDeepLinkPropertyBasedTests {
     func replayStateMachineMatchesModel(seed: Int) async {
         var rng = PropertyPBTGenerator(seed: seed)
         let initialAuth = rng.nextBool()
-        let auth = Mutex(initialAuth)
+        let auth = AuthBox(initialAuth)
         let pipeline = makePropertyFlowPipeline(
-            isAuthenticated: { auth.withLock { $0 } }
+            isAuthenticated: { auth.get() }
         )
         let store = FlowStore<PropertyRoute>()
         let handler = FlowDeepLinkEffectHandler(
@@ -73,7 +88,7 @@ struct FlowDeepLinkPropertyBasedTests {
             case .resumePendingIfAllowed(let allow):
                 actual = await handler.resumePendingDeepLinkIfAllowed { _ in allow }
             case .setAuthenticated(let isAuthenticated):
-                auth.withLock { $0 = isAuthenticated }
+                auth.set(isAuthenticated)
                 actual = nil
             case .clearPending:
                 handler.clearPendingDeepLink()
@@ -108,9 +123,9 @@ struct FlowDeepLinkPropertyBasedTests {
     func successfulHandleMatchesDirectResetEventShape(seed: Int) async {
         var rng = PropertyPBTGenerator(seed: seed)
         let urlCase = rng.nextHandledURLCase()
-        let auth = Mutex(true)
+        let auth = AuthBox(true)
         let pipeline = makePropertyFlowPipeline(
-            isAuthenticated: { auth.withLock { $0 } }
+            isAuthenticated: { auth.get() }
         )
 
         let handledStore = FlowStore<PropertyRoute>()
@@ -169,9 +184,9 @@ struct FlowDeepLinkPropertyBasedTests {
     @MainActor
     func nonApplyingDecisionsEmitNoFlowMutationEvents(seed: Int) async {
         var rng = PropertyPBTGenerator(seed: seed)
-        let auth = Mutex(false)
+        let auth = AuthBox(false)
         let pipeline = makePropertyFlowPipeline(
-            isAuthenticated: { auth.withLock { $0 } }
+            isAuthenticated: { auth.get() }
         )
         let store = FlowStore<PropertyRoute>()
         let recorder = FlowEventRecorder(store: store)

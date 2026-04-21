@@ -271,20 +271,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
     @discardableResult
     public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
-        let journal = NavigationExecutionJournal.planLive(
-            command,
-            state: &state,
-            middlewareRegistry: middlewareRegistry,
-            engine: engine
-        )
-        return journal.realizeLive(
-            using: middlewareRegistry,
-            emitChange: { [weak self] oldState, newState in
-                self?.onChange?(oldState, newState)
-                self?.broadcaster.broadcast(.changed(from: oldState, to: newState))
-            },
-            shouldNotifyOnChange: true
-        )
+        executeSingle(command, shouldNotifyOnChange: true).result
     }
 
     @discardableResult
@@ -293,32 +280,21 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         stopOnFailure: Bool = false
     ) -> NavigationBatchResult<R> {
         let stateBefore = state
-        var journals: [NavigationExecutionJournal<R>] = []
+        var executedCommands: [NavigationCommand<R>] = []
+        var results: [NavigationResult<R>] = []
         var hasStoppedOnFailure = false
 
         for command in commands {
-            let journal = NavigationExecutionJournal.planLive(
-                command,
-                state: &state,
-                middlewareRegistry: middlewareRegistry,
-                engine: engine
-            )
-            journals.append(journal)
+            let outcome = executeSingle(command, shouldNotifyOnChange: false)
+            executedCommands.append(contentsOf: outcome.executedCommands)
+            results.append(outcome.result)
 
-            if stopOnFailure && !journal.result.isSuccess {
+            if stopOnFailure && !outcome.result.isSuccess {
                 hasStoppedOnFailure = true
                 break
             }
         }
 
-        let executedCommands = journals.flatMap(\.executedCommands)
-        let results = journals.map {
-            $0.realizeLive(
-                using: middlewareRegistry,
-                emitChange: { _, _ in },
-                shouldNotifyOnChange: false
-            )
-        }
         let stateAfter = state
         if stateAfter != stateBefore {
             onChange?(stateBefore, stateAfter)
@@ -486,10 +462,9 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         _ command: NavigationCommand<R>,
         from stateBefore: RouteStack<R>
     ) -> NavigationExecutionJournal<R> {
-        var shadowState = stateBefore
-        return NavigationExecutionJournal.planLive(
+        NavigationExecutionJournal.preview(
             command,
-            state: &shadowState,
+            from: stateBefore,
             middlewareRegistry: middlewareRegistry,
             engine: engine
         )
@@ -500,14 +475,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         let committedStateBefore = state
         state = preview.stateAfter
 
-        let finalResult = preview.realizeLive(
-            using: middlewareRegistry,
-            emitChange: { [weak self] oldState, newState in
-                self?.onChange?(oldState, newState)
-                self?.broadcaster.broadcast(.changed(from: oldState, to: newState))
-            },
-            shouldNotifyOnChange: false
-        )
+        let finalResult = preview.finalizePreview(using: middlewareRegistry)
 
         if state != committedStateBefore {
             onChange?(committedStateBefore, state)
@@ -533,6 +501,121 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 guard let self else { return }
                 _ = self.executeBatch(commands, stopOnFailure: false)
             }
+        )
+    }
+
+    private func executeSingle(
+        _ command: NavigationCommand<R>,
+        shouldNotifyOnChange: Bool
+    ) -> ExecutionOutcome {
+        executeSingle(command, state: &state, shouldNotifyOnChange: shouldNotifyOnChange)
+    }
+
+    private func executeSingle(
+        _ command: NavigationCommand<R>,
+        state currentState: inout RouteStack<R>,
+        shouldNotifyOnChange: Bool
+    ) -> ExecutionOutcome {
+        switch command {
+        case .sequence(let commands):
+            let outcomes = commands.map {
+                executeSingle($0, state: &currentState, shouldNotifyOnChange: shouldNotifyOnChange)
+            }
+            return ExecutionOutcome(
+                executedCommands: outcomes.flatMap(\.executedCommands),
+                result: .multiple(outcomes.map(\.result))
+            )
+
+        case .whenCancelled(let primary, let fallback):
+            let snapshot = currentState
+            let primaryOutcome = executeSingle(
+                primary,
+                state: &currentState,
+                shouldNotifyOnChange: false
+            )
+            if primaryOutcome.result.isSuccess {
+                emitChangeIfNeeded(
+                    from: snapshot,
+                    to: currentState,
+                    shouldNotifyOnChange: shouldNotifyOnChange
+                )
+                return ExecutionOutcome(
+                    executedCommands: primaryOutcome.executedCommands,
+                    result: primaryOutcome.result
+                )
+            }
+
+            currentState = snapshot
+            let fallbackOutcome = executeSingle(
+                fallback,
+                state: &currentState,
+                shouldNotifyOnChange: false
+            )
+            emitChangeIfNeeded(
+                from: snapshot,
+                to: currentState,
+                shouldNotifyOnChange: shouldNotifyOnChange
+            )
+            return ExecutionOutcome(
+                executedCommands: primaryOutcome.executedCommands + fallbackOutcome.executedCommands,
+                result: fallbackOutcome.result
+            )
+
+        default:
+            let stateBefore = currentState
+            let interceptionOutcome = middlewareRegistry.intercept(command, state: stateBefore)
+            switch interceptionOutcome.interception {
+            case .cancel(let reason):
+                let result: NavigationResult<R> = .cancelled(reason)
+                return finishExecution(
+                    command: interceptionOutcome.command,
+                    executedCommands: [],
+                    result: result,
+                    participantCount: interceptionOutcome.participantCount,
+                    stateBefore: stateBefore,
+                    currentState: &currentState,
+                    shouldNotifyOnChange: shouldNotifyOnChange
+                )
+
+            case .proceed(let commandToExecute):
+                let result = engine.apply(commandToExecute, to: &currentState)
+                return finishExecution(
+                    command: commandToExecute,
+                    executedCommands: [commandToExecute],
+                    result: result,
+                    participantCount: interceptionOutcome.participantCount,
+                    stateBefore: stateBefore,
+                    currentState: &currentState,
+                    shouldNotifyOnChange: shouldNotifyOnChange
+                )
+            }
+        }
+    }
+
+    private func finishExecution(
+        command: NavigationCommand<R>,
+        executedCommands: [NavigationCommand<R>],
+        result: NavigationResult<R>,
+        participantCount: Int,
+        stateBefore: RouteStack<R>,
+        currentState: inout RouteStack<R>,
+        shouldNotifyOnChange: Bool
+    ) -> ExecutionOutcome {
+        let finalResult = middlewareRegistry.didExecute(
+            command,
+            result: result,
+            state: currentState,
+            participantCount: participantCount
+        )
+
+        emitChangeIfNeeded(
+            from: stateBefore,
+            to: currentState,
+            shouldNotifyOnChange: shouldNotifyOnChange
+        )
+        return ExecutionOutcome(
+            executedCommands: executedCommands,
+            result: finalResult
         )
     }
 
@@ -571,6 +654,16 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         return resolution
     }
 
+    private func emitChangeIfNeeded(
+        from oldState: RouteStack<R>,
+        to newState: RouteStack<R>,
+        shouldNotifyOnChange: Bool
+    ) {
+        guard shouldNotifyOnChange, newState != oldState else { return }
+        onChange?(oldState, newState)
+        broadcaster.broadcast(.changed(from: oldState, to: newState))
+    }
+
     private static var defaultPathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void {
         { oldPath, newPath in
             assertionFailure(
@@ -582,5 +675,10 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 """
             )
         }
+    }
+
+    private struct ExecutionOutcome {
+        let executedCommands: [NavigationCommand<R>]
+        let result: NavigationResult<R>
     }
 }

@@ -99,4 +99,41 @@ struct FlowPlanApplicationTests {
         #expect(store.modalStore.currentPresentation?.route == .sheetStep)
         #expect(store.modalStore.queuedPresentations.isEmpty)
     }
+
+    @Test("apply re-presents the matching modal tail with a fresh presentation")
+    @MainActor
+    func applyMatchingModalTailRepresentsLifecycle() {
+        let presented = Mutex<[FlowPlanRoute]>([])
+        let dismissed = Mutex<[ModalDismissalReason]>([])
+        let store = FlowStore<FlowPlanRoute>(
+            configuration: .init(
+                modal: .init(
+                    onPresented: { presentation in
+                        presented.withLock { $0.append(presentation.route) }
+                    },
+                    onDismissed: { _, reason in
+                        dismissed.withLock { $0.append(reason) }
+                    }
+                )
+            )
+        )
+        store.send(.push(.start))
+        store.send(.presentSheet(.sheetStep))
+
+        let presentedMarker = presented.withLock { $0.count }
+        let dismissedMarker = dismissed.withLock { $0.count }
+        let beforeID = store.modalStore.currentPresentation?.id
+
+        let result = store.apply(
+            FlowPlan<FlowPlanRoute>(steps: [.push(.start), .sheet(.sheetStep)])
+        )
+
+        let newPresented = presented.withLock { Array($0.dropFirst(presentedMarker)) }
+        let newDismissed = dismissed.withLock { Array($0.dropFirst(dismissedMarker)) }
+
+        #expect(result == .applied(path: [.push(.start), .sheet(.sheetStep)]))
+        #expect(beforeID != store.modalStore.currentPresentation?.id)
+        #expect(newPresented == [.sheetStep])
+        #expect(newDismissed == [.dismissAll])
+    }
 }
