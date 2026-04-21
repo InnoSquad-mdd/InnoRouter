@@ -40,7 +40,9 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 | Macros | ✅ `@Routable`, `@CasePathable` | ✅ `@Reducer`, `@Presents`, `@CasePathable` | ✅ `@CasePathable` | ❌ | (TCA) | ❌ | ❌ | ❌ |
 | Swift 6 strict concurrency | ✅ **enforced per module** | ✅ | ✅ | ⚠ in progress | ⚠ | ❌ | ✅ | ✅ |
 | iOS floor | **18+** | 13+ / 17+ for Observation | 13+ | 16+ | 13+ | 14+ | 17+ | 16+ |
-| Cross-surface (UIKit / AppKit) | ❌ SwiftUI only | ⚠ | ✅ **4 products** | ❌ | ⚠ | ⚠ | ❌ | ❌ |
+| Cross-surface (UIKit / AppKit) | ❌ SwiftUI only (by choice) | ⚠ | ✅ **4 products** | ❌ | ⚠ | ⚠ | ❌ | ❌ |
+| **All Apple platforms via SwiftUI** (iOS / iPadOS / macOS / tvOS / watchOS / visionOS) | ✅ **all 6 with per-platform CI + platform matrix docs** | ⚠ SwiftUI adopters only | ⚠ SwiftUI module only | ⚠ | ⚠ | ⚠ | ⚠ | ⚠ |
+| **visionOS spatial presentations** (ornament / volumetric / immersive space) | ✅ `SceneStore` + `SceneHost` + `innoRouterOrnament` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Coordinator composition (child → parent) | ✅ `ChildCoordinator` + `parent.push(child:) -> Task<Result?>` | ✅ reducer `forEach` | ❌ | ✅ | ✅ | ✅ | ⚠ | ⚠ |
 | Case-typed destination bindings | ✅ `store.binding(case:)` on Nav + Modal | ⚠ via `@Presents` | ✅ `@CasePathable` | ⚠ | ⚠ | ❌ | ❌ | ❌ |
 
@@ -456,30 +458,34 @@ Shape (landed):
 | P3 | FlowIntent modal-aware variants | ergonomics | small | **shipped** |
 | P3 | `ChildCoordinatorTaskTracker` | cancellation ergonomics | small | **shipped** |
 | P3 | Cross-launch pending deep links (Codable `FlowPendingDeepLink` + persistence) | state restoration | small | **shipped** |
+| All-platform | All six Apple platforms via SwiftUI + visionOS spatial presentations | positioning | medium | **shipped** |
 
 ## 6. Suggested next work
 
 With the P3 polish cluster shipped (macro FixIts, `.whenCancelled`,
 `ThrottleNavigationMiddleware`, `StoreObserver`, property-based
 tests, modal-aware FlowIntent variants, `ChildCoordinatorTaskTracker`,
-`FlowPendingDeepLinkPersistence`), the P0 / P1 / P3 backlog is
-**empty**. **3.0.0 release candidate.**
+`FlowPendingDeepLinkPersistence`) **and the all-platform /
+visionOS-spatial extension** (`ScenePresentation`, `SceneStore`,
+`SceneHost`, `innoRouterOrnament`, per-platform CI), the
+P0 / P1 / P3 backlog is **empty** and SwiftUI-only is the final
+positioning stance. **3.0.0 release candidate.**
 
-Only two items remain:
+Only two tracked items remain:
 
-- **P2-3 UIKit escape hatch** — large, separable investment that
-  requires a product-level decision (SwiftUI-only positioning vs
-  cross-surface). Defer until the decision lands. If SwiftUI-only
-  is the final stance, remove the entry and declare the
-  framework complete for 3.x.
-- **`.debounce` NavigationCommand** — deferred from P3-4; wants
-  a Clock-injection + deferred-Task design pass before shipping.
-  Blocks nothing else.
+- **P2-3 UIKit escape hatch** — declined. SwiftUI-only positioning
+  is now explicit in the roadmap and in the README platform-support
+  matrix. Teams that need UIKit / AppKit adapters can compose
+  swift-navigation for those surfaces alongside InnoRouter for
+  stack / modal / flow authority.
+- **`.debounce` NavigationCommand** — deferred from P3-4; still
+  wants a Clock-injection + deferred-Task design pass. Blocks
+  nothing.
 
 Primary investment direction from here: **tag 3.0.0, ship the
 release notes, refresh public examples, and shift to
 evangelism** (case studies, migration guides for apps coming from
-TCA / FlowStacks / SwiftfulRouting).
+TCA / FlowStacks / SwiftfulRouting, visionOS ornament-driven apps).
 
 ## 7. Sources
 

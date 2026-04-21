@@ -11,6 +11,53 @@ P0 / P1 / P3 backlog items are shipped; P0 / P1 / P3 surface is
 stable; only P2-3 UIKit escape hatch remains open behind a
 product-level SwiftUI-only vs cross-surface decision.
 
+### Added — All Apple platforms via SwiftUI
+
+- **visionOS 2** added as a supported platform floor, alongside the
+  existing iOS 18 / iPadOS 18 / macOS 15 / tvOS 18 / watchOS 11.
+- **Platform-specific SwiftUI hosts audited** with `// MARK: -
+  Platform:` annotations on every `#if os(...)` gate so the
+  cross-platform contract is explicit in code.
+- **visionOS spatial presentations** land as a first-class API:
+  - `ScenePresentation<R>` (`.window`, `.volumetric`, `.immersive`),
+    `ImmersiveStyle`, `VolumetricSize`, and `OrnamentAnchor` in
+    `InnoRouterCore` — SwiftUI-free, `Codable` where `R: Codable`.
+  - `SceneStore<R>` + `SceneHost<R>` view modifier
+    (`.innoRouterSceneHost(_:windowID:)`) in `InnoRouterSwiftUI`,
+    gated `#if os(visionOS)`. Drives SwiftUI's
+    `@Environment(\.openWindow)`, `.openImmersiveSpace`,
+    `.dismissImmersiveSpace`, `.dismissWindow` through an
+    intent-queue handoff identical to `NavigationStore` /
+    `NavigationHost`.
+  - `SceneEvent<R>` (`.presented`, `.dismissed`, `.rejected`)
+    streamed through `SceneStore.events: AsyncStream`.
+  - `.innoRouterOrnament(_:content:)` cross-platform view modifier.
+    On visionOS it forwards to `ornament(attachmentAnchor:
+    contentAlignment:ornament:)`. Elsewhere it is a no-op so call
+    sites stay platform-neutral.
+- **Per-platform CI matrix** (`.github/workflows/platforms.yml`)
+  builds `InnoRouterCore`, `InnoRouterDeepLink`, and
+  `InnoRouterSwiftUI` on all six platforms per PR, and runs
+  `xcodebuild test` on iOS, macOS, and visionOS.
+  `scripts/principle-gates.sh` gains a matching `--platforms=`
+  probe for local use.
+- **New examples** `Examples/MultiPlatformExample.swift` and
+  `Examples/VisionOSImmersiveExample.swift`, plus matching smoke
+  targets.
+- **New tutorial article**
+  `Tutorial-VisionOSScenes.md` walks through `SceneStore` /
+  `SceneHost` / `innoRouterOrnament`.
+
+### Changed / Breaking
+
+- **watchOS public surface no longer exposes
+  `NavigationSplitHost` or `CoordinatorSplitHost`**. SwiftUI's
+  `NavigationSplitView` is unavailable on watchOS, and previously
+  these hosts compiled only because CI did not build for watchOS.
+  watchOS apps should fall back to `NavigationHost` /
+  `CoordinatorHost` inside a `#if !os(watchOS)` branch. All other
+  platforms are unaffected.
+
 ### Added — Core authorities
 
 - **FlowStore** unifies push + sheet + cover progression as a
