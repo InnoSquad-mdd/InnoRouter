@@ -1,4 +1,5 @@
-import InnoRouterCore
+import OSLog
+@_spi(InternalTrace) import InnoRouterCore
 import Observation
 import SwiftUI
 
@@ -19,6 +20,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
     private let pathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void
     private let broadcaster: EventBroadcaster<NavigationEvent<R>>
+    private let traceLogger: Logger?
+    private var traceRecorder: InternalExecutionTraceRecorder?
 
     public var middlewareHandles: [NavigationMiddlewareHandle] {
         middlewareRegistry.handles
@@ -72,6 +75,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.middlewareRegistry = middlewareRegistry
         self.pathReconciler = NavigationPathReconciler()
         self.broadcaster = broadcaster
+        self.traceLogger = configuration.logger
+        self.traceRecorder = nil
     }
 
     public convenience init(
@@ -117,6 +122,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.middlewareRegistry = middlewareRegistry
         self.pathReconciler = NavigationPathReconciler()
         self.broadcaster = broadcaster
+        self.traceLogger = configuration.logger
+        self.traceRecorder = nil
     }
 
     // MARK: - Public telemetry adapters
@@ -233,6 +240,55 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
+    func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
+        self.traceRecorder = recorder
+    }
+
+    private var effectiveTraceRecorder: InternalExecutionTraceRecorder? {
+        if traceRecorder == nil && traceLogger == nil {
+            return nil
+        }
+
+        return { [weak self] record in
+            self?.traceRecorder?(record)
+            self?.logTraceRecord(record)
+        }
+    }
+
+    private func logTraceRecord(_ record: InternalExecutionTraceRecord) {
+        guard let traceLogger else { return }
+
+        switch record {
+        case .start(let context, let operation, let metadata):
+            let metadataSummary = metadata
+                .sorted { $0.key < $1.key }
+                .map { "\($0.key)=\($0.value)" }
+                .joined(separator: ",")
+            traceLogger.debug(
+                """
+                navigation trace start \
+                root=\(context.rootID, privacy: .public) \
+                span=\(context.spanID, privacy: .public) \
+                parent=\(context.parentSpanID ?? "nil", privacy: .public) \
+                operation=\(operation, privacy: .public) \
+                metadata=\(metadataSummary, privacy: .public)
+                """
+            )
+
+        case .finish(let context, let operation, let outcome):
+            traceLogger.debug(
+                """
+                navigation trace finish \
+                root=\(context.rootID, privacy: .public) \
+                span=\(context.spanID, privacy: .public) \
+                parent=\(context.parentSpanID ?? "nil", privacy: .public) \
+                operation=\(operation, privacy: .public) \
+                outcome=\(outcome, privacy: .public)
+                """
+            )
+        }
+    }
+
     @discardableResult
     public func addMiddleware(
         _ middleware: AnyNavigationMiddleware<R>,
@@ -271,7 +327,16 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
     @discardableResult
     public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
-        executeSingle(command, shouldNotifyOnChange: true).result
+        InternalExecutionTrace.withSpan(
+            domain: .navigation,
+            operation: "execute",
+            recorder: effectiveTraceRecorder,
+            metadata: ["command": String(describing: command)]
+        ) {
+            executeSingle(command, shouldNotifyOnChange: true).result
+        } outcome: { result in
+            String(describing: result)
+        }
     }
 
     @discardableResult
@@ -279,96 +344,117 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         _ commands: [NavigationCommand<R>],
         stopOnFailure: Bool = false
     ) -> NavigationBatchResult<R> {
-        let stateBefore = state
-        var executedCommands: [NavigationCommand<R>] = []
-        var results: [NavigationResult<R>] = []
-        var hasStoppedOnFailure = false
+        InternalExecutionTrace.withSpan(
+            domain: .navigation,
+            operation: "executeBatch",
+            recorder: effectiveTraceRecorder,
+            metadata: [
+                "count": String(commands.count),
+                "stopOnFailure": String(stopOnFailure),
+            ]
+        ) {
+            let stateBefore = state
+            var executedCommands: [NavigationCommand<R>] = []
+            var results: [NavigationResult<R>] = []
+            var hasStoppedOnFailure = false
 
-        for command in commands {
-            let outcome = executeSingle(command, shouldNotifyOnChange: false)
-            executedCommands.append(contentsOf: outcome.executedCommands)
-            results.append(outcome.result)
+            for command in commands {
+                let outcome = executeSingle(command, shouldNotifyOnChange: false)
+                executedCommands.append(contentsOf: outcome.executedCommands)
+                results.append(outcome.result)
 
-            if stopOnFailure && !outcome.result.isSuccess {
-                hasStoppedOnFailure = true
-                break
+                if stopOnFailure && !outcome.result.isSuccess {
+                    hasStoppedOnFailure = true
+                    break
+                }
             }
-        }
 
-        let stateAfter = state
-        if stateAfter != stateBefore {
-            onChange?(stateBefore, stateAfter)
-            broadcaster.broadcast(.changed(from: stateBefore, to: stateAfter))
-        }
+            let stateAfter = state
+            if stateAfter != stateBefore {
+                onChange?(stateBefore, stateAfter)
+                broadcaster.broadcast(.changed(from: stateBefore, to: stateAfter))
+            }
 
-        let batch = NavigationBatchResult(
-            requestedCommands: commands,
-            executedCommands: executedCommands,
-            results: results,
-            stateBefore: stateBefore,
-            stateAfter: stateAfter,
-            hasStoppedOnFailure: hasStoppedOnFailure
-        )
-        onBatchExecuted?(batch)
-        broadcaster.broadcast(.batchExecuted(batch))
-        return batch
+            let batch = NavigationBatchResult(
+                requestedCommands: commands,
+                executedCommands: executedCommands,
+                results: results,
+                stateBefore: stateBefore,
+                stateAfter: stateAfter,
+                hasStoppedOnFailure: hasStoppedOnFailure
+            )
+            onBatchExecuted?(batch)
+            broadcaster.broadcast(.batchExecuted(batch))
+            return batch
+        } outcome: { batch in
+            batch.isSuccess ? "success" : "failure"
+        }
     }
 
     @discardableResult
     public func executeTransaction(
         _ commands: [NavigationCommand<R>]
     ) -> NavigationTransactionResult<R> {
-        let stateBefore = state
-        var shadowState = state
-        var journals: [NavigationExecutionJournal<R>] = []
-        var failureIndex: Int?
+        InternalExecutionTrace.withSpan(
+            domain: .navigation,
+            operation: "executeTransaction",
+            recorder: effectiveTraceRecorder,
+            metadata: ["count": String(commands.count)]
+        ) {
+            let stateBefore = state
+            var shadowState = state
+            var journals: [NavigationExecutionJournal<R>] = []
+            var failureIndex: Int?
 
-        for (index, command) in commands.enumerated() {
-            let journal = NavigationExecutionJournal.planTransaction(
-                command,
-                state: &shadowState,
-                middlewareRegistry: middlewareRegistry,
-                engine: engine
-            )
-            journals.append(journal)
+            for (index, command) in commands.enumerated() {
+                let journal = NavigationExecutionJournal.planTransaction(
+                    command,
+                    state: &shadowState,
+                    middlewareRegistry: middlewareRegistry,
+                    engine: engine
+                )
+                journals.append(journal)
 
-            if journal.result.isSuccess {
-                continue
+                if journal.result.isSuccess {
+                    continue
+                } else {
+                    failureIndex = index
+                    break
+                }
+            }
+
+            let isCommitted = failureIndex == nil
+            let executedCommands = journals.flatMap(\.executedCommands)
+            let results: [NavigationResult<R>]
+            if isCommitted {
+                state = shadowState
+                results = journals.map { $0.finalizeCommittedTransaction(using: middlewareRegistry) }
+                if state != stateBefore {
+                    onChange?(stateBefore, state)
+                    broadcaster.broadcast(.changed(from: stateBefore, to: state))
+                }
             } else {
-                failureIndex = index
-                break
+                journals
+                    .map { $0.forDiscardedTransaction() }
+                    .forEach { $0.discardExecuted(using: middlewareRegistry) }
+                results = journals.map(\.result)
             }
-        }
 
-        let isCommitted = failureIndex == nil
-        let executedCommands = journals.flatMap(\.executedCommands)
-        let results: [NavigationResult<R>]
-        if isCommitted {
-            state = shadowState
-            results = journals.map { $0.finalizeCommittedTransaction(using: middlewareRegistry) }
-            if state != stateBefore {
-                onChange?(stateBefore, state)
-                broadcaster.broadcast(.changed(from: stateBefore, to: state))
-            }
-        } else {
-            journals
-                .map { $0.forDiscardedTransaction() }
-                .forEach { $0.discardExecuted(using: middlewareRegistry) }
-            results = journals.map(\.result)
+            let transaction = NavigationTransactionResult(
+                requestedCommands: commands,
+                executedCommands: executedCommands,
+                results: results,
+                stateBefore: stateBefore,
+                stateAfter: isCommitted ? state : stateBefore,
+                failureIndex: failureIndex,
+                isCommitted: isCommitted
+            )
+            onTransactionExecuted?(transaction)
+            broadcaster.broadcast(.transactionExecuted(transaction))
+            return transaction
+        } outcome: { transaction in
+            transaction.isCommitted ? "committed" : "rolledBack"
         }
-
-        let transaction = NavigationTransactionResult(
-            requestedCommands: commands,
-            executedCommands: executedCommands,
-            results: results,
-            stateBefore: stateBefore,
-            stateAfter: isCommitted ? state : stateBefore,
-            failureIndex: failureIndex,
-            isCommitted: isCommitted
-        )
-        onTransactionExecuted?(transaction)
-        broadcaster.broadcast(.transactionExecuted(transaction))
-        return transaction
     }
 
     public func send(_ intent: NavigationIntent<R>) {
@@ -472,17 +558,26 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
     @discardableResult
     func commitFlowPreview(_ preview: NavigationExecutionJournal<R>) -> NavigationResult<R> {
-        let committedStateBefore = state
-        state = preview.stateAfter
+        InternalExecutionTrace.withSpan(
+            domain: .navigation,
+            operation: "commitFlowPreview",
+            recorder: effectiveTraceRecorder,
+            metadata: ["command": String(describing: preview.requestedCommand)]
+        ) {
+            let committedStateBefore = state
+            state = preview.stateAfter
 
-        let finalResult = preview.finalizePreview(using: middlewareRegistry)
+            let finalResult = preview.finalizePreview(using: middlewareRegistry)
 
-        if state != committedStateBefore {
-            onChange?(committedStateBefore, state)
-            broadcaster.broadcast(.changed(from: committedStateBefore, to: state))
+            if state != committedStateBefore {
+                onChange?(committedStateBefore, state)
+                broadcaster.broadcast(.changed(from: committedStateBefore, to: state))
+            }
+
+            return finalResult
+        } outcome: { result in
+            String(describing: result)
         }
-
-        return finalResult
     }
 
     private func reconcileNavigationPath(with newPath: [R]) {

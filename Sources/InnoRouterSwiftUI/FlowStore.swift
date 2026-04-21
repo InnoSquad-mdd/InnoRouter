@@ -1,6 +1,6 @@
 import Observation
 
-import InnoRouterCore
+@_spi(InternalTrace) import InnoRouterCore
 
 /// Unified router store that represents push + modal progression as a single
 /// array of `RouteStep`s, delegating execution to an inner `NavigationStore`
@@ -45,6 +45,7 @@ public final class FlowStore<R: Route> {
     private let broadcaster: EventBroadcaster<FlowEvent<R>>
     private var innerNavigationEventsTask: Task<Void, Never>?
     private var innerModalEventsTask: Task<Void, Never>?
+    private var traceRecorder: InternalExecutionTraceRecorder?
 
     // Bookkeeping toggled while FlowStore drives its own inner stores, so
     // observer callbacks can distinguish user / system-initiated changes.
@@ -140,6 +141,7 @@ public final class FlowStore<R: Route> {
         self.link = link
         let broadcaster = EventBroadcaster<FlowEvent<R>>()
         self.broadcaster = broadcaster
+        self.traceRecorder = nil
         self.link.owner = self
 
         // Pipe the inner stores' unified event streams into our own
@@ -169,7 +171,16 @@ public final class FlowStore<R: Route> {
     /// Dispatches a `FlowIntent`, delegating to inner stores after validating
     /// the request against FlowStore invariants.
     public func send(_ intent: FlowIntent<R>) {
-        _ = apply(mutationPlan(for: intent), intent: intent)
+        _ = InternalExecutionTrace.withSpan(
+            domain: .flow,
+            operation: "send",
+            recorder: traceRecorder,
+            metadata: ["intent": String(describing: intent)]
+        ) {
+            apply(mutationPlan(for: intent), intent: intent)
+        } outcome: { result in
+            Self.traceOutcome(for: result)
+        }
     }
 
     /// Applies a `FlowPlan` to the store, replacing the current path in one
@@ -177,8 +188,23 @@ public final class FlowStore<R: Route> {
     /// communicates intent at the API boundary.
     @discardableResult
     public func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> {
-        let intent = FlowIntent<R>.reset(plan.steps)
-        return apply(mutationPlan(for: intent), intent: intent)
+        InternalExecutionTrace.withSpan(
+            domain: .flow,
+            operation: "applyPlan",
+            recorder: traceRecorder,
+            metadata: ["stepCount": String(plan.steps.count)]
+        ) {
+            let intent = FlowIntent<R>.reset(plan.steps)
+            return apply(mutationPlan(for: intent), intent: intent)
+        } outcome: { result in
+            Self.traceOutcome(for: result)
+        }
+    }
+
+    func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
+        self.traceRecorder = recorder
+        navigationStore.installTraceRecorder(recorder)
+        modalStore.installTraceRecorder(recorder)
     }
 
     // MARK: - Dispatch
@@ -594,6 +620,17 @@ public final class FlowStore<R: Route> {
     private static func debugName(from result: NavigationResult<R>) -> String? {
         guard case .cancelled(let reason) = result else { return nil }
         return debugName(from: reason)
+    }
+
+    private static func traceOutcome(
+        for result: FlowPlanApplyResult<R>
+    ) -> String {
+        switch result {
+        case .applied:
+            return "applied"
+        case .rejected:
+            return "rejected"
+        }
     }
 
     private struct FlowProjection {
