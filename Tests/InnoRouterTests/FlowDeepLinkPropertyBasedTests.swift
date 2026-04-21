@@ -225,6 +225,8 @@ struct FlowDeepLinkPropertyBasedTests {
                     continue
                 }
             default:
+                // nonApplying currently contains only the five cases above; keep
+                // this fallback as a guard if PropertyURLCase grows later.
                 Issue.record("seed \(seed) step \(step): unexpected URL case \(urlCase)")
             }
         }

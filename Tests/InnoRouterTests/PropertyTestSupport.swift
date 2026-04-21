@@ -157,6 +157,37 @@ struct PropertyPBTGenerator {
     }
 }
 
+@MainActor
+func randomFlowIntent(
+    rng: inout PropertyPBTGenerator
+) -> FlowIntent<PropertyRoute> {
+    let route = rng.nextRoute()
+    switch rng.nextInt(upperBound: 100) {
+    case 0..<18:
+        return .push(route)
+    case 18..<32:
+        return .presentSheet(route)
+    case 32..<42:
+        return .presentCover(route)
+    case 42..<54:
+        return .pop
+    case 54..<64:
+        return .dismiss
+    case 64..<76:
+        return .reset(rng.nextFlowSteps())
+    case 76..<84:
+        return .replaceStack(rng.nextRoutes(maxCount: 3))
+    case 84..<90:
+        return .backOrPush(route)
+    case 90..<95:
+        return .pushUniqueRoot(route)
+    case 95..<98:
+        return .backOrPushDismissingModal(route)
+    default:
+        return .pushUniqueRootDismissingModal(route)
+    }
+}
+
 struct ModelModalState: Equatable {
     let route: PropertyRoute
     let style: ModalPresentationStyle
@@ -421,8 +452,7 @@ struct FlowModelState: Equatable {
             let navigationChanged = shadow.applyNavigationCommand(command)
             let modalResetResult = shadow.previewModalReset(
                 to: modalTail,
-                middlewarePolicy: middlewarePolicy,
-                navigationChanged: navigationChanged
+                middlewarePolicy: middlewarePolicy
             )
             switch modalResetResult {
             case .rejected(let reason):
@@ -461,12 +491,14 @@ struct FlowModelState: Equatable {
 
     private mutating func previewModalReset(
         to modalTail: RouteStep<PropertyRoute>?,
-        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?,
-        navigationChanged: Bool
+        middlewarePolicy: (any PropertyFlowMiddlewareModeling)?
     ) -> ModalResetPreview {
-        _ = navigationChanged
         let targetModal = modalTail.map {
             ModelModalState(route: $0.route, style: $0.modalStyle ?? .sheet)
+        }
+
+        if currentModal == targetModal, queuedModals.isEmpty {
+            return .applied(ModalMutationDelta())
         }
 
         var delta = ModalMutationDelta()
@@ -1141,6 +1173,46 @@ func minimumExpectedFlowEventCount(_ expectation: FlowStepExpectation) -> Int {
     }
 
     return count
+}
+
+@MainActor
+func runFlowStoreModelComparison(
+    seed: Int,
+    stepCount: Int,
+    store: FlowStore<PropertyRoute>,
+    recorder: FlowEventRecorder<PropertyRoute>,
+    apply: (inout FlowModelState, FlowIntent<PropertyRoute>) -> FlowStepExpectation
+) async {
+    var rng = PropertyPBTGenerator(seed: seed)
+    var model = FlowModelState()
+
+    for step in 0..<stepCount {
+        let intent = randomFlowIntent(rng: &rng)
+        let marker = recorder.mark()
+
+        let expectation = apply(&model, intent)
+        store.send(intent)
+
+        let events = (
+            await recorder.rawEvents(
+                since: marker,
+                minimumCount: minimumExpectedFlowEventCount(expectation)
+            )
+        ).compactMap(normalizeFlowEvent)
+
+        assertFlowStoreMatchesModel(
+            store: store,
+            model: model,
+            seed: seed,
+            step: step
+        )
+        assertFlowEventContract(
+            events,
+            expectation: expectation,
+            seed: seed,
+            step: step
+        )
+    }
 }
 
 enum PropertyURLCase: CaseIterable {

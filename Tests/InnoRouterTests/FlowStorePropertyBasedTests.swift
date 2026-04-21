@@ -7,37 +7,6 @@ import Foundation
 import InnoRouter
 import InnoRouterSwiftUI
 
-@MainActor
-private func randomFlowIntent(
-    rng: inout PropertyPBTGenerator
-) -> FlowIntent<PropertyRoute> {
-    let route = rng.nextRoute()
-    switch rng.nextInt(upperBound: 100) {
-    case 0..<18:
-        return .push(route)
-    case 18..<32:
-        return .presentSheet(route)
-    case 32..<42:
-        return .presentCover(route)
-    case 42..<54:
-        return .pop
-    case 54..<64:
-        return .dismiss
-    case 64..<76:
-        return .reset(rng.nextFlowSteps())
-    case 76..<84:
-        return .replaceStack(rng.nextRoutes(maxCount: 3))
-    case 84..<90:
-        return .backOrPush(route)
-    case 90..<95:
-        return .pushUniqueRoot(route)
-    case 95..<98:
-        return .backOrPushDismissingModal(route)
-    default:
-        return .pushUniqueRootDismissingModal(route)
-    }
-}
-
 @Suite("FlowStore property-based tests")
 struct FlowStorePropertyBasedTests {
 
@@ -47,39 +16,17 @@ struct FlowStorePropertyBasedTests {
     )
     @MainActor
     func randomIntentStreamsMatchModel(seed: Int) async {
-        var rng = PropertyPBTGenerator(seed: seed)
         let store = FlowStore<PropertyRoute>()
         let recorder = FlowEventRecorder(store: store)
         defer { recorder.cancel() }
 
-        var model = FlowModelState()
-
-        for step in 0..<25 {
-            let intent = randomFlowIntent(rng: &rng)
-            let marker = recorder.mark()
-
-            let expectation = model.apply(intent)
-            store.send(intent)
-
-            let events = (
-                await recorder.rawEvents(
-                    since: marker,
-                    minimumCount: minimumExpectedFlowEventCount(expectation)
-                )
-            ).compactMap(normalizeFlowEvent)
-
-            assertFlowStoreMatchesModel(
-                store: store,
-                model: model,
-                seed: seed,
-                step: step
-            )
-            assertFlowEventContract(
-                events,
-                expectation: expectation,
-                seed: seed,
-                step: step
-            )
+        await runFlowStoreModelComparison(
+            seed: seed,
+            stepCount: 25,
+            store: store,
+            recorder: recorder
+        ) { model, intent in
+            model.apply(intent)
         }
     }
 
@@ -89,7 +36,6 @@ struct FlowStorePropertyBasedTests {
     )
     @MainActor
     func middlewareMatrixMatchesModel(seed: Int) async {
-        var rng = PropertyPBTGenerator(seed: seed)
         let policy = PropertyMiddlewarePolicy(seed: seed)
         let store = FlowStore<PropertyRoute>(
             configuration: FlowStoreConfiguration(
@@ -104,34 +50,13 @@ struct FlowStorePropertyBasedTests {
         let recorder = FlowEventRecorder(store: store)
         defer { recorder.cancel() }
 
-        var model = FlowModelState()
-
-        for step in 0..<20 {
-            let intent = randomFlowIntent(rng: &rng)
-            let marker = recorder.mark()
-
-            let expectation = model.apply(intent, middlewarePolicy: policy)
-            store.send(intent)
-
-            let events = (
-                await recorder.rawEvents(
-                    since: marker,
-                    minimumCount: minimumExpectedFlowEventCount(expectation)
-                )
-            ).compactMap(normalizeFlowEvent)
-
-            assertFlowStoreMatchesModel(
-                store: store,
-                model: model,
-                seed: seed,
-                step: step
-            )
-            assertFlowEventContract(
-                events,
-                expectation: expectation,
-                seed: seed,
-                step: step
-            )
+        await runFlowStoreModelComparison(
+            seed: seed,
+            stepCount: 20,
+            store: store,
+            recorder: recorder
+        ) { model, intent in
+            model.apply(intent, middlewarePolicy: policy)
         }
     }
 
@@ -141,7 +66,6 @@ struct FlowStorePropertyBasedTests {
     )
     @MainActor
     func middlewareChainMatchesModel(seed: Int) async {
-        var rng = PropertyPBTGenerator(seed: seed)
         let policy = PropertyMiddlewareChainPolicy(seed: seed)
         let store = FlowStore<PropertyRoute>(
             configuration: FlowStoreConfiguration(
@@ -156,34 +80,13 @@ struct FlowStorePropertyBasedTests {
         let recorder = FlowEventRecorder(store: store)
         defer { recorder.cancel() }
 
-        var model = FlowModelState()
-
-        for step in 0..<20 {
-            let intent = randomFlowIntent(rng: &rng)
-            let marker = recorder.mark()
-
-            let expectation = model.apply(intent, middlewarePolicy: policy)
-            store.send(intent)
-
-            let events = (
-                await recorder.rawEvents(
-                    since: marker,
-                    minimumCount: minimumExpectedFlowEventCount(expectation)
-                )
-            ).compactMap(normalizeFlowEvent)
-
-            assertFlowStoreMatchesModel(
-                store: store,
-                model: model,
-                seed: seed,
-                step: step
-            )
-            assertFlowEventContract(
-                events,
-                expectation: expectation,
-                seed: seed,
-                step: step
-            )
+        await runFlowStoreModelComparison(
+            seed: seed,
+            stepCount: 20,
+            store: store,
+            recorder: recorder
+        ) { model, intent in
+            model.apply(intent, middlewarePolicy: policy)
         }
     }
 }

@@ -537,7 +537,7 @@ public final class FlowStore<R: Route> {
     ) -> ModalPreviewPlan {
         let targetPresentation = modalTail.map(Self.presentation(for:))
 
-        if initialState.currentPresentation == targetPresentation,
+        if Self.matchesPresentationSemantics(initialState.currentPresentation, targetPresentation),
             initialState.queuedPresentations.isEmpty {
             return .commit([])
         }
@@ -590,6 +590,20 @@ public final class FlowStore<R: Route> {
             preconditionFailure("Cannot build ModalPresentation from non-modal step \(step)")
         }
         return ModalPresentation(route: step.route, style: style)
+    }
+
+    private static func matchesPresentationSemantics(
+        _ lhs: ModalPresentation<R>?,
+        _ rhs: ModalPresentation<R>?
+    ) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case (.some(let lhs), .some(let rhs)):
+            return lhs.route == rhs.route && lhs.style == rhs.style
+        default:
+            return false
+        }
     }
 
     nonisolated private static func step(for presentation: ModalPresentation<R>) -> RouteStep<R> {

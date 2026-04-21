@@ -100,9 +100,9 @@ struct FlowPlanApplicationTests {
         #expect(store.modalStore.queuedPresentations.isEmpty)
     }
 
-    @Test("apply re-presents the matching modal tail with a fresh presentation")
+    @Test("apply keeps a matching modal tail without lifecycle churn when queue is empty")
     @MainActor
-    func applyMatchingModalTailRepresentsLifecycle() {
+    func applyMatchingModalTailIsNoopForModalLifecycle() {
         let presented = Mutex<[FlowPlanRoute]>([])
         let dismissed = Mutex<[ModalDismissalReason]>([])
         let store = FlowStore<FlowPlanRoute>(
@@ -132,8 +132,31 @@ struct FlowPlanApplicationTests {
         let newDismissed = dismissed.withLock { Array($0.dropFirst(dismissedMarker)) }
 
         #expect(result == .applied(path: [.push(.start), .sheet(.sheetStep)]))
-        #expect(beforeID != store.modalStore.currentPresentation?.id)
-        #expect(newPresented == [.sheetStep])
-        #expect(newDismissed == [.dismissAll])
+        #expect(beforeID == store.modalStore.currentPresentation?.id)
+        #expect(newPresented.isEmpty)
+        #expect(newDismissed.isEmpty)
+    }
+
+    @Test("apply with the same push path and modal tail does not emit pathChanged")
+    @MainActor
+    func applyMatchingPlanDoesNotEmitPathChanged() {
+        let changes = Mutex<[([RouteStep<FlowPlanRoute>], [RouteStep<FlowPlanRoute>])]>([])
+        let store = FlowStore<FlowPlanRoute>(
+            configuration: .init(
+                onPathChanged: { old, new in
+                    changes.withLock { $0.append((old, new)) }
+                }
+            )
+        )
+        store.send(.push(.start))
+        store.send(.presentSheet(.sheetStep))
+
+        let marker = changes.withLock { $0.count }
+        let result = store.apply(
+            FlowPlan<FlowPlanRoute>(steps: [.push(.start), .sheet(.sheetStep)])
+        )
+
+        #expect(result == .applied(path: [.push(.start), .sheet(.sheetStep)]))
+        #expect(changes.withLock { Array($0.dropFirst(marker)) }.isEmpty)
     }
 }
