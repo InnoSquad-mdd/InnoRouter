@@ -1,0 +1,3 @@
+# Public API baseline for InnoRouterMacros
+swift.macro | CasePathable() | CasePathable() | @attached(member, names: named(Cases), named(`is`), named(subscript)) macro CasePathable()
+swift.macro | Routable() | Routable() | @attached(member, names: named(Cases), named(`is`), named(subscript)) @attached(extension, conformances: Route) macro Routable()

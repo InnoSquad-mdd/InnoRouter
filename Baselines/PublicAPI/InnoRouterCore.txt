@@ -1,0 +1,195 @@
+# Public API baseline for InnoRouterCore
+swift.associatedtype | FlowPlanApplier.RouteType | RouteType | associatedtype RouteType : Route
+swift.associatedtype | ModalMiddleware.RouteType | RouteType | associatedtype RouteType : Route
+swift.associatedtype | NavigationBatchExecutor.RouteType | RouteType | associatedtype RouteType : Route
+swift.associatedtype | NavigationCommandExecutor.RouteType | RouteType | associatedtype RouteType : Route
+swift.associatedtype | NavigationMiddleware.RouteType | RouteType | associatedtype RouteType : Route
+swift.associatedtype | NavigationStateReader.RouteType | RouteType | associatedtype RouteType : Route
+swift.associatedtype | NavigationTransactionExecutor.RouteType | RouteType | associatedtype RouteType : Route
+swift.class | AnyBatchNavigator | AnyBatchNavigator | @MainActor final class AnyBatchNavigator<R> where R : Route
+swift.class | AnyNavigator | AnyNavigator | @MainActor final class AnyNavigator<R> where R : Route
+swift.enum | FlowPlanApplyResult | FlowPlanApplyResult | enum FlowPlanApplyResult<R> where R : Route
+swift.enum | ModalCancellationReason | ModalCancellationReason | enum ModalCancellationReason<M> where M : Route
+swift.enum | ModalCommand | ModalCommand | enum ModalCommand<M> where M : Route
+swift.enum | ModalDismissalReason | ModalDismissalReason | enum ModalDismissalReason
+swift.enum | ModalInterception | ModalInterception | enum ModalInterception<M> where M : Route
+swift.enum | ModalPresentationStyle | ModalPresentationStyle | enum ModalPresentationStyle
+swift.enum | NavigationCancellationReason | NavigationCancellationReason | enum NavigationCancellationReason<R> where R : Route
+swift.enum | NavigationCommand | NavigationCommand | enum NavigationCommand<R> where R : Route
+swift.enum | NavigationInterception | NavigationInterception | enum NavigationInterception<R> where R : Route
+swift.enum | NavigationResult | NavigationResult | enum NavigationResult<R> where R : Route
+swift.enum | RouteStackValidationError | RouteStackValidationError | enum RouteStackValidationError<R> where R : Route
+swift.enum | RouteStep | RouteStep | enum RouteStep<R> where R : Route
+swift.enum.case | FlowPlanApplyResult.applied(path:) | FlowPlanApplyResult.applied(path:) | case applied(path: [RouteStep<R>])
+swift.enum.case | FlowPlanApplyResult.rejected(currentPath:) | FlowPlanApplyResult.rejected(currentPath:) | case rejected(currentPath: [RouteStep<R>])
+swift.enum.case | ModalCancellationReason.conditionFailed | ModalCancellationReason.conditionFailed | case conditionFailed
+swift.enum.case | ModalCancellationReason.custom(_:) | ModalCancellationReason.custom(_:) | case custom(String)
+swift.enum.case | ModalCancellationReason.middleware(debugName:command:) | ModalCancellationReason.middleware(debugName:command:) | case middleware(debugName: String?, command: ModalCommand<M>)
+swift.enum.case | ModalCommand.dismissAll | ModalCommand.dismissAll | case dismissAll
+swift.enum.case | ModalCommand.dismissCurrent(reason:) | ModalCommand.dismissCurrent(reason:) | case dismissCurrent(reason: ModalDismissalReason)
+swift.enum.case | ModalCommand.present(_:) | ModalCommand.present(_:) | case present(ModalPresentation<M>)
+swift.enum.case | ModalCommand.replaceCurrent(_:) | ModalCommand.replaceCurrent(_:) | case replaceCurrent(ModalPresentation<M>)
+swift.enum.case | ModalDismissalReason.dismiss | ModalDismissalReason.dismiss | case dismiss
+swift.enum.case | ModalDismissalReason.dismissAll | ModalDismissalReason.dismissAll | case dismissAll
+swift.enum.case | ModalDismissalReason.systemDismiss | ModalDismissalReason.systemDismiss | case systemDismiss
+swift.enum.case | ModalInterception.cancel(_:) | ModalInterception.cancel(_:) | case cancel(ModalCancellationReason<M>)
+swift.enum.case | ModalInterception.proceed(_:) | ModalInterception.proceed(_:) | case proceed(ModalCommand<M>)
+swift.enum.case | ModalPresentationStyle.fullScreenCover | ModalPresentationStyle.fullScreenCover | case fullScreenCover
+swift.enum.case | ModalPresentationStyle.sheet | ModalPresentationStyle.sheet | case sheet
+swift.enum.case | NavigationCancellationReason.conditionFailed | NavigationCancellationReason.conditionFailed | case conditionFailed
+swift.enum.case | NavigationCancellationReason.custom(_:) | NavigationCancellationReason.custom(_:) | case custom(String)
+swift.enum.case | NavigationCancellationReason.middleware(debugName:command:) | NavigationCancellationReason.middleware(debugName:command:) | case middleware(debugName: String?, command: NavigationCommand<R>)
+swift.enum.case | NavigationCommand.pop | NavigationCommand.pop | case pop
+swift.enum.case | NavigationCommand.popCount(_:) | NavigationCommand.popCount(_:) | case popCount(Int)
+swift.enum.case | NavigationCommand.popTo(_:) | NavigationCommand.popTo(_:) | case popTo(R)
+swift.enum.case | NavigationCommand.popToRoot | NavigationCommand.popToRoot | case popToRoot
+swift.enum.case | NavigationCommand.push(_:) | NavigationCommand.push(_:) | case push(R)
+swift.enum.case | NavigationCommand.pushAll(_:) | NavigationCommand.pushAll(_:) | case pushAll([R])
+swift.enum.case | NavigationCommand.replace(_:) | NavigationCommand.replace(_:) | case replace([R])
+swift.enum.case | NavigationCommand.sequence(_:) | NavigationCommand.sequence(_:) | indirect case sequence([NavigationCommand<R>])
+swift.enum.case | NavigationCommand.whenCancelled(_:fallback:) | NavigationCommand.whenCancelled(_:fallback:) | indirect case whenCancelled(NavigationCommand<R>, fallback: NavigationCommand<R>)
+swift.enum.case | NavigationInterception.cancel(_:) | NavigationInterception.cancel(_:) | case cancel(NavigationCancellationReason<R>)
+swift.enum.case | NavigationInterception.proceed(_:) | NavigationInterception.proceed(_:) | case proceed(NavigationCommand<R>)
+swift.enum.case | NavigationResult.cancelled(_:) | NavigationResult.cancelled(_:) | case cancelled(NavigationCancellationReason<R>)
+swift.enum.case | NavigationResult.emptyStack | NavigationResult.emptyStack | case emptyStack
+swift.enum.case | NavigationResult.insufficientStackDepth(requested:available:) | NavigationResult.insufficientStackDepth(requested:available:) | case insufficientStackDepth(requested: Int, available: Int)
+swift.enum.case | NavigationResult.invalidPopCount(_:) | NavigationResult.invalidPopCount(_:) | case invalidPopCount(Int)
+swift.enum.case | NavigationResult.multiple(_:) | NavigationResult.multiple(_:) | case multiple([NavigationResult<R>])
+swift.enum.case | NavigationResult.routeNotFound(_:) | NavigationResult.routeNotFound(_:) | case routeNotFound(R)
+swift.enum.case | NavigationResult.success | NavigationResult.success | case success
+swift.enum.case | RouteStackValidationError.duplicateRoute(_:) | RouteStackValidationError.duplicateRoute(_:) | case duplicateRoute(R)
+swift.enum.case | RouteStackValidationError.emptyStackNotAllowed | RouteStackValidationError.emptyStackNotAllowed | case emptyStackNotAllowed
+swift.enum.case | RouteStackValidationError.invalidRoot(expected:actual:) | RouteStackValidationError.invalidRoot(expected:actual:) | case invalidRoot(expected: R, actual: R)
+swift.enum.case | RouteStackValidationError.missingRequiredRoot(expected:) | RouteStackValidationError.missingRequiredRoot(expected:) | case missingRequiredRoot(expected: R)
+swift.enum.case | RouteStep.cover(_:) | RouteStep.cover(_:) | case cover(R)
+swift.enum.case | RouteStep.push(_:) | RouteStep.push(_:) | case push(R)
+swift.enum.case | RouteStep.sheet(_:) | RouteStep.sheet(_:) | case sheet(R)
+swift.func.op | FlowPlan.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | FlowPlanApplyResult.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | ModalCancellationReason.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | ModalCommand.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | ModalDismissalReason.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | ModalInterception.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | ModalPresentation.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | ModalPresentationStyle.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | NavigationBatchResult.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | NavigationCancellationReason.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | NavigationCommand.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | NavigationCommand.==(_:_:) | ==(_:_:) | static func == (lhs: NavigationCommand<R>, rhs: NavigationCommand<R>) -> Bool
+swift.func.op | NavigationInterception.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | NavigationResult.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | NavigationTransactionResult.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | RouteStack.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | RouteStackValidationError.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.func.op | RouteStep.!=(_:_:) | !=(_:_:) | static func != (lhs: Self, rhs: Self) -> Bool
+swift.init | AnyBatchNavigator.init(_:) | init(_:) | @MainActor init<N>(_ navigator: N) where R == N.RouteType, N : NavigationBatchExecutor, N : NavigationCommandExecutor, N : NavigationStateReader, N : NavigationTransactionExecutor
+swift.init | AnyModalMiddleware.init(_:) | init(_:) | @MainActor init<Wrapped>(_ middleware: Wrapped) where M == Wrapped.RouteType, Wrapped : ModalMiddleware
+swift.init | AnyModalMiddleware.init(willExecute:didExecute:) | init(willExecute:didExecute:) | @MainActor init(willExecute: @escaping @MainActor @Sendable (ModalCommand<M>, ModalPresentation<M>?, [ModalPresentation<M>]) -> ModalInterception<M>, didExecute: @escaping @MainActor @Sendable (ModalCommand<M>, ModalPresentation<M>?, [ModalPresentation<M>]) -> Void = { _, _, _ in })
+swift.init | AnyNavigationMiddleware.init(_:) | init(_:) | @MainActor init<M>(_ middleware: M) where R == M.RouteType, M : NavigationMiddleware
+swift.init | AnyNavigationMiddleware.init(willExecute:didExecute:) | init(willExecute:didExecute:) | @MainActor init(willExecute: @escaping @MainActor @Sendable (NavigationCommand<R>, RouteStack<R>) -> NavigationInterception<R>, didExecute: @escaping @MainActor @Sendable (NavigationCommand<R>, NavigationResult<R>, RouteStack<R>) -> NavigationResult<R> = { _, result, _ in result })
+swift.init | AnyNavigator.init(_:) | init(_:) | @MainActor init<N>(_ navigator: N) where R == N.RouteType, N : NavigationCommandExecutor, N : NavigationStateReader
+swift.init | CasePath.init(embed:extract:) | init(embed:extract:) | init(embed: @escaping @Sendable (Value) -> Root, extract: @escaping @Sendable (Root) -> Value?)
+swift.init | FlowPlan.init(from:) | init(from:) | init(from decoder: any Decoder) throws
+swift.init | FlowPlan.init(steps:) | init(steps:) | init(steps: [RouteStep<R>] = [])
+swift.init | ModalPresentation.init(id:route:style:) | init(id:route:style:) | init(id: UUID = UUID(), route: M, style: ModalPresentationStyle)
+swift.init | NavigationBatchResult.init(requestedCommands:executedCommands:results:stateBefore:stateAfter:hasStoppedOnFailure:) | init(requestedCommands:executedCommands:results:stateBefore:stateAfter:hasStoppedOnFailure:) | init(requestedCommands: [NavigationCommand<R>], executedCommands: [NavigationCommand<R>], results: [NavigationResult<R>], stateBefore: RouteStack<R>, stateAfter: RouteStack<R>, hasStoppedOnFailure: Bool)
+swift.init | NavigationEngine.init() | init() | init()
+swift.init | NavigationTransactionResult.init(requestedCommands:executedCommands:results:stateBefore:stateAfter:failureIndex:isCommitted:) | init(requestedCommands:executedCommands:results:stateBefore:stateAfter:failureIndex:isCommitted:) | init(requestedCommands: [NavigationCommand<R>], executedCommands: [NavigationCommand<R>], results: [NavigationResult<R>], stateBefore: RouteStack<R>, stateAfter: RouteStack<R>, failureIndex: Int?, isCommitted: Bool)
+swift.init | RouteStack.init() | init() | init()
+swift.init | RouteStack.init(from:) | init(from:) | init(from decoder: any Decoder) throws
+swift.init | RouteStack.init(validating:using:) | init(validating:using:) | init(validating path: [R], using validator: RouteStackValidator<R> = .permissive) throws
+swift.init | RouteStackValidator.init(_:) | init(_:) | init(_ validate: @escaping @Sendable ([R]) throws -> Void)
+swift.init | RouteStep.init(from:) | init(from:) | init(from decoder: any Decoder) throws
+swift.init | StatePersistence.init(encoder:decoder:) | init(encoder:decoder:) | init(encoder: JSONEncoder = JSONEncoder(), decoder: JSONDecoder = JSONDecoder())
+swift.method | AnyBatchNavigator.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R>
+swift.method | AnyBatchNavigator.executeBatch(_:stopOnFailure:) | executeBatch(_:stopOnFailure:) | @discardableResult @MainActor func executeBatch(_ commands: [NavigationCommand<R>], stopOnFailure: Bool) -> NavigationBatchResult<R>
+swift.method | AnyBatchNavigator.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<R>]) -> NavigationTransactionResult<R>
+swift.method | AnyBatchNavigator.pop() | pop() | @discardableResult @MainActor func pop() -> NavigationResult<R>
+swift.method | AnyBatchNavigator.popToRoot() | popToRoot() | @discardableResult @MainActor func popToRoot() -> NavigationResult<R>
+swift.method | AnyBatchNavigator.push(_:) | push(_:) | @discardableResult @MainActor func push(_ route: R) -> NavigationResult<R>
+swift.method | AnyBatchNavigator.replace(with:) | replace(with:) | @discardableResult @MainActor func replace(with routes: [R]) -> NavigationResult<R>
+swift.method | AnyModalMiddleware.didExecute(_:currentPresentation:queuedPresentations:) | didExecute(_:currentPresentation:queuedPresentations:) | @MainActor func didExecute(_ command: ModalCommand<M>, currentPresentation: ModalPresentation<M>?, queuedPresentations: [ModalPresentation<M>])
+swift.method | AnyModalMiddleware.willExecute(_:currentPresentation:queuedPresentations:) | willExecute(_:currentPresentation:queuedPresentations:) | @MainActor func willExecute(_ command: ModalCommand<M>, currentPresentation: ModalPresentation<M>?, queuedPresentations: [ModalPresentation<M>]) -> ModalInterception<M>
+swift.method | AnyNavigationMiddleware.didExecute(_:result:state:) | didExecute(_:result:state:) | @MainActor func didExecute(_ command: NavigationCommand<R>, result: NavigationResult<R>, state: RouteStack<R>) -> NavigationResult<R>
+swift.method | AnyNavigationMiddleware.willExecute(_:state:) | willExecute(_:state:) | @MainActor func willExecute(_ command: NavigationCommand<R>, state: RouteStack<R>) -> NavigationInterception<R>
+swift.method | AnyNavigator.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R>
+swift.method | AnyNavigator.pop() | pop() | @discardableResult @MainActor func pop() -> NavigationResult<R>
+swift.method | AnyNavigator.popToRoot() | popToRoot() | @MainActor func popToRoot()
+swift.method | AnyNavigator.push(_:) | push(_:) | @MainActor func push(_ route: R)
+swift.method | AnyNavigator.replace(with:) | replace(with:) | @MainActor func replace(with routes: [R])
+swift.method | CasePath.appending(path:) | appending(path:) | func appending<AppendedValue>(path: CasePath<Value, AppendedValue>) -> CasePath<Root, AppendedValue>
+swift.method | CasePath.callAsFunction() | callAsFunction() | func callAsFunction() -> Root
+swift.method | FlowPlanApplier.apply(_:) | apply(_:) | @MainActor func apply(_ plan: FlowPlan<Self.RouteType>) -> FlowPlanApplyResult<Self.RouteType>
+swift.method | ModalMiddleware.didExecute(_:currentPresentation:queuedPresentations:) | didExecute(_:currentPresentation:queuedPresentations:) | @MainActor func didExecute(_ command: ModalCommand<Self.RouteType>, currentPresentation: ModalPresentation<Self.RouteType>?, queuedPresentations: [ModalPresentation<Self.RouteType>])
+swift.method | ModalMiddleware.willExecute(_:currentPresentation:queuedPresentations:) | willExecute(_:currentPresentation:queuedPresentations:) | @MainActor func willExecute(_ command: ModalCommand<Self.RouteType>, currentPresentation: ModalPresentation<Self.RouteType>?, queuedPresentations: [ModalPresentation<Self.RouteType>]) -> ModalInterception<Self.RouteType>
+swift.method | NavigationBatchExecutor.executeBatch(_:stopOnFailure:) | executeBatch(_:stopOnFailure:) | @discardableResult @MainActor func executeBatch(_ commands: [NavigationCommand<Self.RouteType>], stopOnFailure: Bool) -> NavigationBatchResult<Self.RouteType>
+swift.method | NavigationCommand.canExecute(on:using:) | canExecute(on:using:) | func canExecute(on state: RouteStack<R>, using engine: NavigationEngine<R> = .init()) -> Bool
+swift.method | NavigationCommand.validate(on:using:) | validate(on:using:) | func validate(on state: RouteStack<R>, using engine: NavigationEngine<R> = .init()) -> NavigationResult<R>
+swift.method | NavigationCommandExecutor.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<Self.RouteType>) -> NavigationResult<Self.RouteType>
+swift.method | NavigationEngine.apply(_:to:) | apply(_:to:) | func apply(_ command: NavigationCommand<R>, to state: inout RouteStack<R>) -> NavigationResult<R>
+swift.method | NavigationMiddleware.didExecute(_:result:state:) | didExecute(_:result:state:) | @MainActor func didExecute(_ command: NavigationCommand<Self.RouteType>, result: NavigationResult<Self.RouteType>, state: RouteStack<Self.RouteType>) -> NavigationResult<Self.RouteType>
+swift.method | NavigationMiddleware.willExecute(_:state:) | willExecute(_:state:) | @MainActor func willExecute(_ command: NavigationCommand<Self.RouteType>, state: RouteStack<Self.RouteType>) -> NavigationInterception<Self.RouteType>
+swift.method | NavigationTransactionExecutor.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<Self.RouteType>]) -> NavigationTransactionResult<Self.RouteType>
+swift.method | RouteStackValidator.combined(with:) | combined(with:) | func combined(with other: RouteStackValidator<R>) -> RouteStackValidator<R>
+swift.method | RouteStackValidator.validate(_:) | validate(_:) | func validate(_ path: [R]) throws
+swift.method | StatePersistence.decode(_:) | decode(_:) | func decode(_ data: Data) throws -> FlowPlan<R>
+swift.method | StatePersistence.decodeStack(_:) | decodeStack(_:) | func decodeStack(_ data: Data) throws -> RouteStack<R>
+swift.method | StatePersistence.encode(_:) | encode(_:) | func encode(_ plan: FlowPlan<R>) throws -> Data
+swift.method | StatePersistence.encode(_:) | encode(_:) | func encode(_ stack: RouteStack<R>) throws -> Data
+swift.property | AnyBatchNavigator.state | state | @MainActor var state: RouteStack<R> { get }
+swift.property | AnyNavigator.state | state | @MainActor var state: RouteStack<R> { get }
+swift.property | CasePath.embed | embed | let embed: @Sendable (Value) -> Root
+swift.property | CasePath.extract | extract | let extract: @Sendable (Root) -> Value?
+swift.property | FlowPlan.steps | steps | var steps: [RouteStep<R>]
+swift.property | ModalPresentation.id | id | let id: UUID
+swift.property | ModalPresentation.route | route | let route: M
+swift.property | ModalPresentation.style | style | let style: ModalPresentationStyle
+swift.property | NavigationBatchResult.executedCommands | executedCommands | let executedCommands: [NavigationCommand<R>]
+swift.property | NavigationBatchResult.hasStoppedOnFailure | hasStoppedOnFailure | let hasStoppedOnFailure: Bool
+swift.property | NavigationBatchResult.isSuccess | isSuccess | var isSuccess: Bool { get }
+swift.property | NavigationBatchResult.requestedCommands | requestedCommands | let requestedCommands: [NavigationCommand<R>]
+swift.property | NavigationBatchResult.results | results | let results: [NavigationResult<R>]
+swift.property | NavigationBatchResult.stateAfter | stateAfter | let stateAfter: RouteStack<R>
+swift.property | NavigationBatchResult.stateBefore | stateBefore | let stateBefore: RouteStack<R>
+swift.property | NavigationResult.isSuccess | isSuccess | var isSuccess: Bool { get }
+swift.property | NavigationStateReader.state | state | @MainActor var state: RouteStack<Self.RouteType> { get }
+swift.property | NavigationTransactionResult.executedCommands | executedCommands | let executedCommands: [NavigationCommand<R>]
+swift.property | NavigationTransactionResult.failureIndex | failureIndex | let failureIndex: Int?
+swift.property | NavigationTransactionResult.isCommitted | isCommitted | let isCommitted: Bool
+swift.property | NavigationTransactionResult.requestedCommands | requestedCommands | let requestedCommands: [NavigationCommand<R>]
+swift.property | NavigationTransactionResult.results | results | let results: [NavigationResult<R>]
+swift.property | NavigationTransactionResult.stateAfter | stateAfter | let stateAfter: RouteStack<R>
+swift.property | NavigationTransactionResult.stateBefore | stateBefore | let stateBefore: RouteStack<R>
+swift.property | RouteStack.path | path | var path: [R] { get }
+swift.property | RouteStackValidationError.localizedDescription | localizedDescription | var localizedDescription: String { get }
+swift.property | RouteStep.isModal | isModal | var isModal: Bool { get }
+swift.property | RouteStep.modalStyle | modalStyle | var modalStyle: ModalPresentationStyle? { get }
+swift.property | RouteStep.route | route | var route: R { get }
+swift.protocol | FlowPlanApplier | FlowPlanApplier | @MainActor protocol FlowPlanApplier<RouteType> : AnyObject, Sendable
+swift.protocol | ModalMiddleware | ModalMiddleware | @MainActor protocol ModalMiddleware
+swift.protocol | NavigationBatchExecutor | NavigationBatchExecutor | @MainActor protocol NavigationBatchExecutor : AnyObject
+swift.protocol | NavigationCommandExecutor | NavigationCommandExecutor | @MainActor protocol NavigationCommandExecutor : AnyObject
+swift.protocol | NavigationMiddleware | NavigationMiddleware | @MainActor protocol NavigationMiddleware
+swift.protocol | NavigationStateReader | NavigationStateReader | @MainActor protocol NavigationStateReader : AnyObject
+swift.protocol | NavigationTransactionExecutor | NavigationTransactionExecutor | @MainActor protocol NavigationTransactionExecutor : AnyObject
+swift.protocol | Route | Route | protocol Route : Hashable, Sendable
+swift.struct | AnyModalMiddleware | AnyModalMiddleware | @MainActor struct AnyModalMiddleware<M> where M : Route
+swift.struct | AnyNavigationMiddleware | AnyNavigationMiddleware | @MainActor struct AnyNavigationMiddleware<R> where R : Route
+swift.struct | CasePath | CasePath | struct CasePath<Root, Value>
+swift.struct | FlowPlan | FlowPlan | struct FlowPlan<R> where R : Route
+swift.struct | ModalPresentation | ModalPresentation | struct ModalPresentation<M> where M : Route
+swift.struct | NavigationBatchResult | NavigationBatchResult | struct NavigationBatchResult<R> where R : Route
+swift.struct | NavigationEngine | NavigationEngine | struct NavigationEngine<R> where R : Route
+swift.struct | NavigationTransactionResult | NavigationTransactionResult | struct NavigationTransactionResult<R> where R : Route
+swift.struct | RouteStack | RouteStack | struct RouteStack<R> where R : Route
+swift.struct | RouteStackValidator | RouteStackValidator | struct RouteStackValidator<R> where R : Route
+swift.struct | StatePersistence | StatePersistence | struct StatePersistence<R> where R : Route, R : Decodable, R : Encodable
+swift.type.method | RouteStackValidator.rooted(at:) | rooted(at:) | static func rooted(at route: R) -> RouteStackValidator<R>
+swift.type.property | RouteStackValidator.nonEmpty | nonEmpty | static var nonEmpty: RouteStackValidator<R> { get }
+swift.type.property | RouteStackValidator.permissive | permissive | static var permissive: RouteStackValidator<R> { get }
+swift.type.property | RouteStackValidator.uniqueRoutes | uniqueRoutes | static var uniqueRoutes: RouteStackValidator<R> { get }
+swift.typealias | AnyBatchNavigator.RouteType | AnyBatchNavigator.RouteType | typealias RouteType = R
+swift.typealias | AnyModalMiddleware.RouteType | AnyModalMiddleware.RouteType | typealias RouteType = M
+swift.typealias | AnyNavigationMiddleware.RouteType | AnyNavigationMiddleware.RouteType | typealias RouteType = R
+swift.typealias | AnyNavigator.RouteType | AnyNavigator.RouteType | typealias RouteType = R
+swift.typealias | Navigator | Navigator | typealias Navigator = NavigationCommandExecutor & NavigationStateReader
