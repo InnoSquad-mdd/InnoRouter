@@ -62,6 +62,10 @@ public struct TabCoordinatorView<C: TabCoordinator>: View {
 }
 
 private extension View {
+    // MARK: - Platform: TabView.badge(_:) is unavailable on tvOS and watchOS.
+    // On those platforms we drop the badge silently so the TabCoordinator API
+    // surface stays identical; on iOS / iPadOS / macOS / visionOS a non-nil,
+    // positive count is rendered through SwiftUI's native badge modifier.
     @ViewBuilder
     func tabBadge(_ count: Int?) -> some View {
 #if os(tvOS) || os(watchOS)
