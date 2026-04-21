@@ -95,7 +95,7 @@ struct FlowDeepLinkEffectHandlerTests {
         #expect(store.modalStore.currentPresentation?.route == .privacyPolicy)
     }
 
-    @Test("String URL handle empty input returns .invalidURL")
+    @Test("handle(_:) returns .invalidURL for empty string input")
     @MainActor
     func invalidURLInput() {
         let store = FlowStore<EffectRoute>()
@@ -159,8 +159,8 @@ struct FlowDeepLinkEffectHandlerTests {
 
         // First attempt: not authenticated → .pending.
         let firstResult = handler.handle(URL(string: "myapp://app/secure")!)
-        if case .pending = firstResult {
-            // expected
+        if case .pending(let pending) = firstResult {
+            #expect(pending.gatedRoute == .secure)
         } else {
             Issue.record("Expected .pending, got \(firstResult)")
         }
@@ -259,13 +259,66 @@ struct FlowDeepLinkEffectHandlerTests {
             applier: store
         )
 
-        _ = handler.handle(URL(string: "myapp://app/home/detail/42")!)
+        let result = handler.handle(URL(string: "myapp://app/home/detail/42")!)
+
+        if case .applicationRejected(let plan, let path) = result {
+            #expect(plan == FlowPlan(steps: [.push(.home), .push(.detail(id: "42"))]))
+            #expect(path.isEmpty)
+        } else {
+            Issue.record("Expected .applicationRejected, got \(result)")
+        }
 
         // The pipeline still produces .flowPlan and applier.apply is
         // called, but FlowStore's middleware cancels the underlying
-        // reset. The store's path therefore stays empty; clients
-        // observe the cancellation via FlowStore.events or
-        // onIntentRejected.
+        // reset. The store's path therefore stays empty.
+        #expect(store.path.isEmpty)
+    }
+
+    @Test("resumePendingDeepLink returns .applicationRejected when apply is rejected after auth succeeds")
+    @MainActor
+    func resumeRejectedAfterAuthOpens() {
+        let isAuthed = Mutex<Bool>(false)
+        let matcher = FlowDeepLinkMatcher<EffectRoute> {
+            FlowDeepLinkMapping("/secure") { _ in
+                FlowPlan(steps: [.push(.secure)])
+            }
+        }
+        let pipeline = FlowDeepLinkPipeline<EffectRoute>(
+            allowedSchemes: ["myapp"],
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { route in
+                    if case .secure = route { return true }
+                    return false
+                },
+                isAuthenticated: { isAuthed.withLock { $0 } }
+            )
+        )
+        let store = FlowStore<EffectRoute>(
+            configuration: FlowStoreConfiguration(
+                navigation: NavigationStoreConfiguration(
+                    middlewares: [.init(middleware: blockEverythingNavigationMiddleware(), debugName: "blocker")]
+                )
+            )
+        )
+        let handler = FlowDeepLinkEffectHandler(
+            pipeline: pipeline,
+            applier: store
+        )
+
+        _ = handler.handle(URL(string: "myapp://app/secure")!)
+        #expect(handler.hasPendingDeepLink)
+
+        isAuthed.withLock { $0 = true }
+
+        let result = handler.resumePendingDeepLink()
+        if case .applicationRejected(let plan, let path) = result {
+            #expect(plan == FlowPlan(steps: [.push(.secure)]))
+            #expect(path.isEmpty)
+        } else {
+            Issue.record("Expected .applicationRejected on resume, got \(result)")
+        }
+        #expect(!handler.hasPendingDeepLink)
         #expect(store.path.isEmpty)
     }
 }

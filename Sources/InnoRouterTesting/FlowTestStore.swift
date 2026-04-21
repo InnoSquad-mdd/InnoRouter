@@ -85,7 +85,8 @@ public final class FlowTestStore<R: Route> {
         underlying.send(intent)
     }
 
-    public func apply(_ plan: FlowPlan<R>) {
+    @discardableResult
+    public func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> {
         underlying.apply(plan)
     }
 

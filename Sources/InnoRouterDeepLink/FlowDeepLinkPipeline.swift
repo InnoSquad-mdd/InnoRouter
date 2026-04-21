@@ -9,20 +9,18 @@ import InnoRouterCore
 /// the gate permits it.
 ///
 /// Mirrors ``PendingDeepLink`` but carries a ``FlowPlan`` instead of a
-/// push-only ``NavigationPlan``. `primaryRoute` is the first
-/// ``RouteStep``'s route and is used to re-evaluate the
-/// authentication policy on replay — a policy that keyed off of
-/// "require auth for `.detail`" still works correctly when the
-/// pending URL resolved to a multi-step plan that starts with `.home`
-/// before pushing `.detail`.
+/// push-only ``NavigationPlan``. `gatedRoute` records the first route
+/// inside the plan that triggered the authentication deferral, so
+/// replay can re-check the same protected destination instead of
+/// assuming the plan's first step is always the gated one.
 public struct FlowPendingDeepLink<R: Route>: Sendable, Equatable {
     public let url: URL
-    public let primaryRoute: R
+    public let gatedRoute: R
     public let plan: FlowPlan<R>
 
-    public init(url: URL, primaryRoute: R, plan: FlowPlan<R>) {
+    public init(url: URL, gatedRoute: R, plan: FlowPlan<R>) {
         self.url = url
-        self.primaryRoute = primaryRoute
+        self.gatedRoute = gatedRoute
         self.plan = plan
     }
 }
@@ -53,13 +51,13 @@ public enum FlowDeepLinkDecision<R: Route>: Sendable, Equatable {
 ///
 /// 1. Validate the URL's scheme / host.
 /// 2. Walk the matcher for a `FlowPlan`.
-/// 3. Run the authentication policy against the plan's first step.
+/// 3. Run the authentication policy against every route in the plan.
 /// 4. Return `.flowPlan(plan)` or `.pending(...)` as appropriate.
 public struct FlowDeepLinkPipeline<R: Route>: Sendable {
-    public var allowedSchemes: Set<String>?
-    public var allowedHosts: Set<String>?
-    public var matcher: FlowDeepLinkMatcher<R>
-    public var authenticationPolicy: DeepLinkAuthenticationPolicy<R>
+    public let allowedSchemes: Set<String>?
+    public let allowedHosts: Set<String>?
+    public let matcher: FlowDeepLinkMatcher<R>
+    public let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
 
     public init(
         allowedSchemes: Set<String>? = nil,
@@ -96,22 +94,17 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
             return .unhandled(url: url)
         }
 
-        // Empty plans produce neither a route nor a visible change —
-        // pass through as `.flowPlan`. Authentication policy is only
-        // consulted when a primary route is available.
-        guard let primaryRoute = plan.steps.first?.route else {
-            return .flowPlan(plan)
-        }
-
         switch authenticationPolicy {
         case .notRequired:
             return .flowPlan(plan)
 
         case .required(let shouldRequireAuthentication, let isAuthenticated):
-            if shouldRequireAuthentication(primaryRoute), !isAuthenticated() {
-                return .pending(
-                    FlowPendingDeepLink(url: url, primaryRoute: primaryRoute, plan: plan)
-                )
+            for route in plan.steps.map(\.route) {
+                if shouldRequireAuthentication(route), !isAuthenticated() {
+                    return .pending(
+                        FlowPendingDeepLink(url: url, gatedRoute: route, plan: plan)
+                    )
+                }
             }
             return .flowPlan(plan)
         }

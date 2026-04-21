@@ -100,7 +100,7 @@ struct FlowIntentNamedIntentsTests {
 
     @Test(".backOrPush rejects with .pushBlockedByModalTail when modal is active and route is new")
     @MainActor
-    func backOrPushRejectsUnderModal() {
+    func backOrPushRejectsUnderModal() throws {
         let rejections = Mutex<[(FlowIntent<NamedRoute>, FlowRejectionReason)]>([])
         let store = FlowStore<NamedRoute>(
             configuration: FlowStoreConfiguration(
@@ -115,13 +115,42 @@ struct FlowIntentNamedIntentsTests {
         store.send(.backOrPush(.detail))
 
         let captured = rejections.withLock { $0 }
+        let first = try #require(captured.first)
         #expect(captured.count == 1)
-        if case (.backOrPush(.detail), .pushBlockedByModalTail) = (captured.first!.0, captured.first!.1) {
+        if case (.backOrPush(.detail), .pushBlockedByModalTail) = (first.0, first.1) {
             // expected
         } else {
             Issue.record("Expected backOrPush rejection with pushBlockedByModalTail, got \(captured)")
         }
         #expect(store.modalStore.currentPresentation?.route == .sheet)
+    }
+
+    @Test(".backOrPush rejects with .pushBlockedByModalTail when modal is active and route already exists")
+    @MainActor
+    func backOrPushExistingRouteRejectsUnderModal() throws {
+        let rejections = Mutex<[(FlowIntent<NamedRoute>, FlowRejectionReason)]>([])
+        let store = FlowStore<NamedRoute>(
+            configuration: FlowStoreConfiguration(
+                onIntentRejected: { intent, reason in
+                    rejections.withLock { $0.append((intent, reason)) }
+                }
+            )
+        )
+        store.send(.push(.home))
+        store.send(.push(.detail))
+        store.send(.presentSheet(.sheet))
+
+        store.send(.backOrPush(.home))
+
+        let captured = rejections.withLock { $0 }
+        let first = try #require(captured.first)
+        #expect(captured.count == 1)
+        if case (.backOrPush(.home), .pushBlockedByModalTail) = (first.0, first.1) {
+            // expected
+        } else {
+            Issue.record("Expected backOrPush rejection for existing route, got \(captured)")
+        }
+        #expect(store.path == [.push(.home), .push(.detail), .sheet(.sheet)])
     }
 
     // MARK: - pushUniqueRoot
@@ -154,9 +183,29 @@ struct FlowIntentNamedIntentsTests {
         #expect(store.path == [.push(.home)])
     }
 
+    @Test(".pushUniqueRoot is a silent no-op when the route already exists deeper in the stack")
+    @MainActor
+    func pushUniqueRootNoOpsWhenAlreadyPresent() {
+        let captured = Mutex<[[RouteStep<NamedRoute>]]>([])
+        let store = FlowStore<NamedRoute>(
+            configuration: FlowStoreConfiguration(
+                onPathChanged: { _, new in captured.withLock { $0.append(new) } }
+            )
+        )
+        store.send(.push(.home))
+        store.send(.push(.detail))
+        store.send(.push(.settings))
+        captured.withLock { $0.removeAll() }
+
+        store.send(.pushUniqueRoot(.detail))
+
+        #expect(store.path == [.push(.home), .push(.detail), .push(.settings)])
+        #expect(captured.withLock { $0.isEmpty })
+    }
+
     @Test(".pushUniqueRoot rejects under an active modal tail")
     @MainActor
-    func pushUniqueRootRejectsUnderModal() {
+    func pushUniqueRootRejectsUnderModal() throws {
         let rejections = Mutex<[(FlowIntent<NamedRoute>, FlowRejectionReason)]>([])
         let store = FlowStore<NamedRoute>(
             configuration: FlowStoreConfiguration(
@@ -171,8 +220,9 @@ struct FlowIntentNamedIntentsTests {
         store.send(.pushUniqueRoot(.detail))
 
         let captured = rejections.withLock { $0 }
+        let first = try #require(captured.first)
         #expect(captured.count == 1)
-        if case (.pushUniqueRoot(.detail), .pushBlockedByModalTail) = (captured.first!.0, captured.first!.1) {
+        if case (.pushUniqueRoot(.detail), .pushBlockedByModalTail) = (first.0, first.1) {
             // expected
         } else {
             Issue.record("Expected pushUniqueRoot rejection, got \(captured)")

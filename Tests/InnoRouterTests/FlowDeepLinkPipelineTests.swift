@@ -107,7 +107,7 @@ struct FlowDeepLinkPipelineTests {
         }
     }
 
-    @Test("Authentication .defer returns .pending with primaryRoute and plan")
+    @Test("Authentication .defer returns .pending with gatedRoute and plan")
     func authDefers() {
         let pipeline = FlowDeepLinkPipeline<PipelineRoute>(
             allowedSchemes: ["myapp"],
@@ -122,10 +122,10 @@ struct FlowDeepLinkPipelineTests {
         )
         let decision = pipeline.decide(for: URL(string: "myapp://app/secure")!)
         if case .pending(let pending) = decision {
-            if case .requiresAuth = pending.primaryRoute {
+            if case .requiresAuth = pending.gatedRoute {
                 // expected
             } else {
-                Issue.record("Expected primaryRoute == .requiresAuth, got \(pending.primaryRoute)")
+                Issue.record("Expected gatedRoute == .requiresAuth, got \(pending.gatedRoute)")
             }
             #expect(pending.plan == FlowPlan(steps: [.push(.requiresAuth)]))
         } else {
@@ -154,11 +154,8 @@ struct FlowDeepLinkPipelineTests {
         }
     }
 
-    @Test("Authentication policy is only consulted for the first step's route")
-    func authKeysOffPrimaryRoute() {
-        // This URL produces [push(.home), push(.detail)]. `requiresAuth`
-        // applies to .detail only — but the primary route is .home, so
-        // the pipeline should allow the plan through.
+    @Test("Authentication policy scans the whole plan and defers on the first protected route")
+    func authScansWholePlan() {
         let pipeline = FlowDeepLinkPipeline<PipelineRoute>(
             allowedSchemes: ["myapp"],
             matcher: makeMatcher(),
@@ -171,10 +168,11 @@ struct FlowDeepLinkPipelineTests {
             )
         )
         let decision = pipeline.decide(for: URL(string: "myapp://app/home/detail/42")!)
-        if case .flowPlan = decision {
-            // expected — primary route is .home, which doesn't require auth.
+        if case .pending(let pending) = decision {
+            #expect(pending.gatedRoute == .detail(id: "42"))
+            #expect(pending.plan == FlowPlan(steps: [.push(.home), .push(.detail(id: "42"))]))
         } else {
-            Issue.record("Expected .flowPlan (primary route is .home), got \(decision)")
+            Issue.record("Expected .pending for protected tail route, got \(decision)")
         }
     }
 }

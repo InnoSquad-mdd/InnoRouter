@@ -415,8 +415,8 @@ primitives:
   routes in one observable step.
 - `NavigationIntent.backOrPush(R)` — pop to `route` if it already
   exists in the stack, otherwise push it.
-- `NavigationIntent.pushUniqueRoot(R)` — push only if the current
-  root doesn't already match.
+- `NavigationIntent.pushUniqueRoot(R)` — push only if the stack does
+  not already contain an equal route.
 
 These route through the normal `send` → `execute` pipeline so middleware
 and telemetry observe them identically to direct `NavigationCommand`

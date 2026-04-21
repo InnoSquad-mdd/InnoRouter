@@ -2,6 +2,14 @@
 // InnoRouterCore - cross-module bridge for applying FlowPlan values
 // Copyright © 2026 Inno Squad. All rights reserved.
 
+/// Outcome of applying a ``FlowPlan`` to a concrete authority.
+public enum FlowPlanApplyResult<R: Route>: Sendable, Equatable {
+    /// The plan was committed and the authority now reflects `path`.
+    case applied(path: [RouteStep<R>])
+    /// The plan was rejected and the authority remains at `currentPath`.
+    case rejected(currentPath: [RouteStep<R>])
+}
+
 /// A MainActor-isolated authority that can apply a ``FlowPlan`` as a
 /// single coordinated operation.
 ///
@@ -21,5 +29,5 @@ public protocol FlowPlanApplier<RouteType>: AnyObject, Sendable {
     /// Applies `plan` to the underlying authority. The call is
     /// expected to complete synchronously on the main actor so the
     /// caller can observe the resulting state immediately.
-    func apply(_ plan: FlowPlan<RouteType>)
+    func apply(_ plan: FlowPlan<RouteType>) -> FlowPlanApplyResult<RouteType>
 }

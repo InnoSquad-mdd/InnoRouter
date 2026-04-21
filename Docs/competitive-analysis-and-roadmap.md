@@ -183,8 +183,8 @@ Shape (landed):
   exhaustive switches over the existing enum.
 - `FlowDeepLinkPipeline<R>` composes scheme / host validation,
   the matcher, and `DeepLinkAuthenticationPolicy<R>` (reused
-  verbatim from the push-only pipeline). Auth policy keys off the
-  plan's **primary** (first) route.
+  verbatim from the push-only pipeline). Auth policy scans the
+  plan until it reaches the first protected route.
 - `FlowDeepLinkEffectHandler<R>` in `InnoRouterDeepLinkEffects`
   drives a `FlowPlanApplier<R>` — new Core protocol that
   `FlowStore` already satisfies through its `apply(_:)` method.
@@ -248,7 +248,7 @@ Shape (landed):
 - `NavigationIntent.backOrPush(R)` — composes `.popTo(route)` with
   fallback to `.push(route)`.
 - `NavigationIntent.pushUniqueRoot(R)` — dedupes when the current
-  root already matches, otherwise pushes.
+  stack already contains the route, otherwise pushes.
 - `FlowIntent` parallels were intentionally skipped —
   `FlowIntent` is a higher-level abstraction with modal-step
   invariants, so low-level stack intents don't map 1:1.
@@ -366,7 +366,8 @@ Shape (landed):
   (drops modal tail, then resets push prefix), `.backOrPush(R)`
   (pops to an existing stack route; otherwise behaves like `.push`,
   including modal-tail rejection), `.pushUniqueRoot(R)` (silent
-  no-op when stack root matches; otherwise dispatches as `.push`).
+  no-op when the stack already contains the route; otherwise
+  dispatches as `.push`).
   Semantics deliberately honour the modal-tail invariant instead
   of silently blending — the variants that couldn't fit without
   changing that contract (`replaceStackPreservingModal`, etc.)

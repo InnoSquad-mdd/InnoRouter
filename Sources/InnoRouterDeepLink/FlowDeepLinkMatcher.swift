@@ -15,14 +15,14 @@ import InnoRouterCore
 /// which makes push-prefix + modal-tail flows easy to declare:
 ///
 /// ```swift
-/// FlowDeepLinkMapping("myapp://home") { _ in
+/// FlowDeepLinkMapping("/home") { _ in
 ///     FlowPlan(steps: [.push(.home)])
 /// }
-/// FlowDeepLinkMapping("myapp://home/detail/:id") { params in
-///     guard let id = params.first("id") else { return nil }
+/// FlowDeepLinkMapping("/home/detail/:id") { params in
+///     guard let id = params.firstValue(forName: "id") else { return nil }
 ///     return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
 /// }
-/// FlowDeepLinkMapping("myapp://onboarding/privacy") { _ in
+/// FlowDeepLinkMapping("/onboarding/privacy") { _ in
 ///     FlowPlan(steps: [.sheet(.privacyPolicy)])
 /// }
 /// ```

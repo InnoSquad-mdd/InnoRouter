@@ -20,8 +20,12 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
         /// URL matched and the plan was applied. The resulting flow
         /// path is attached for caller inspection / logging.
         case executed(plan: FlowPlan<R>, path: [RouteStep<R>])
+        /// URL matched, but applying the plan was rejected by the
+        /// underlying authority. `path` reflects the unchanged
+        /// committed state after the rejection.
+        case applicationRejected(plan: FlowPlan<R>, path: [RouteStep<R>])
         /// Authentication gate deferred the URL; caller should replay
-        /// via ``resumePendingIfAllowed(_:)``.
+        /// via ``resumePendingDeepLinkIfAllowed(_:)``.
         case pending(FlowPendingDeepLink<R>)
         /// URL rejected by scheme or host validation.
         case rejected(reason: DeepLinkRejectionReason)
@@ -60,9 +64,7 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
             return .pending(pending)
         case .flowPlan(let plan):
             self.pendingDeepLink = nil
-            applier.apply(plan)
-            let path = Self.path(for: plan, using: applier)
-            return .executed(plan: plan, path: path)
+            return result(for: plan)
         }
     }
 
@@ -86,9 +88,7 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
             return .pending(pending)
         }
         self.pendingDeepLink = nil
-        applier.apply(pending.plan)
-        let path = Self.path(for: pending.plan, using: applier)
-        return .executed(plan: pending.plan, path: path)
+        return result(for: pending.plan)
     }
 
     /// Async variant: allows the caller to await a live
@@ -132,25 +132,20 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
         case .notRequired:
             return true
         case .required(let shouldRequireAuthentication, let isAuthenticated):
-            if !shouldRequireAuthentication(pending.primaryRoute) {
+            if !shouldRequireAuthentication(pending.gatedRoute) {
                 return true
             }
             return isAuthenticated()
         }
     }
 
-    private static func path(
-        for plan: FlowPlan<R>,
-        using applier: any FlowPlanApplier<R>
-    ) -> [RouteStep<R>] {
-        // The applier is expected to honour FlowStore invariants,
-        // which means the applied path equals the plan's steps when
-        // no middleware rewrites occurred. Concrete conformers
-        // (FlowStore) can expose their own post-apply path snapshot
-        // via their `path` property — here we fall back to the
-        // plan's canonical steps for callers that only need the
-        // declarative view.
-        plan.steps
+    private func result(for plan: FlowPlan<R>) -> Result {
+        switch applier.apply(plan) {
+        case .applied(let path):
+            return .executed(plan: plan, path: path)
+        case .rejected(let currentPath):
+            return .applicationRejected(plan: plan, path: currentPath)
+        }
     }
 }
 

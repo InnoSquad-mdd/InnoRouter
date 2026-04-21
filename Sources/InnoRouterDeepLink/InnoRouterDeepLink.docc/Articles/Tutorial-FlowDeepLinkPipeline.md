@@ -122,8 +122,8 @@ A single `handler.handle(url)` call:
 
 1. Runs scheme/host validation.
 2. Walks the matcher for a ``FlowPlan``.
-3. Runs the authentication policy against the plan's primary (first)
-   route.
+3. Runs the authentication policy across the plan until it finds the
+   first protected route.
 4. Either applies the plan through `flow.apply(_:)` or stores it as
    a ``FlowPendingDeepLink``.
 
@@ -209,7 +209,7 @@ func multiSegmentURLRehydrates() {
 - See the push-only <doc:Tutorial-DeepLinkReconciliation>
   walk-through in the `InnoRouterSwiftUI` catalog for apps that
   don't yet need modal-terminal URLs.
-- Read the
-  <doc:/InnoRouterSwiftUI.docc/Articles/Tutorial-LoginOnboarding>
-  guide to see how the authenticated-replay loop fits a greenfield
-  flow that uses `ChildCoordinator` for a sign-up sheet.
+- Read the `Tutorial-LoginOnboarding` guide in the
+  `InnoRouterSwiftUI` documentation catalog to see how the
+  authenticated-replay loop fits a greenfield flow that uses
+  `ChildCoordinator` for a sign-up sheet.

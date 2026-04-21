@@ -29,11 +29,12 @@ struct FlowPlanApplicationTests {
             .sheet(.sheetStep)
         ])
 
-        store.apply(plan)
+        let result = store.apply(plan)
 
         #expect(store.path == plan.steps)
         #expect(store.navigationStore.state.path == [.start, .second])
         #expect(store.modalStore.currentPresentation?.route == .sheetStep)
+        #expect(result == .applied(path: plan.steps))
     }
 
     @Test("apply with invalid plan emits invalidResetPath rejection")
@@ -52,10 +53,11 @@ struct FlowPlanApplicationTests {
             .push(.second)
         ])
 
-        store.apply(invalid)
+        let result = store.apply(invalid)
 
         #expect(store.path.isEmpty)
         #expect(rejections.withLock { $0 } == [.invalidResetPath])
+        #expect(result == .rejected(currentPath: []))
     }
 
     @Test("apply with empty plan clears stack and modal")
@@ -65,11 +67,12 @@ struct FlowPlanApplicationTests {
         store.send(.push(.start))
         store.send(.presentSheet(.sheetStep))
 
-        store.apply(FlowPlan<FlowPlanRoute>())
+        let result = store.apply(FlowPlan<FlowPlanRoute>())
 
         #expect(store.path.isEmpty)
         #expect(store.navigationStore.state.path.isEmpty)
         #expect(store.modalStore.currentPresentation == nil)
+        #expect(result == .applied(path: []))
     }
 
     @Test("apply supports cover tail too")

@@ -37,19 +37,14 @@ public enum FlowIntent<R: Route>: Sendable, Equatable {
     /// prefix, pop back to it. Otherwise, behave like `.push(route)`.
     ///
     /// Mirrors `NavigationIntent.backOrPush(R)`. When a modal tail is
-    /// active:
-    ///
-    /// - `route` in nav stack: pops to it (the existing modal is
-    ///   independently managed — the nav pop does not touch it, so
-    ///   callers that want the modal dismissed first should
-    ///   `.dismiss` explicitly).
-    /// - `route` absent: rejected with `.pushBlockedByModalTail`,
-    ///   matching `.push` semantics.
+    /// active, the intent is rejected with
+    /// `.pushBlockedByModalTail` whether `route` already exists or
+    /// would need to be pushed.
     case backOrPush(R)
 
-    /// If the current navigation stack's **root** is already `route`
-    /// (and the stack has exactly one push), this intent is a silent
-    /// no-op. Otherwise it behaves like `.push(route)`.
+    /// If the current navigation stack already contains `route`
+    /// anywhere, this intent is a silent no-op. Otherwise it behaves
+    /// like `.push(route)`.
     ///
     /// Mirrors `NavigationIntent.pushUniqueRoot(R)`. When a modal tail
     /// is active and the intent would otherwise push, it's rejected
