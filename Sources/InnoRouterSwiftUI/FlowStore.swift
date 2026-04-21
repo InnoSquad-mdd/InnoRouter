@@ -188,6 +188,16 @@ public final class FlowStore<R: Route> {
             dispatchBackOrPush(route, intent: intent)
         case .pushUniqueRoot(let route):
             dispatchPushUniqueRoot(route, intent: intent)
+        case .backOrPushDismissingModal(let route):
+            dispatchDismissingModal(
+                intent: intent,
+                inner: { self.dispatchBackOrPush(route, intent: intent) }
+            )
+        case .pushUniqueRootDismissingModal(let route):
+            dispatchDismissingModal(
+                intent: intent,
+                inner: { self.dispatchPushUniqueRoot(route, intent: intent) }
+            )
         }
     }
 
@@ -356,6 +366,29 @@ public final class FlowStore<R: Route> {
             return
         }
         dispatchPush(route, intent: intent)
+    }
+
+    /// Dismisses any active modal tail and then runs `inner`. If
+    /// the dismiss is cancelled by middleware, the outer intent is
+    /// rejected and `inner` does NOT run. If no modal is active,
+    /// `inner` runs directly.
+    private func dispatchDismissingModal(
+        intent: FlowIntent<R>,
+        inner: () -> Void
+    ) {
+        guard currentProjection.currentPresentation != nil else {
+            inner()
+            return
+        }
+        let presentationBefore = modalStore.currentPresentation
+        dispatchDismiss(intent: intent)
+        // If dismiss was cancelled by middleware, `modalStore`'s
+        // current presentation is unchanged — that's our signal
+        // that dismissal failed, so we don't run `inner`.
+        if modalStore.currentPresentation == presentationBefore {
+            return
+        }
+        inner()
     }
 
     // MARK: - Reverse sync
