@@ -27,10 +27,33 @@ Keep these concerns outside InnoRouter:
 ## Requirements
 
 - iOS 18+
+- iPadOS 18+
 - macOS 15+
 - tvOS 18+
 - watchOS 11+
+- visionOS 2+
 - Swift 6.2+
+
+## Platform support
+
+InnoRouter ships on every Apple platform through SwiftUI. No UIKit or
+AppKit bridge modules are required.
+
+| Capability | iOS | iPadOS | macOS | tvOS | watchOS | visionOS |
+|---|---|---|---|---|---|---|
+| `NavigationStore` / `NavigationHost` / `FlowStore` / `FlowHost` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `NavigationSplitHost` / `CoordinatorSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `ModalHost` `.fullScreenCover` native | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
+| `TabCoordinator.badge` | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `SceneStore` / `SceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
+
+`⚠ degrades` means the store API accepts the request unchanged but the
+SwiftUI host renders it as a `.sheet` because `.fullScreenCover` is
+unavailable. `❌` means the symbol is not declared on that platform;
+build it behind `#if !os(...)`.
 
 ## Installation
 

@@ -19,6 +19,11 @@ Important scope boundary:
 
 This keeps shell state out of the stack authority.
 
+> Platform: `NavigationSplitHost` and `CoordinatorSplitHost` are **unavailable on watchOS**
+> because SwiftUI's `NavigationSplitView` is unavailable there. watchOS apps should fall back
+> to `NavigationHost` / `CoordinatorHost` in the `#else` branch of a
+> `#if !os(watchOS)` check.
+
 ## Modal navigation
 
 Use `ModalStore` with `ModalHost` when `sheet` or `fullScreenCover` should be routed with the same discipline as stack navigation.

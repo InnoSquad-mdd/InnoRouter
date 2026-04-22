@@ -2379,6 +2379,10 @@ struct CoordinatorTests {
         #expect(coordinator.store.state.path.isEmpty)
     }
 
+    // MARK: - Platform: CoordinatorSplitHost is unavailable on watchOS
+    // because SwiftUI's NavigationSplitView is unavailable there. The
+    // construction smoke test is gated to match.
+    #if !os(watchOS)
     @Test("CoordinatorSplitHost body can be constructed")
     @MainActor
     func testCoordinatorSplitHostConstruction() {
@@ -2394,6 +2398,7 @@ struct CoordinatorTests {
 
         #expect(coordinator.store.state.path == [.settings])
     }
+    #endif
 }
 
 // MARK: - Coordinator DeepLink Tests
@@ -3445,6 +3450,10 @@ struct NavigationEnvironmentStorageTests {
         #expect(store.state.path == [.detail(id: "123")])
     }
 
+    // MARK: - Platform: NavigationSplitHost is unavailable on watchOS
+    // because SwiftUI's NavigationSplitView is unavailable there. The
+    // construction smoke test is gated to match.
+    #if !os(watchOS)
     @Test("NavigationSplitHost body can be constructed")
     @MainActor
     func testNavigationSplitHostConstruction() {
@@ -3462,6 +3471,7 @@ struct NavigationEnvironmentStorageTests {
 
         #expect(store.state.path == [.settings])
     }
+    #endif
 }
 
 // MARK: - ModalEnvironmentStorage Tests

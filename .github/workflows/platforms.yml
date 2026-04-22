@@ -1,0 +1,80 @@
+name: platforms
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-matrix:
+    name: build ${{ matrix.platform.name }}
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: iOS
+            destination: "generic/platform=iOS Simulator"
+          - name: iPadOS
+            destination: "platform=iOS Simulator,name=iPad Pro 11-inch (M4)"
+          - name: macOS
+            destination: "platform=macOS"
+          - name: tvOS
+            destination: "platform=tvOS Simulator,name=Apple TV"
+          - name: watchOS
+            destination: "platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)"
+          - name: visionOS
+            destination: "generic/platform=visionOS Simulator"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # This workflow is compile-only. The authoritative correctness gate
+      # remains the `gates` workflow; these jobs exist to catch
+      # per-platform SwiftUI / availability regressions with the latest
+      # stable Xcode toolchain available on the runner image.
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show toolchain
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          swift --version
+
+      # InnoRouterSwiftUI is the only target that actually exercises the
+      # platform-specific SwiftUI hosts. Building it per platform gates
+      # any latent #if os(...) breakage (e.g. NavigationSplitView on
+      # watchOS, .fullScreenCover on macOS/visionOS, ornaments on
+      # visionOS). The scheme naming matches `xcodebuild -list` output
+      # from the Swift package.
+      - name: Build InnoRouterSwiftUI for ${{ matrix.platform.name }}
+        run: |
+          xcodebuild build \
+            -scheme InnoRouterSwiftUI \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
+      - name: Build InnoRouterCore for ${{ matrix.platform.name }}
+        run: |
+          xcodebuild build \
+            -scheme InnoRouterCore \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet
+
+      - name: Build InnoRouterDeepLink for ${{ matrix.platform.name }}
+        run: |
+          xcodebuild build \
+            -scheme InnoRouterDeepLink \
+            -destination '${{ matrix.platform.destination }}' \
+            -quiet

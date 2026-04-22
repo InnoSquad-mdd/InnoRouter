@@ -1,3 +1,6 @@
+// MARK: - Platform: NavigationSplitView is unavailable on watchOS, so this
+// smoke target is compiled only on non-watchOS platforms.
+#if !os(watchOS)
 import SwiftUI
 
 import InnoRouter
@@ -62,3 +65,5 @@ struct SplitDestinationView: View {
         }
     }
 }
+
+#endif

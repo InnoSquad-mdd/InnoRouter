@@ -9,6 +9,37 @@ if ! command -v rg >/dev/null 2>&1; then
   exit 1
 fi
 
+# --platforms=all runs a per-platform build probe after the core checks.
+# macOS-only CI runners can pass it to gate the Apple platform matrix
+# locally without spinning up the full GitHub Actions workflow.
+# Individual platforms are space- or comma-separated and must be one of:
+# ios, ipados, macos, tvos, watchos, visionos.
+PLATFORMS_ARG=""
+for arg in "$@"; do
+  case "$arg" in
+    --platforms=*)
+      PLATFORMS_ARG="${arg#--platforms=}"
+      ;;
+  esac
+done
+
+NORMALIZED_PLATFORMS_ARG=""
+if [[ -n "$PLATFORMS_ARG" ]]; then
+  NORMALIZED_PLATFORMS_ARG="$(echo "$PLATFORMS_ARG" | tr '[:upper:]' '[:lower:]' | tr ',' ' ' | xargs)"
+  if [[ -z "$NORMALIZED_PLATFORMS_ARG" ]]; then
+    echo "[principle-gates] Failed: --platforms= must not be empty"
+    exit 1
+  fi
+
+  VALID_PLATFORM_TOKENS="all ios ipados macos tvos watchos visionos"
+  for token in $NORMALIZED_PLATFORMS_ARG; do
+    if [[ ! " $VALID_PLATFORM_TOKENS " =~ " $token " ]]; then
+      echo "[principle-gates] Failed: unsupported platform token '$token'"
+      exit 1
+    fi
+  done
+fi
+
 echo "[principle-gates] Running swift test"
 swift test
 
@@ -29,6 +60,8 @@ swift build --target InnoRouterSplitCoordinatorExampleSmoke
 swift build --target InnoRouterAppShellExampleSmoke
 swift build --target InnoRouterModalExampleSmoke
 swift build --target InnoRouterMacrosExampleSmoke
+swift build --target InnoRouterMultiPlatformExampleSmoke
+swift build --target InnoRouterVisionOSImmersiveExampleSmoke
 swift build --target InnoRouterNavigationEffects
 swift build --target InnoRouterDeepLinkEffects
 swift build --target InnoRouterEffects
@@ -39,6 +72,8 @@ swift build --target InnoRouterCoordinatorExample
 swift build --target InnoRouterDeepLinkExample
 swift build --target InnoRouterSplitCoordinatorExample
 swift build --target InnoRouterAppShellExample
+swift build --target InnoRouterMultiPlatformExample
+swift build --target InnoRouterVisionOSImmersiveExample
 
 echo "[principle-gates] Checking Nav* public symbols"
 if rg -n "public .*\\bNav[A-Z]" Sources; then
@@ -145,6 +180,52 @@ if [[ -n "$PUBLIC_BOOL_NAMES" ]]; then
   if [[ -n "$INVALID_BOOL_NAMES" ]]; then
     echo "[principle-gates] Failed: public Bool names must start with is/has/can/should"
     echo "$INVALID_BOOL_NAMES"
+    exit 1
+  fi
+fi
+
+if [[ -n "$PLATFORMS_ARG" ]]; then
+  echo "[principle-gates] Running per-platform build probe ($PLATFORMS_ARG)"
+  if ! command -v xcodebuild >/dev/null 2>&1; then
+    echo "[principle-gates] Failed: xcodebuild is required for per-platform probe"
+    exit 1
+  fi
+
+  # Map shorthand platform names to xcodebuild destinations.
+  declare -a PLATFORM_ENTRIES
+  PLATFORM_ENTRIES=(
+    "iOS|platform=iOS Simulator,name=iPhone 16"
+    "iPadOS|platform=iOS Simulator,name=iPad Pro 11-inch (M4)"
+    "macOS|platform=macOS"
+    "tvOS|platform=tvOS Simulator,name=Apple TV"
+    "watchOS|platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)"
+    "visionOS|generic/platform=visionOS Simulator"
+  )
+
+  # Normalise the user's filter list: lowercase, split on , or space.
+  REQUESTED="$NORMALIZED_PLATFORMS_ARG"
+
+  MATCHED_PLATFORM_COUNT=0
+
+  for entry in "${PLATFORM_ENTRIES[@]}"; do
+    name="${entry%%|*}"
+    dest="${entry#*|}"
+    name_lc="$(echo "$name" | tr '[:upper:]' '[:lower:]')"
+
+    if [[ "$REQUESTED" != "all" && ! " $REQUESTED " =~ " $name_lc " ]]; then
+      continue
+    fi
+
+    MATCHED_PLATFORM_COUNT=$((MATCHED_PLATFORM_COUNT + 1))
+    echo "[principle-gates] xcodebuild build -scheme InnoRouterSwiftUI ($name)"
+    xcodebuild build \
+      -scheme InnoRouterSwiftUI \
+      -destination "$dest" \
+      -quiet
+  done
+
+  if [[ "$MATCHED_PLATFORM_COUNT" -eq 0 ]]; then
+    echo "[principle-gates] Failed: --platforms= matched no supported platforms"
     exit 1
   fi
 fi
