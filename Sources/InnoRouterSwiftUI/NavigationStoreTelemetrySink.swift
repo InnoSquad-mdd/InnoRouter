@@ -1,3 +1,27 @@
+// MARK: - Design note: why two separate TelemetrySinks?
+//
+// Navigation and modal telemetry both fan out to `(logger, recorder)`,
+// so a generic `TelemetrySink<Event>` has been considered. It was
+// **investigated and declined** during the PR #21 follow-up pass.
+// Unifying the two sinks would need one of:
+//
+//   (A) a `protocol TelemetryEvent { var logSummary: String { get } }`
+//       → the runtime-formed `String` cannot reproduce OSLog's
+//         compile-time `privacy: .public/.private` marks, so privacy
+//         optimisation is lost.
+//   (B) a closure formatter injected into `TelemetrySink<Event>`
+//       → same privacy problem, plus runtime formatting cost.
+//   (C) a protocol that only extracts common shape but keeps the two
+//       sinks → +40 LOC with no actual duplication removed; the two
+//       sinks have different numbers of record methods (Nav: 2,
+//       Modal: 6) and the OSLog call per method is event-specific.
+//
+// Each sink therefore stays a hand-rolled `final class @MainActor`
+// with bespoke `record*` methods tuned for OSLog's string-interpolation
+// compile-time semantics. If a future consumer needs a common
+// abstraction, reach for a reusable formatter helper rather than
+// flattening the two record-method surfaces.
+
 import OSLog
 
 import InnoRouterCore

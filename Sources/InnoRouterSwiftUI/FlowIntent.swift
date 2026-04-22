@@ -70,16 +70,7 @@ public enum FlowIntent<R: Route>: Sendable, Equatable {
     case pushUniqueRootDismissingModal(R)
 }
 
-/// Reason surfaced to `FlowStoreConfiguration.onIntentRejected` when
-/// `FlowStore` refuses to apply a user intent.
-public enum FlowRejectionReason: Sendable, Equatable {
-    /// A `.push` was requested while the flow tail is already a modal step.
-    /// Dismiss the modal first, or use `.reset(_:)` to rewrite the stack.
-    case pushBlockedByModalTail
-    /// A `.reset(_:)` path violates FlowStore invariants (e.g. more than one
-    /// modal step, or a modal step that is not the final element).
-    case invalidResetPath
-    /// A navigation or modal middleware cancelled the underlying command,
-    /// so `FlowStore.path` was rolled back.
-    case middlewareRejected(debugName: String?)
-}
+// `FlowRejectionReason` lives in `InnoRouterCore` so it sits next to
+// the other rejection taxonomies (`NavigationCancellationReason`,
+// `ModalCancellationReason`, `DeepLinkRejectionReason`).
+// See `Sources/InnoRouterCore/FlowRejectionReason.swift`.

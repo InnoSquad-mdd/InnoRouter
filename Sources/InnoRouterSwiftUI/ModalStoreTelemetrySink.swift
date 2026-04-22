@@ -1,3 +1,13 @@
+// MARK: - Design note: why two separate TelemetrySinks?
+//
+// See the matching note at the top of
+// `NavigationStoreTelemetrySink.swift`. Short version: a generic
+// `TelemetrySink<Event>` can't preserve OSLog's compile-time
+// `privacy:` interpolation marks, and the two sinks have genuinely
+// different record-method surfaces (Nav: 2 methods, Modal: 6) that
+// would fight any attempt at unification. Investigated and declined
+// during the PR #21 follow-up pass.
+
 import OSLog
 
 import InnoRouterCore
