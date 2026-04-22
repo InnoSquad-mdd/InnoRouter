@@ -21,9 +21,14 @@ func visionOSImmersiveSmoke() {
     store.dismissImmersive()
     _ = store.events
     _ = store.activeScenes
+
+    // Host-owned scene: SceneHost only — no SceneAnchor on the
+    // same scene as the host.
     _ = EmptyView()
-        .innoRouterSceneAnchor(store, scenes: scenes, attachedTo: .main, instanceID: UUID())
         .innoRouterSceneHost(store, scenes: scenes)
+
+    // Non-host scene: SceneAnchor keeps its lifecycle in sync with
+    // the store's inventory and serves as a same-scene fallback.
     _ = EmptyView().innoRouterSceneAnchor(store, scenes: scenes, attachedTo: .theatre)
 
     // Ornament modifier is cross-platform; reference it here to keep

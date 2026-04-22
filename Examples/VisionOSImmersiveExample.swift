@@ -29,22 +29,24 @@ struct VisionOSImmersiveExampleApp: App {
     )
 
     var body: some Scene {
-        WindowGroup(id: SpatialRoute.main.rawValue, for: UUID.self) { $sceneID in
+        // The main WindowGroup is the SceneHost's home — exactly one
+        // SceneHost per store handles every open/dismiss through
+        // SwiftUI's environment actions. Attach ornaments here but NOT
+        // a SceneAnchor: the host already owns this scene.
+        WindowGroup(id: SpatialRoute.main.rawValue, for: UUID.self) { _ in
             VisionOSMainView()
                 .innoRouterOrnament(OrnamentAnchor(anchor: .bottom)) {
                     VisionOSControlBar(store: sceneStore)
                 }
-                .innoRouterSceneAnchor(
-                    sceneStore,
-                    scenes: scenes,
-                    attachedTo: .main,
-                    instanceID: sceneID
-                )
                 .innoRouterSceneHost(sceneStore, scenes: scenes)
         } defaultValue: {
             UUID()
         }
 
+        // Every non-host scene needs a SceneAnchor so its system-driven
+        // appear/disappear transitions stay in sync with SceneStore's
+        // inventory, and so it can temporarily serve same-scene
+        // dismissals if the host scene is gone.
         ImmersiveSpace(id: SpatialRoute.theatre.rawValue) {
             VisionOSTheatreView()
                 .innoRouterSceneAnchor(
