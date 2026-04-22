@@ -2,11 +2,18 @@
 // InnoRouter Macros Tests
 // Copyright © 2025 Inno Squad. All rights reserved.
 
+// MARK: - Platform: InnoRouterMacrosPlugin is a host-only CompilerPlugin
+// built for macOS. `@testable import` of the plugin's internals only
+// succeeds on macOS, and the test body linker would otherwise pull a
+// macOS-built object into non-macOS test binaries. Gate the whole file
+// so non-macOS platforms compile an empty module; the meaningful macro
+// tests are exercised by the macOS CI leg where they belong.
+#if canImport(InnoRouterMacrosPlugin)
+
 import SwiftSyntaxMacros
 import SwiftSyntaxMacrosTestSupport
 import Testing
 
-#if canImport(InnoRouterMacrosPlugin)
 @testable import InnoRouterMacrosPlugin
 
 func makeTestMacros() -> [String: Macro.Type] {
@@ -15,7 +22,6 @@ func makeTestMacros() -> [String: Macro.Type] {
         "CasePathable": CasePathableMacro.self,
     ]
 }
-#endif
 
 // MARK: - Routable Macro Tests
 
@@ -564,3 +570,5 @@ struct CasePathableMacroTests {
         #endif
     }
 }
+
+#endif

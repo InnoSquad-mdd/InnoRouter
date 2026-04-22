@@ -288,17 +288,31 @@ let package = Package(
             dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSwiftUI"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // InnoRouterMacrosPlugin is a CompilerPlugin built host-only
+        // (macOS). Restricting this test target's dependencies to macOS
+        // stops Xcode from pulling the macOS-built plugin .o into a
+        // visionOS / tvOS / watchOS test binary linker step.
+        // `@testable import InnoRouterMacrosPlugin` inside each test
+        // file is additionally guarded by `#if
+        // canImport(InnoRouterMacrosPlugin)` so the file is empty on
+        // non-macOS platforms.
         .testTarget(
             name: "InnoRouterMacrosTests",
             dependencies: [
-                "InnoRouterMacrosPlugin",
-                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                .target(name: "InnoRouterMacrosPlugin", condition: .when(platforms: [.macOS])),
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax", condition: .when(platforms: [.macOS])),
             ]
         ),
         .testTarget(
             name: "InnoRouterMacrosBehaviorTests",
             dependencies: [
-                "InnoRouterMacros",
+                // Macros product + plugin are host-only (macOS). Gate
+                // the dependency so non-macOS test builds don't try to
+                // link the macOS-built plugin .o into the test binary.
+                // Each test file is additionally wrapped in
+                // `#if canImport(InnoRouterMacrosPlugin)` so the module
+                // is empty on non-macOS platforms.
+                .target(name: "InnoRouterMacros", condition: .when(platforms: [.macOS])),
                 "InnoRouterCore",
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]
