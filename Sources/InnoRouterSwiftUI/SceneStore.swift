@@ -209,22 +209,37 @@ public final class SceneStore<R: Route> {
         syncFromState()
     }
 
-    internal func registerDispatcherHost(_ token: UUID) {
+    /// Registers `token` as the store's primary dispatcher host.
+    ///
+    /// Returns `true` when the host successfully becomes primary and
+    /// should run its dispatch loop. Returns `false` when another
+    /// ``SceneHost`` is already primary — the losing host should treat
+    /// itself as dormant (no dispatch, no `unregisterDispatcherHost` on
+    /// teardown), and a ``SceneEvent/hostRegistrationRejected(reason:)``
+    /// with ``SceneRejectionReason/duplicateHostRegistration`` is
+    /// broadcast so consumers see the collision.
+    ///
+    /// Previously this crashed via `preconditionFailure`, which made
+    /// SwiftUI scene rehydration / hot-reload transitions unsafe in
+    /// production. The recoverable return lets the two hosts race
+    /// without taking the app down.
+    @discardableResult
+    internal func registerDispatcherHost(_ token: UUID) -> Bool {
         let previousPendingRequestID = currentPendingRequestID
         let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
 
         guard dispatcherRegistry.registerPrimaryHost(token) else {
-            preconditionFailure(
-                "SceneHost requires exactly one dispatcher host per SceneStore. " +
-                "Attach .innoRouterSceneHost(_:scenes:) once and use " +
-                ".innoRouterSceneAnchor(_:scenes:attachedTo:) for each scene root."
+            broadcaster.broadcast(
+                .hostRegistrationRejected(reason: .duplicateHostRegistration)
             )
+            return false
         }
 
         signalDispatchIfNeeded(
             previousPendingRequestID: previousPendingRequestID,
             previousElectedDispatcherToken: previousElectedDispatcherToken
         )
+        return true
     }
 
     internal func unregisterDispatcherHost(_ token: UUID) {

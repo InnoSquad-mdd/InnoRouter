@@ -17,6 +17,12 @@ public enum SceneEvent<R: Route>: Sendable, Equatable {
 
     /// An open or dismiss request was rejected.
     case rejected(SceneIntent<R>, reason: SceneRejectionReason)
+
+    /// A ``SceneHost`` tried to register but the store already has a
+    /// primary dispatcher. The losing host goes dormant instead of
+    /// crashing so SwiftUI scene rehydration and hot-reload don't
+    /// take the app down.
+    case hostRegistrationRejected(reason: SceneRejectionReason)
 }
 
 /// Reason a ``SceneStore`` open/dismiss intent was rejected.
@@ -53,6 +59,14 @@ public enum SceneRejectionReason: String, Sendable, Equatable, Codable {
     /// ``SceneHost`` scene disappears while cross-scene opens are still
     /// queued; attach a new ``SceneHost`` to resume delivery.
     case fallbackCannotDispatch
+
+    /// A second ``SceneHost`` tried to register with the store while
+    /// another host was already primary. The losing host goes dormant
+    /// rather than crashing so SwiftUI scene rehydration and hot-reload
+    /// sequences remain safe in production. Apps that hit this reason
+    /// in normal steady state should attach exactly one
+    /// ``SceneHost`` per ``SceneStore``.
+    case duplicateHostRegistration
 }
 
 /// Capability advertised by a dispatcher (``SceneHost`` or

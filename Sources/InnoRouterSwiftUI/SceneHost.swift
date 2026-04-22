@@ -30,6 +30,7 @@ public struct SceneHost<R: Route>: ViewModifier {
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var dispatcherToken = UUID()
+    @State private var isDormant: Bool = false
     private let scenes: SceneRegistry<R>
 
     /// Creates a scene host.
@@ -46,15 +47,28 @@ public struct SceneHost<R: Route>: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .onAppear {
-                store.registerDispatcherHost(dispatcherToken)
+                // If another SceneHost is already primary the store
+                // returns false and broadcasts
+                // `.hostRegistrationRejected` — stay dormant instead of
+                // crashing so SwiftUI scene rehydration / hot-reload
+                // flows that briefly overlap two hosts don't take the
+                // app down.
+                let didRegister = store.registerDispatcherHost(dispatcherToken)
+                isDormant = !didRegister
+                guard didRegister else { return }
                 Task { @MainActor in
                     await dispatchPendingRequests()
                 }
             }
             .onDisappear {
+                // Only unregister if this host actually owned the
+                // primary slot. A dormant host never registered and must
+                // not disturb the live primary's registration.
+                guard !isDormant else { return }
                 store.unregisterDispatcherHost(dispatcherToken)
             }
             .onChange(of: store.dispatchSignal) { _, _ in
+                guard !isDormant else { return }
                 Task { @MainActor in
                     await dispatchPendingRequests()
                 }
