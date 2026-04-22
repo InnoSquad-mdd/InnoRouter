@@ -210,6 +210,30 @@ let package = Package(
         ),
 
         // MARK: - Example Smoke Targets
+        //
+        // Most smoke files live in one shared target (`InnoRouterExamplesSmoke`)
+        // because their top-level symbols don't collide. Two smokes
+        // (`Standalone` and `Coordinator`) both declare `HomeRoute`, so
+        // they stay in their own targets to avoid a module-level
+        // redeclaration. If a future smoke needs a distinct name, add it
+        // to the shared target and append the file to the exclude list
+        // on the two solo targets.
+        .target(
+            name: "InnoRouterExamplesSmoke",
+            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            path: "ExamplesSmoke",
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift"],
+            sources: [
+                "AppShellSmoke.swift",
+                "DeepLinkSmoke.swift",
+                "MacrosSmoke.swift",
+                "ModalSmoke.swift",
+                "MultiPlatformSmoke.swift",
+                "SplitCoordinatorSmoke.swift",
+                "VisionOSImmersiveSmoke.swift",
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .target(
             name: "InnoRouterStandaloneExampleSmoke",
             dependencies: ["InnoRouter"],
@@ -224,62 +248,6 @@ let package = Package(
             path: "ExamplesSmoke",
             exclude: ["StandaloneSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
             sources: ["CoordinatorSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterDeepLinkExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["DeepLinkSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterSplitCoordinatorExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["SplitCoordinatorSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterAppShellExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["AppShellSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterModalExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["ModalSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterMacrosExampleSmoke",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["MacrosSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterMultiPlatformExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["MultiPlatformSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterVisionOSImmersiveExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift"],
-            sources: ["VisionOSImmersiveSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
