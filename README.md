@@ -63,6 +63,23 @@ dependencies: [
 ]
 ```
 
+### Imports
+
+The umbrella target `InnoRouter` re-exports everything except the
+macros product. `@Routable` / `@CasePathable` require an explicit
+`import InnoRouterMacros` — the umbrella deliberately skips that
+re-export so non-macro files don't pay the macro-plugin resolution
+cost:
+
+```swift
+import InnoRouter            // stores, hosts, intents, deep links, scenes
+import InnoRouterMacros      // only in files that use @Routable / @CasePathable
+```
+
+`@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`, and every
+other property-wrapper or view modifier come from `InnoRouter`, not
+from `InnoRouterMacros`.
+
 ## Modules
 
 - `InnoRouter`: umbrella re-export of `InnoRouterCore`, `InnoRouterSwiftUI`, and `InnoRouterDeepLink`
