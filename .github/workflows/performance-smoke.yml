@@ -28,6 +28,10 @@ jobs:
       - name: Swift Version
         run: swift --version
 
+      # The script fails non-zero when any scaling ratio exceeds its
+      # embedded threshold. Before this change the workflow only
+      # uploaded the JSON — regressions needed manual artefact
+      # inspection to catch.
       - name: Run Performance Smoke
         run: ./scripts/performance-smoke.sh .build/performance-smoke.json
 
