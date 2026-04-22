@@ -22,13 +22,19 @@ product-level SwiftUI-only vs cross-surface decision.
   - `ScenePresentation<R>` (`.window`, `.volumetric`, `.immersive`),
     `ImmersiveStyle`, `VolumetricSize`, and `OrnamentAnchor` in
     `InnoRouterCore` — SwiftUI-free, `Codable` where `R: Codable`.
-  - `SceneStore<R>` + `SceneHost<R>` view modifier
-    (`.innoRouterSceneHost(_:windowID:)`) in `InnoRouterSwiftUI`,
-    gated `#if os(visionOS)`. Drives SwiftUI's
-    `@Environment(\.openWindow)`, `.openImmersiveSpace`,
+  - `SceneDeclaration<R>`, `SceneRegistry<R>`, `SceneStore<R>`, and
+    the `SceneHost<R>` and `SceneAnchor<R>` view modifiers
+    (`.innoRouterSceneHost(_:scenes:)`,
+    `.innoRouterSceneAnchor(_:scenes:attachedTo:)`) in
+    `InnoRouterSwiftUI`, with both gated `#if os(visionOS)`.
+    `SceneHost` is the single command dispatcher that drives
+    SwiftUI's `@Environment(\.openWindow)`, `.openImmersiveSpace`,
     `.dismissImmersiveSpace`, `.dismissWindow` through an
     intent-queue handoff identical to `NavigationStore` /
-    `NavigationHost`.
+    `NavigationHost`, while `SceneAnchor` silently reconciles each
+    scene root's appear/disappear lifecycle back into the store's
+    inventory. Volumetric size / immersive style are validated
+    against shared scene declarations before dispatch.
   - `SceneEvent<R>` (`.presented`, `.dismissed`, `.rejected`)
     streamed through `SceneStore.events: AsyncStream`.
   - `.innoRouterOrnament(_:content:)` cross-platform view modifier.
@@ -37,8 +43,9 @@ product-level SwiftUI-only vs cross-surface decision.
     sites stay platform-neutral.
 - **Per-platform CI matrix** (`.github/workflows/platforms.yml`)
   builds `InnoRouterCore`, `InnoRouterDeepLink`, and
-  `InnoRouterSwiftUI` on all six platforms per PR, and runs
-  `xcodebuild test` on iOS, macOS, and visionOS.
+  `InnoRouterSwiftUI` on all six platforms per PR with the latest
+  stable Xcode toolchain. The authoritative correctness gate remains
+  `principle-gates`; the matrix is compile-only by design.
   `scripts/principle-gates.sh` gains a matching `--platforms=`
   probe for local use.
 - **New examples** `Examples/MultiPlatformExample.swift` and
@@ -46,7 +53,7 @@ product-level SwiftUI-only vs cross-surface decision.
   targets.
 - **New tutorial article**
   `Tutorial-VisionOSScenes.md` walks through `SceneStore` /
-  `SceneHost` / `innoRouterOrnament`.
+  `SceneHost` / `SceneAnchor` / `innoRouterOrnament`.
 
 ### Changed / Breaking
 
@@ -55,8 +62,8 @@ product-level SwiftUI-only vs cross-surface decision.
   `NavigationSplitView` is unavailable on watchOS, and previously
   these hosts compiled only because CI did not build for watchOS.
   watchOS apps should fall back to `NavigationHost` /
-  `CoordinatorHost` inside a `#if !os(watchOS)` branch. All other
-  platforms are unaffected.
+  `CoordinatorHost` in the `#else` branch of a `#if !os(watchOS)`
+  check. All other platforms are unaffected.
 
 ### Added — Core authorities
 

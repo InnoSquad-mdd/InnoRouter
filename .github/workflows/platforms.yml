@@ -22,37 +22,33 @@ jobs:
         platform:
           - name: iOS
             destination: "platform=iOS Simulator,name=iPhone 16"
-            run-tests: true
           - name: iPadOS
             destination: "platform=iOS Simulator,name=iPad Pro 11-inch (M4)"
-            run-tests: false
           - name: macOS
             destination: "platform=macOS"
-            run-tests: true
           - name: tvOS
             destination: "platform=tvOS Simulator,name=Apple TV"
-            run-tests: false
           - name: watchOS
             destination: "platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)"
-            run-tests: false
           - name: visionOS
             destination: "platform=visionOS Simulator,name=Apple Vision Pro"
-            run-tests: true
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # The self-hosted setup-swift action is not required here because
-      # macOS-15 runners ship with the Swift 6.2 toolchain that matches
-      # Package.swift's swift-tools-version. Leaving `xcode-select` in
-      # place so we always pin to the latest Xcode available on the
-      # runner image.
-      - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode.app
+      # This workflow is compile-only. The authoritative correctness gate
+      # remains the `gates` workflow; these jobs exist to catch
+      # per-platform SwiftUI / availability regressions with the latest
+      # stable Xcode toolchain available on the runner image.
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Show toolchain
         run: |
+          xcode-select -p
           xcodebuild -version
           swift --version
 
@@ -82,18 +78,3 @@ jobs:
             -scheme InnoRouterDeepLink \
             -destination '${{ matrix.platform.destination }}' \
             -quiet
-
-      # `swift test` on the macOS job is the authoritative correctness
-      # gate (see principle-gates.yml). Per-platform jobs additionally
-      # run test where a simulator runtime is stable in CI — iOS,
-      # macOS, visionOS. tvOS / watchOS / iPad are build-only to keep
-      # runner time bounded; they still catch compile-time regressions,
-      # which is the primary defence we wanted after the
-      # NavigationSplitView-on-watchOS latent bug.
-      - name: Run tests on ${{ matrix.platform.name }}
-        if: matrix.platform.run-tests == true
-        run: |
-          xcodebuild test \
-            -scheme InnoRouterCore \
-            -destination '${{ matrix.platform.destination }}' \
-            -quiet || true

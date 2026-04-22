@@ -9,11 +9,11 @@ if ! command -v rg >/dev/null 2>&1; then
   exit 1
 fi
 
-# --platforms=all (or any non-empty value) runs a per-platform build
-# probe after the core checks. macOS-only CI runners can pass it to
-# gate the Apple platform matrix locally without spinning up the
-# full GitHub Actions workflow. Individual platforms are space- or
-# comma-separated: `--platforms=watchOS,visionOS`.
+# --platforms=all runs a per-platform build probe after the core checks.
+# macOS-only CI runners can pass it to gate the Apple platform matrix
+# locally without spinning up the full GitHub Actions workflow.
+# Individual platforms are space- or comma-separated and must be one of:
+# ios, ipados, macos, tvos, watchos, visionos.
 PLATFORMS_ARG=""
 for arg in "$@"; do
   case "$arg" in
@@ -22,6 +22,23 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+NORMALIZED_PLATFORMS_ARG=""
+if [[ -n "$PLATFORMS_ARG" ]]; then
+  NORMALIZED_PLATFORMS_ARG="$(echo "$PLATFORMS_ARG" | tr '[:upper:]' '[:lower:]' | tr ',' ' ' | xargs)"
+  if [[ -z "$NORMALIZED_PLATFORMS_ARG" ]]; then
+    echo "[principle-gates] Failed: --platforms= must not be empty"
+    exit 1
+  fi
+
+  VALID_PLATFORM_TOKENS="all ios ipados macos tvos watchos visionos"
+  for token in $NORMALIZED_PLATFORMS_ARG; do
+    if [[ ! " $VALID_PLATFORM_TOKENS " =~ " $token " ]]; then
+      echo "[principle-gates] Failed: unsupported platform token '$token'"
+      exit 1
+    fi
+  done
+fi
 
 echo "[principle-gates] Running swift test"
 swift test
@@ -186,7 +203,9 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
   )
 
   # Normalise the user's filter list: lowercase, split on , or space.
-  REQUESTED="$(echo "$PLATFORMS_ARG" | tr '[:upper:]' '[:lower:]' | tr ',' ' ')"
+  REQUESTED="$NORMALIZED_PLATFORMS_ARG"
+
+  MATCHED_PLATFORM_COUNT=0
 
   for entry in "${PLATFORM_ENTRIES[@]}"; do
     name="${entry%%|*}"
@@ -197,12 +216,18 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
       continue
     fi
 
+    MATCHED_PLATFORM_COUNT=$((MATCHED_PLATFORM_COUNT + 1))
     echo "[principle-gates] xcodebuild build -scheme InnoRouterSwiftUI ($name)"
     xcodebuild build \
       -scheme InnoRouterSwiftUI \
       -destination "$dest" \
       -quiet
   done
+
+  if [[ "$MATCHED_PLATFORM_COUNT" -eq 0 ]]; then
+    echo "[principle-gates] Failed: --platforms= matched no supported platforms"
+    exit 1
+  fi
 fi
 
 echo "[principle-gates] All checks passed"
