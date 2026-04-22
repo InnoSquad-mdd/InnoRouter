@@ -15,7 +15,6 @@ import InnoRouter
 enum SpatialRoute: String, Route {
     case main
     case theatre
-    case controls
 }
 
 /// Example `App` that opens a regular window for the main surface, an
@@ -24,6 +23,10 @@ enum SpatialRoute: String, Route {
 @main
 struct VisionOSImmersiveExampleApp: App {
     @State private var sceneStore = SceneStore<SpatialRoute>()
+    private let scenes: SceneRegistry<SpatialRoute> = .init(
+        .window(.main, id: SpatialRoute.main.rawValue),
+        .immersive(.theatre, id: SpatialRoute.theatre.rawValue, style: .mixed)
+    )
 
     var body: some Scene {
         WindowGroup(id: SpatialRoute.main.rawValue) {
@@ -31,11 +34,21 @@ struct VisionOSImmersiveExampleApp: App {
                 .innoRouterOrnament(OrnamentAnchor(anchor: .bottom)) {
                     VisionOSControlBar(store: sceneStore)
                 }
-                .innoRouterSceneHost(sceneStore) { $0.rawValue }
+                .innoRouterSceneAnchor(
+                    sceneStore,
+                    scenes: scenes,
+                    attachedTo: .main
+                )
+                .innoRouterSceneHost(sceneStore, scenes: scenes)
         }
 
         ImmersiveSpace(id: SpatialRoute.theatre.rawValue) {
             VisionOSTheatreView()
+                .innoRouterSceneAnchor(
+                    sceneStore,
+                    scenes: scenes,
+                    attachedTo: .theatre
+                )
         }
     }
 }

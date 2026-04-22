@@ -5,8 +5,9 @@ import Foundation
 /// Mirrors SwiftUI's `ImmersionStyle` cases but lives in
 /// ``InnoRouterCore`` so that the scene vocabulary is platform-neutral —
 /// `InnoRouterCore` does not import SwiftUI, so this enum is available on
-/// every platform InnoRouter supports. Non-visionOS hosts simply never
-/// act on the value.
+/// every platform InnoRouter supports. On visionOS the value is part of a
+/// scene declaration contract validated by `SceneHost`; non-visionOS
+/// hosts simply never act on it.
 public enum ImmersiveStyle: Sendable, Hashable, Codable {
     /// Mixed immersion — the user's passthrough environment stays visible
     /// around the app's content.
@@ -26,7 +27,9 @@ public enum ImmersiveStyle: Sendable, Hashable, Codable {
 /// `WindowGroup` declared with `.windowStyle(.volumetric)`. Keeping the
 /// value type here in Core means the rest of the pipeline (and peers such
 /// as `StatePersistence`) can reason about scene presentations without
-/// importing SwiftUI or RealityKit.
+/// importing SwiftUI or RealityKit. On visionOS the value participates in
+/// scene declaration validation rather than being passed dynamically to
+/// the environment opener.
 public struct VolumetricSize: Sendable, Hashable, Codable {
     /// Extent along the x axis, in metres.
     public let x: Double
@@ -60,18 +63,17 @@ public struct VolumetricSize: Sendable, Hashable, Codable {
 /// equivalent multi-scene affordances on other platforms, the store /
 /// host layer can grow without changing this enum.
 public enum ScenePresentation<R: Route>: Sendable, Hashable {
-    /// A regular window for `route`. On visionOS this maps to
-    /// `@Environment(\.openWindow)`.
+    /// A regular window for `route`.
     case window(R)
 
-    /// A volumetric window for `route`, with an optional size hint. On
-    /// visionOS this maps to a `WindowGroup` declared with
-    /// `.windowStyle(.volumetric)`.
+    /// A volumetric window for `route`, with an optional declared size
+    /// contract. On visionOS the host validates this against a
+    /// `WindowGroup` declared with `.windowStyle(.volumetric)`.
     case volumetric(R, size: VolumetricSize? = nil)
 
-    /// An immersive space for `route`, with the requested immersion
-    /// style. On visionOS this maps to
-    /// `@Environment(\.openImmersiveSpace)`.
+    /// An immersive space for `route`, with the declared immersion
+    /// style. On visionOS the host validates this against the
+    /// corresponding `ImmersiveSpace` declaration before dispatch.
     case immersive(R, style: ImmersiveStyle)
 }
 

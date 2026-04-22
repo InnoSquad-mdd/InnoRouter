@@ -11,9 +11,17 @@ enum VisionOSSmokeRoute: String, Route {
 @MainActor
 func visionOSImmersiveSmoke() {
     let store = SceneStore<VisionOSSmokeRoute>()
+    let scenes: SceneRegistry<VisionOSSmokeRoute> = .init(
+        .window(.main, id: VisionOSSmokeRoute.main.rawValue),
+        .immersive(.theatre, id: VisionOSSmokeRoute.theatre.rawValue, style: .mixed)
+    )
     store.openImmersive(.theatre, style: .mixed)
     store.dismissImmersive()
     _ = store.events
+    _ = EmptyView()
+        .innoRouterSceneAnchor(store, scenes: scenes, attachedTo: .main)
+        .innoRouterSceneHost(store, scenes: scenes)
+    _ = EmptyView().innoRouterSceneAnchor(store, scenes: scenes, attachedTo: .theatre)
 
     // Ornament modifier is cross-platform; reference it here to keep
     // the symbol exercised in the smoke target.

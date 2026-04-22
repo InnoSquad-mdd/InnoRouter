@@ -10,7 +10,7 @@ import Testing
 
 import InnoRouterCore
 
-@Suite("ScenePresentation Tests")
+@Suite("ScenePresentation Tests", .tags(.unit))
 struct ScenePresentationTests {
     enum SpatialRoute: String, Route, Codable {
         case dashboard
@@ -86,7 +86,7 @@ struct ScenePresentationTests {
     }
 }
 
-@Suite("OrnamentAnchor Tests")
+@Suite("OrnamentAnchor Tests", .tags(.unit))
 struct OrnamentAnchorTests {
     @Test("Default alignment is center")
     func defaultAlignment() {

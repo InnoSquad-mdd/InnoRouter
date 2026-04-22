@@ -21,7 +21,7 @@ enum MultiPlatformRoute {
 /// `NavigationSplitView` (iOS / iPadOS / macOS / tvOS / visionOS) and
 /// falls back to a single-column `NavigationHost` on watchOS.
 struct MultiPlatformExampleView: View {
-    @State private var store = NavigationStore<MultiPlatformRoute>()
+    @State private var store: NavigationStore<MultiPlatformRoute> = NavigationStore()
 
     var body: some View {
         #if !os(watchOS)
@@ -48,7 +48,8 @@ struct MultiPlatformExampleView: View {
 }
 
 struct MultiPlatformSidebar: View {
-    @EnvironmentNavigationIntent(MultiPlatformRoute.self) private var navigationIntent
+    @EnvironmentNavigationIntent(MultiPlatformRoute.self)
+    private var navigationIntent: AnyNavigationIntentDispatcher<MultiPlatformRoute>
 
     var body: some View {
         List {
@@ -60,7 +61,8 @@ struct MultiPlatformSidebar: View {
 }
 
 struct MultiPlatformInbox: View {
-    @EnvironmentNavigationIntent(MultiPlatformRoute.self) private var navigationIntent
+    @EnvironmentNavigationIntent(MultiPlatformRoute.self)
+    private var navigationIntent: AnyNavigationIntentDispatcher<MultiPlatformRoute>
 
     var body: some View {
         List {

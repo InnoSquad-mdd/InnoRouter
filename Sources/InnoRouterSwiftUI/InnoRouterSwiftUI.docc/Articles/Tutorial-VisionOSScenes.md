@@ -30,25 +30,56 @@ that mirrors the `NavigationStore` / `NavigationHost` discipline:
 ## Declaring scenes in your App
 
 ```swift
+import SwiftUI
+
+import InnoRouter
+import InnoRouterMacros
+
+@Routable
+enum SpatialRoute {
+    case main
+    case theatre
+}
+
+private let spatialScenes = SceneRegistry<SpatialRoute>(
+    .window(.main, id: "main"),
+    .immersive(.theatre, id: "theatre", style: .mixed)
+)
+
 @main
 struct MyApp: App {
     @State private var sceneStore = SceneStore<SpatialRoute>()
 
     var body: some Scene {
-        WindowGroup(id: SpatialRoute.main.rawValue) {
+        WindowGroup(id: "main") {
             ContentView()
-                .innoRouterSceneHost(sceneStore) { $0.rawValue }
+                .innoRouterSceneAnchor(
+                    sceneStore,
+                    scenes: spatialScenes,
+                    attachedTo: .main
+                )
+                .innoRouterSceneHost(sceneStore, scenes: spatialScenes)
         }
-        ImmersiveSpace(id: SpatialRoute.theatre.rawValue) {
+        ImmersiveSpace(id: "theatre") {
             TheatreView()
+                .innoRouterSceneAnchor(
+                    sceneStore,
+                    scenes: spatialScenes,
+                    attachedTo: .theatre
+                )
         }
     }
 }
 ```
 
-The `windowID:` closure maps each `Route` value to the scene's
-declared `id`. `SceneStore` never constructs identifiers itself —
-SwiftUI owns the string form.
+The shared `SceneRegistry` keeps route-to-id mapping and declaration
+metadata in one place. `SceneHost` should be attached exactly once for
+command dispatch, while `SceneAnchor` is attached to each scene root so
+system-driven appear/disappear events reconcile the store's inventory.
+If that preferred host scene disappears, a live anchor can temporarily
+take over dispatch until the host returns. That lets later
+`dismissWindow(.main)` or immersive lifecycle updates validate against
+real inventory instead of a single-slot summary.
 
 ## Opening and dismissing scenes
 
@@ -62,11 +93,29 @@ sceneStore.openImmersive(.theatre, style: .mixed)
 sceneStore.dismissImmersive()
 ```
 
-The `SceneHost` modifier observes `store.pendingIntent`, dispatches
-through the SwiftUI environment, and reports success back into the
-store. If `openImmersiveSpace` returns `.userCancelled` or `.error`,
-the host emits a `SceneEvent.rejected(_, reason: .environmentReturnedFailure)`
-and leaves `currentScene` untouched.
+`VolumetricSize` and `ImmersiveStyle` are declaration-backed metadata,
+not dynamic environment parameters. If a request's kind, size, or
+style does not match the registry entry, the host emits
+`SceneEvent.rejected(.open(...), reason: .sceneDeclarationMismatch)`
+and leaves the active scene inventory untouched.
+
+The `SceneHost` modifier is the preferred primary dispatcher: it
+observes pending request tokens, claims work, dispatches through the
+SwiftUI environment, and reports success back into the store.
+`SceneAnchor` mirrors that dispatch loop as a fallback only when no
+explicit host is currently alive. If `openImmersiveSpace` returns
+`.userCancelled` or `.error`,
+the host emits a
+`SceneEvent.rejected(.open(.immersive(...)), reason: .environmentReturnedFailure)`
+and leaves the active scene inventory untouched. `currentScene` remains
+a recency-ordered summary of that inventory, not the sole source of
+truth for dismissal. Calling `dismissImmersive()` without an active
+immersive scene emits
+`SceneEvent.rejected(.dismissImmersive, reason: .nothingActive)`.
+`SceneAnchor` still never emits public lifecycle events; it reconciles
+inventory when the system opens or closes a scene outside the store's
+explicit command path and can temporarily forward commands while the
+preferred host scene is gone.
 
 ## Observing lifecycle through `events`
 
@@ -82,8 +131,9 @@ Task {
 ```
 
 The event taxonomy (`presented`, `dismissed`, `rejected`) is
-deliberately minimal — only outcomes the SwiftUI environment can
-actually report.
+deliberately minimal. Rejections carry the original `SceneIntent` so
+subscribers can distinguish undeclared routes, declaration mismatches,
+and environment failures without synthesising placeholder routes.
 
 ## Ornaments on any platform
 

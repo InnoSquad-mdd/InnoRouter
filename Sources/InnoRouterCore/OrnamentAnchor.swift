@@ -1,5 +1,3 @@
-import Foundation
-
 /// Placement hint for an InnoRouter-managed ornament.
 ///
 /// SwiftUI's `ornament(attachmentAnchor:contentAlignment:ornament:)`

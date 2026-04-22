@@ -9,20 +9,19 @@
 // only on visionOS.
 #if os(visionOS)
 
+import Foundation
 import SwiftUI
 
 import InnoRouterCore
 
-/// View modifier that couples a ``SceneStore`` to SwiftUI's spatial
-/// scene actions.
+/// View modifier that dispatches a ``SceneStore``'s pending intents into
+/// SwiftUI's spatial scene environment actions.
 ///
-/// Attach it to any view that lives inside your app's
-/// `WindowGroup` / `ImmersiveSpace` hierarchy. The modifier observes
-/// the store's ``SceneStore/pendingIntent`` and dispatches to
-/// `@Environment(\.openWindow)` / `@Environment(\.openImmersiveSpace)`
-/// etc., then calls back into the store to commit the transition.
+/// Attach exactly one scene host per ``SceneStore``. Additional scene
+/// roots should use ``SceneAnchor`` for lifecycle reconciliation and
+/// fallback dispatch ownership when the host scene disappears.
 ///
-/// Use the convenience wrapper ``SwiftUI/View/innoRouterSceneHost(_:windowID:)``
+/// Use the convenience wrapper ``SwiftUI/View/innoRouterSceneHost(_:scenes:)``
 /// instead of instantiating the modifier directly.
 public struct SceneHost<R: Route>: ViewModifier {
     @Bindable private var store: SceneStore<R>
@@ -30,58 +29,49 @@ public struct SceneHost<R: Route>: ViewModifier {
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.dismissWindow) private var dismissWindow
-    private let windowID: (R) -> String
+    @State private var dispatcherToken = UUID()
+    private let scenes: SceneRegistry<R>
 
     /// Creates a scene host.
     ///
     /// - Parameters:
     ///   - store: the scene store driving this host.
-    ///   - windowID: maps a route to the `id` string used by the
-    ///     corresponding `WindowGroup` or `ImmersiveSpace` scene
-    ///     declaration in your `App`.
-    public init(store: SceneStore<R>, windowID: @escaping (R) -> String) {
+    ///   - scenes: scene declarations shared with the app's
+    ///     `WindowGroup` / `ImmersiveSpace` definitions.
+    public init(store: SceneStore<R>, scenes: SceneRegistry<R>) {
         self.store = store
-        self.windowID = windowID
+        self.scenes = scenes
     }
 
     public func body(content: Content) -> some View {
         content
-            .onChange(of: store.pendingIntent) { _, newIntent in
-                guard let intent = newIntent else { return }
+            .onAppear {
+                store.registerDispatcherHost(dispatcherToken)
                 Task { @MainActor in
-                    await handle(intent)
+                    await dispatchPendingRequests()
+                }
+            }
+            .onDisappear {
+                store.unregisterDispatcherHost(dispatcherToken)
+            }
+            .onChange(of: store.dispatchSignal) { _, _ in
+                Task { @MainActor in
+                    await dispatchPendingRequests()
                 }
             }
     }
 
     @MainActor
-    private func handle(_ intent: SceneIntent<R>) async {
-        switch intent {
-        case .open(let presentation):
-            await open(presentation)
-        case .dismissImmersive:
-            if let active = store.currentScene {
-                await dismissImmersiveSpace()
-                store.completeDismissal(of: active)
-            }
-        case .dismissWindow(let route):
-            dismissWindow(id: windowID(route))
-            if let active = store.currentScene {
-                store.completeDismissal(of: active)
-            }
-        }
-    }
-
-    @MainActor
-    private func open(_ presentation: ScenePresentation<R>) async {
-        switch presentation {
-        case .window(let route), .volumetric(let route, _):
-            openWindow(id: windowID(route))
-            store.completeOpen(presentation, accepted: true)
-        case .immersive(let route, _):
-            let result = await openImmersiveSpace(id: windowID(route))
-            store.completeOpen(presentation, accepted: result == .opened)
-        }
+    private func dispatchPendingRequests() async {
+        await SceneDispatchDriver(
+            store: store,
+            scenes: scenes,
+            dispatcherToken: dispatcherToken,
+            openWindow: { id in openWindow(id: id) },
+            openImmersiveSpace: { id in await openImmersiveSpace(id: id) },
+            dismissImmersiveSpace: { await dismissImmersiveSpace() },
+            dismissWindow: { id in dismissWindow(id: id) }
+        ).run()
     }
 }
 
@@ -94,9 +84,9 @@ public extension View {
     /// `#if os(visionOS)`.
     func innoRouterSceneHost<R: Route>(
         _ store: SceneStore<R>,
-        windowID: @escaping (R) -> String
+        scenes: SceneRegistry<R>
     ) -> some View {
-        modifier(SceneHost(store: store, windowID: windowID))
+        modifier(SceneHost(store: store, scenes: scenes))
     }
 }
 

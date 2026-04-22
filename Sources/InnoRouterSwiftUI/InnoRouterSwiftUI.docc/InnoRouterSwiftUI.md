@@ -15,7 +15,8 @@ This module owns:
 - `NavigationIntent` and `ModalIntent`
 - `EnvironmentNavigationIntent` and `EnvironmentModalIntent`
 - `FlowCoordinator` and `TabCoordinator`
-- `SceneStore`, `SceneHost` (visionOS only)
+- `SceneDeclaration`, `SceneRegistry`
+- `SceneStore`, `SceneHost`, `SceneAnchor` (visionOS only)
 - `innoRouterOrnament(_:content:)` view modifier (no-op off visionOS)
 
 The guiding rule is simple: views emit intent, stores own transition authority, and hosts bridge system UI state back into those authorities.

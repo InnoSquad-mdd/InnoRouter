@@ -224,6 +224,33 @@ relationship | memberOf | NavigationStoreConfiguration.onPathMismatch | Navigati
 relationship | memberOf | NavigationStoreConfiguration.onTransactionExecuted | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.pathMismatchPolicy | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.routeStackValidator | NavigationStoreConfiguration |  |
+relationship | memberOf | SceneDeclaration.Kind | SceneDeclaration |  |
+relationship | memberOf | SceneDeclaration.Kind.immersive(style:) | SceneDeclaration.Kind |  |
+relationship | memberOf | SceneDeclaration.Kind.volumetric(size:) | SceneDeclaration.Kind |  |
+relationship | memberOf | SceneDeclaration.Kind.window | SceneDeclaration.Kind |  |
+relationship | memberOf | SceneDeclaration.id | SceneDeclaration |  |
+relationship | memberOf | SceneDeclaration.immersive(_:id:style:) | SceneDeclaration |  |
+relationship | memberOf | SceneDeclaration.init(route:id:kind:) | SceneDeclaration |  |
+relationship | memberOf | SceneDeclaration.kind | SceneDeclaration |  |
+relationship | memberOf | SceneDeclaration.route | SceneDeclaration |  |
+relationship | memberOf | SceneDeclaration.volumetric(_:id:size:) | SceneDeclaration |  |
+relationship | memberOf | SceneDeclaration.window(_:id:) | SceneDeclaration |  |
+relationship | memberOf | SceneEvent.dismissed(_:) | SceneEvent |  |
+relationship | memberOf | SceneEvent.presented(_:) | SceneEvent |  |
+relationship | memberOf | SceneEvent.rejected(_:reason:) | SceneEvent |  |
+relationship | memberOf | SceneIntent.dismissImmersive | SceneIntent |  |
+relationship | memberOf | SceneIntent.dismissWindow(_:) | SceneIntent |  |
+relationship | memberOf | SceneIntent.open(_:) | SceneIntent |  |
+relationship | memberOf | SceneRegistry.declaration(for:) | SceneRegistry |  |
+relationship | memberOf | SceneRegistry.declaration(id:) | SceneRegistry |  |
+relationship | memberOf | SceneRegistry.declarations | SceneRegistry |  |
+relationship | memberOf | SceneRegistry.init(_:) | SceneRegistry |  |
+relationship | memberOf | SceneRejectionReason.activeSceneMismatch | SceneRejectionReason |  |
+relationship | memberOf | SceneRejectionReason.environmentReturnedFailure | SceneRejectionReason |  |
+relationship | memberOf | SceneRejectionReason.nothingActive | SceneRejectionReason |  |
+relationship | memberOf | SceneRejectionReason.sceneDeclarationMismatch | SceneRejectionReason |  |
+relationship | memberOf | SceneRejectionReason.sceneNotDeclared | SceneRejectionReason |  |
+relationship | memberOf | SceneRejectionReason.supersededByNewerIntent | SceneRejectionReason |  |
 relationship | memberOf | StoreObserverSubscription.cancel() | StoreObserverSubscription |  |
 relationship | memberOf | Tab.id | Tab |  |
 relationship | memberOf | TabCoordinator.badge(for:) | TabCoordinator |  |
@@ -310,6 +337,10 @@ symbol | swift.enum | NavigationPathMismatchEvent.Policy | NavigationPathMismatc
 symbol | swift.enum | NavigationPathMismatchEvent.Resolution | NavigationPathMismatchEvent.Resolution | enum Resolution | []
 symbol | swift.enum | NavigationPathMismatchPolicy | NavigationPathMismatchPolicy | enum NavigationPathMismatchPolicy<R> where R : Route | []
 symbol | swift.enum | NavigationPathMismatchResolution | NavigationPathMismatchResolution | enum NavigationPathMismatchResolution<R> where R : Route | []
+symbol | swift.enum | SceneDeclaration.Kind | SceneDeclaration.Kind | enum Kind | []
+symbol | swift.enum | SceneEvent | SceneEvent | enum SceneEvent<R> where R : Route | []
+symbol | swift.enum | SceneIntent | SceneIntent | enum SceneIntent<R> where R : Route | []
+symbol | swift.enum | SceneRejectionReason | SceneRejectionReason | enum SceneRejectionReason | []
 symbol | swift.enum.case | FlowEvent.intentRejected(_:_:) | FlowEvent.intentRejected(_:_:) | case intentRejected(FlowIntent<R>, FlowRejectionReason) | []
 symbol | swift.enum.case | FlowEvent.modal(_:) | FlowEvent.modal(_:) | case modal(ModalEvent<R>) | []
 symbol | swift.enum.case | FlowEvent.navigation(_:) | FlowEvent.navigation(_:) | case navigation(NavigationEvent<R>) | []
@@ -379,6 +410,21 @@ symbol | swift.enum.case | NavigationPathMismatchPolicy.replace | NavigationPath
 symbol | swift.enum.case | NavigationPathMismatchResolution.batch(_:) | NavigationPathMismatchResolution.batch(_:) | case batch([NavigationCommand<R>]) | []
 symbol | swift.enum.case | NavigationPathMismatchResolution.ignore | NavigationPathMismatchResolution.ignore | case ignore | []
 symbol | swift.enum.case | NavigationPathMismatchResolution.single(_:) | NavigationPathMismatchResolution.single(_:) | case single(NavigationCommand<R>) | []
+symbol | swift.enum.case | SceneDeclaration.Kind.immersive(style:) | SceneDeclaration.Kind.immersive(style:) | case immersive(style: ImmersiveStyle) | []
+symbol | swift.enum.case | SceneDeclaration.Kind.volumetric(size:) | SceneDeclaration.Kind.volumetric(size:) | case volumetric(size: VolumetricSize? = nil) | []
+symbol | swift.enum.case | SceneDeclaration.Kind.window | SceneDeclaration.Kind.window | case window | []
+symbol | swift.enum.case | SceneEvent.dismissed(_:) | SceneEvent.dismissed(_:) | case dismissed(ScenePresentation<R>) | []
+symbol | swift.enum.case | SceneEvent.presented(_:) | SceneEvent.presented(_:) | case presented(ScenePresentation<R>) | []
+symbol | swift.enum.case | SceneEvent.rejected(_:reason:) | SceneEvent.rejected(_:reason:) | case rejected(SceneIntent<R>, reason: SceneRejectionReason) | []
+symbol | swift.enum.case | SceneIntent.dismissImmersive | SceneIntent.dismissImmersive | case dismissImmersive | []
+symbol | swift.enum.case | SceneIntent.dismissWindow(_:) | SceneIntent.dismissWindow(_:) | case dismissWindow(R) | []
+symbol | swift.enum.case | SceneIntent.open(_:) | SceneIntent.open(_:) | case open(ScenePresentation<R>) | []
+symbol | swift.enum.case | SceneRejectionReason.activeSceneMismatch | SceneRejectionReason.activeSceneMismatch | case activeSceneMismatch | []
+symbol | swift.enum.case | SceneRejectionReason.environmentReturnedFailure | SceneRejectionReason.environmentReturnedFailure | case environmentReturnedFailure | []
+symbol | swift.enum.case | SceneRejectionReason.nothingActive | SceneRejectionReason.nothingActive | case nothingActive | []
+symbol | swift.enum.case | SceneRejectionReason.sceneDeclarationMismatch | SceneRejectionReason.sceneDeclarationMismatch | case sceneDeclarationMismatch | []
+symbol | swift.enum.case | SceneRejectionReason.sceneNotDeclared | SceneRejectionReason.sceneNotDeclared | case sceneNotDeclared | []
+symbol | swift.enum.case | SceneRejectionReason.supersededByNewerIntent | SceneRejectionReason.supersededByNewerIntent | case supersededByNewerIntent | []
 symbol | swift.init | AnyFlowIntentDispatcher.init(send:) | init(send:) | @MainActor init(send: @escaping @MainActor (FlowIntent<R>) -> Void) | []
 symbol | swift.init | AnyModalIntentDispatcher.init(send:) | init(send:) | @MainActor init(send: @escaping @MainActor (ModalIntent<M>) -> Void) | []
 symbol | swift.init | AnyNavigationIntentDispatcher.init(send:) | init(send:) | @MainActor init(send: @escaping @MainActor (NavigationIntent<R>) -> Void) | []
@@ -409,6 +455,9 @@ symbol | swift.init | NavigationSplitHost.init(store:sidebar:destination:root:) 
 symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init()) | []
 symbol | swift.init | NavigationStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init()) throws | []
 symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:) | init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:) | init(engine: NavigationEngine<R> = .init(), middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? = nil, onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? = nil, onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? = nil, onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? = nil, onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? = nil) | []
+symbol | swift.init | SceneDeclaration.init(route:id:kind:) | init(route:id:kind:) | init(route: R, id: String, kind: SceneDeclaration<R>.Kind) | []
+symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: SceneDeclaration<R>...) | []
+symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: [SceneDeclaration<R>]) | []
 symbol | swift.init | TabCoordinatorView.init(coordinator:) | init(coordinator:) | @MainActor init(coordinator: C) | []
 symbol | swift.init | ThrottleNavigationMiddleware.init(interval:) | init(interval:) | @MainActor convenience init(interval: Duration) | []
 symbol | swift.init | ThrottleNavigationMiddleware.init(interval:clock:key:) | init(interval:clock:key:) | @MainActor init(interval: Duration, clock: C, key: @escaping @MainActor (NavigationCommand<R>) -> ThrottleNavigationMiddleware<R, C>.Key?) | []
@@ -460,6 +509,8 @@ symbol | swift.method | NavigationStore.observe(_:) | observe(_:) | @MainActor f
 symbol | swift.method | NavigationStore.removeMiddleware(_:) | removeMiddleware(_:) | @discardableResult @MainActor func removeMiddleware(_ handle: NavigationMiddlewareHandle) -> AnyNavigationMiddleware<R>? | []
 symbol | swift.method | NavigationStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: NavigationMiddlewareHandle, with middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> Bool | []
 symbol | swift.method | NavigationStore.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<R>) | []
+symbol | swift.method | SceneRegistry.declaration(for:) | declaration(for:) | func declaration(for route: R) -> SceneDeclaration<R>? | []
+symbol | swift.method | SceneRegistry.declaration(id:) | declaration(id:) | func declaration(id: String) -> SceneDeclaration<R>? | []
 symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: FlowEvent<Self.RouteType>) | []
 symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: ModalEvent<Self.RouteType>) | []
 symbol | swift.method | StoreObserver.handle(_:) | handle(_:) | @MainActor func handle(_ event: NavigationEvent<Self.RouteType>) | []
@@ -551,6 +602,10 @@ symbol | swift.property | NavigationStoreConfiguration.onPathMismatch | onPathMi
 symbol | swift.property | NavigationStoreConfiguration.onTransactionExecuted | onTransactionExecuted | let onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? | []
 symbol | swift.property | NavigationStoreConfiguration.pathMismatchPolicy | pathMismatchPolicy | let pathMismatchPolicy: NavigationPathMismatchPolicy<R> | []
 symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | let routeStackValidator: RouteStackValidator<R> | []
+symbol | swift.property | SceneDeclaration.id | id | let id: String | []
+symbol | swift.property | SceneDeclaration.kind | kind | let kind: SceneDeclaration<R>.Kind | []
+symbol | swift.property | SceneDeclaration.route | route | let route: R | []
+symbol | swift.property | SceneRegistry.declarations | declarations | let declarations: [SceneDeclaration<R>] | []
 symbol | swift.property | Tab.icon | icon | var icon: String { get } | []
 symbol | swift.property | Tab.id | id | var id: Self { get } | []
 symbol | swift.property | Tab.title | title | var title: String { get } | []
@@ -590,7 +645,12 @@ symbol | swift.struct | NavigationMiddlewareRegistration | NavigationMiddlewareR
 symbol | swift.struct | NavigationPathMismatchEvent | NavigationPathMismatchEvent | struct NavigationPathMismatchEvent<R> where R : Route | []
 symbol | swift.struct | NavigationSplitHost | NavigationSplitHost | @MainActor struct NavigationSplitHost<R, Sidebar, DestinationView, Root> where R : Route, Sidebar : View, DestinationView : View, Root : View | []
 symbol | swift.struct | NavigationStoreConfiguration | NavigationStoreConfiguration | struct NavigationStoreConfiguration<R> where R : Route | []
+symbol | swift.struct | SceneDeclaration | SceneDeclaration | struct SceneDeclaration<R> where R : Route | []
+symbol | swift.struct | SceneRegistry | SceneRegistry | struct SceneRegistry<R> where R : Route | []
 symbol | swift.struct | TabCoordinatorView | TabCoordinatorView | @MainActor struct TabCoordinatorView<C> where C : TabCoordinator | []
+symbol | swift.type.method | SceneDeclaration.immersive(_:id:style:) | immersive(_:id:style:) | static func immersive(_ route: R, id: String, style: ImmersiveStyle) -> SceneDeclaration<R> | []
+symbol | swift.type.method | SceneDeclaration.volumetric(_:id:size:) | volumetric(_:id:size:) | static func volumetric(_ route: R, id: String, size: VolumetricSize? = nil) -> SceneDeclaration<R> | []
+symbol | swift.type.method | SceneDeclaration.window(_:id:) | window(_:id:) | static func window(_ route: R, id: String) -> SceneDeclaration<R> | []
 symbol | swift.type.property | ThrottleNavigationMiddleware.globalKey | globalKey | @MainActor static var globalKey: ThrottleNavigationMiddleware<R, C>.Key { get } | []
 symbol | swift.typealias | AnyFlowIntentDispatcher.RouteType | AnyFlowIntentDispatcher.RouteType | typealias RouteType = R | []
 symbol | swift.typealias | AnyModalIntentDispatcher.RouteType | AnyModalIntentDispatcher.RouteType | typealias RouteType = M | []

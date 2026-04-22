@@ -62,7 +62,7 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
 ### vs swift-navigation — 2.3k★ (PointFree)
 - **Lead**: full stack authority, middleware, pipeline. swift-navigation
   is bindings-only.
-- **Lag**: no cross-surface story (UIKit / AppKit / visionOS / Linux).
+- **Lag**: no cross-surface story (UIKit / AppKit / Linux).
   Small teams can still ship with swift-navigation + a hand-rolled router.
 
 ### vs FlowStacks — 967★
@@ -466,8 +466,9 @@ With the P3 polish cluster shipped (macro FixIts, `.whenCancelled`,
 `ThrottleNavigationMiddleware`, `StoreObserver`, property-based
 tests, modal-aware FlowIntent variants, `ChildCoordinatorTaskTracker`,
 `FlowPendingDeepLinkPersistence`) **and the all-platform /
-visionOS-spatial extension** (`ScenePresentation`, `SceneStore`,
-`SceneHost`, `innoRouterOrnament`, per-platform CI), the
+visionOS-spatial extension** (`ScenePresentation`, `SceneDeclaration`,
+`SceneRegistry`, `SceneStore`, `SceneHost`, `innoRouterOrnament`,
+per-platform CI), the
 P0 / P1 / P3 backlog is **empty** and SwiftUI-only is the final
 positioning stance. **3.0.0 release candidate.**
 
