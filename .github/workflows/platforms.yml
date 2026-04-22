@@ -23,13 +23,13 @@ jobs:
           - name: iOS
             destination: "generic/platform=iOS Simulator"
           - name: iPadOS
-            destination: "platform=iOS Simulator,name=iPad Pro 11-inch (M4)"
+            destination: "generic/platform=iOS Simulator"
           - name: macOS
             destination: "platform=macOS"
           - name: tvOS
-            destination: "platform=tvOS Simulator,name=Apple TV"
+            destination: "generic/platform=tvOS Simulator"
           - name: watchOS
-            destination: "platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)"
+            destination: "generic/platform=watchOS Simulator"
           - name: visionOS
             destination: "generic/platform=visionOS Simulator"
 
@@ -56,8 +56,10 @@ jobs:
       # platform-specific SwiftUI hosts. Building it per platform gates
       # any latent #if os(...) breakage (e.g. NavigationSplitView on
       # watchOS, .fullScreenCover on macOS/visionOS, ornaments on
-      # visionOS). The scheme naming matches `xcodebuild -list` output
-      # from the Swift package.
+      # visionOS). Generic simulator destinations are intentional so
+      # the compile-only gate does not depend on runner-specific device
+      # names or installed runtime image names. The scheme naming
+      # matches `xcodebuild -list` output from the Swift package.
       - name: Build InnoRouterSwiftUI for ${{ matrix.platform.name }}
         run: |
           xcodebuild build \

@@ -191,14 +191,16 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     exit 1
   fi
 
-  # Map shorthand platform names to xcodebuild destinations.
+  # Map shorthand platform names to compile-only xcodebuild destinations.
+  # Generic simulator destinations avoid local / runner drift when
+  # exact device names or runtime images differ.
   declare -a PLATFORM_ENTRIES
   PLATFORM_ENTRIES=(
-    "iOS|platform=iOS Simulator,name=iPhone 16"
-    "iPadOS|platform=iOS Simulator,name=iPad Pro 11-inch (M4)"
+    "iOS|generic/platform=iOS Simulator"
+    "iPadOS|generic/platform=iOS Simulator"
     "macOS|platform=macOS"
-    "tvOS|platform=tvOS Simulator,name=Apple TV"
-    "watchOS|platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)"
+    "tvOS|generic/platform=tvOS Simulator"
+    "watchOS|generic/platform=watchOS Simulator"
     "visionOS|generic/platform=visionOS Simulator"
   )
 
