@@ -57,10 +57,12 @@ extension OrnamentAnchor {
         }
     }
 
-    /// Translates the Core-level alignment into SwiftUI's `Alignment3D`,
-    /// which is the positional type the visionOS `ornament` modifier
-    /// accepts for `contentAlignment`.
-    var swiftUIAlignment: Alignment3D {
+    /// Translates the Core-level alignment into SwiftUI's `Alignment`.
+    ///
+    /// InnoRouter's ornament model is intentionally 2D today, so keep
+    /// using the visionOS 2-safe overload instead of requiring the newer
+    /// `Alignment3D` surface.
+    var swiftUIAlignment: SwiftUI.Alignment {
         switch alignment {
         case .center: return .center
         case .bottom: return .bottom

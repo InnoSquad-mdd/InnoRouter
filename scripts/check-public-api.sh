@@ -46,6 +46,48 @@ for required in swift xcrun python3 diff xcodebuild; do
   fi
 done
 
+canonicalize_path() {
+  python3 - "$1" <<'PY'
+from __future__ import annotations
+
+import os
+import sys
+
+print(os.path.realpath(sys.argv[1]))
+PY
+}
+
+print_toolchain_context() {
+  local swift_path
+  local xcrun_swift_path
+  local xcodebuild_path
+  local selected_xcode
+  local swift_version_output
+  local xcrun_swift_version_output
+
+  swift_path="$(canonicalize_path "$(command -v swift)")"
+  xcrun_swift_path="$(canonicalize_path "$(xcrun -f swift)")"
+  xcodebuild_path="$(canonicalize_path "$(xcrun -f xcodebuild)")"
+  selected_xcode="$(xcode-select -p)"
+  swift_version_output="$(swift --version)"
+  xcrun_swift_version_output="$(xcrun swift --version)"
+
+  echo "[check-public-api] Active toolchain"
+  echo "[check-public-api] xcode-select: $selected_xcode"
+  echo "[check-public-api] swift: $swift_path"
+  printf '%s\n' "$swift_version_output" | sed 's/^/[check-public-api] /'
+  echo "[check-public-api] xcrun swift: $xcrun_swift_path"
+  printf '%s\n' "$xcrun_swift_version_output" | sed 's/^/[check-public-api] /'
+  echo "[check-public-api] xcodebuild: $xcodebuild_path"
+  xcodebuild -version | sed 's/^/[check-public-api] /'
+
+  if [[ "$swift_version_output" != "$xcrun_swift_version_output" ]]; then
+    echo "[check-public-api] Toolchain mismatch: swift on PATH reports a different toolchain than xcrun swift." >&2
+    echo "[check-public-api] Ensure swift, xcrun, and xcodebuild all come from the same Xcode installation." >&2
+    exit 1
+  fi
+}
+
 cd "$ROOT_DIR"
 ROOT_DIR_CANONICAL="$(cd "$ROOT_DIR" && pwd -P)"
 
@@ -229,6 +271,8 @@ resolve_platform_frameworks_dir() {
     printf '%s\n' "$candidate_platform_frameworks_dir"
   fi
 }
+
+print_toolchain_context
 
 echo "[check-public-api] Building package for symbol extraction"
 swift build >/dev/null
