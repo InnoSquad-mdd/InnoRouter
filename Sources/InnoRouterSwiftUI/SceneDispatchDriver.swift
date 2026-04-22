@@ -22,7 +22,8 @@ internal struct SceneDispatchDriver<R: Route> {
 
     @MainActor
     internal func run() async {
-        while
+        dispatchLoop: while
+            !Task.isCancelled,
             let requestID = store.currentPendingRequestID,
             let intent = store.claimPendingRequest(
                 requestID,
@@ -57,6 +58,21 @@ internal struct SceneDispatchDriver<R: Route> {
 
             case .openImmersive(let id, let presentation):
                 let result = await openImmersiveSpace(id)
+
+                // If the host's dispatch Task was cancelled (the owning
+                // view disappeared, or a signal-driven restart replaced
+                // us) while we were awaiting the async opener, abandon
+                // the claim rather than committing a result the next
+                // dispatcher has no way to reconcile.
+                if Task.isCancelled {
+                    _ = store.completeClaimedRejection(
+                        for: intent,
+                        reason: .hostTornDownDuringDispatch,
+                        requestID: requestID
+                    )
+                    break dispatchLoop
+                }
+
                 let completion = store.completeClaimedOpen(
                     presentation,
                     accepted: result == .opened,
@@ -65,6 +81,11 @@ internal struct SceneDispatchDriver<R: Route> {
 
                 if completion == .cleanupSupersededImmersiveOpen {
                     await dismissImmersiveSpace()
+                    if Task.isCancelled {
+                        // The cleanup transition already released the
+                        // superseded claim in state; nothing to abandon.
+                        break dispatchLoop
+                    }
                     _ = store.finishSupersededImmersiveOpenCleanup(requestID: requestID)
                 }
 
@@ -74,6 +95,14 @@ internal struct SceneDispatchDriver<R: Route> {
 
             case .dismissImmersive(let presentation):
                 await dismissImmersiveSpace()
+                if Task.isCancelled {
+                    _ = store.completeClaimedRejection(
+                        for: intent,
+                        reason: .hostTornDownDuringDispatch,
+                        requestID: requestID
+                    )
+                    break dispatchLoop
+                }
                 _ = store.completeClaimedDismissal(of: presentation, requestID: requestID)
 
             case .reject(let rejectedIntent, let reason):

@@ -31,6 +31,7 @@ public struct SceneHost<R: Route>: ViewModifier {
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var dispatcherToken = UUID()
     @State private var isDormant: Bool = false
+    @State private var dispatchTask: Task<Void, Never>?
     private let scenes: SceneRegistry<R>
 
     /// Creates a scene host.
@@ -56,11 +57,18 @@ public struct SceneHost<R: Route>: ViewModifier {
                 let didRegister = store.registerDispatcherHost(dispatcherToken)
                 isDormant = !didRegister
                 guard didRegister else { return }
-                Task { @MainActor in
-                    await dispatchPendingRequests()
-                }
+                spawnDispatchTask()
             }
             .onDisappear {
+                // Cancel any in-flight dispatch first. The driver checks
+                // Task.isCancelled after every async environment call
+                // and abandons an outstanding claim with
+                // `.hostTornDownDuringDispatch` instead of silently
+                // committing an outcome the next dispatcher has no way
+                // to reconcile.
+                dispatchTask?.cancel()
+                dispatchTask = nil
+
                 // Only unregister if this host actually owned the
                 // primary slot. A dormant host never registered and must
                 // not disturb the live primary's registration.
@@ -69,10 +77,18 @@ public struct SceneHost<R: Route>: ViewModifier {
             }
             .onChange(of: store.dispatchSignal) { _, _ in
                 guard !isDormant else { return }
-                Task { @MainActor in
-                    await dispatchPendingRequests()
-                }
+                spawnDispatchTask()
             }
+    }
+
+    @MainActor
+    private func spawnDispatchTask() {
+        // Track only the most recent dispatch task. Older in-flight
+        // tasks self-terminate because `claimPendingRequest` serialises
+        // access — a losing task returns nil and exits its loop.
+        dispatchTask = Task { @MainActor in
+            await dispatchPendingRequests()
+        }
     }
 
     @MainActor

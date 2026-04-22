@@ -255,6 +255,7 @@ relationship | memberOf | SceneRejectionReason.activeSceneMismatch | SceneReject
 relationship | memberOf | SceneRejectionReason.duplicateHostRegistration | SceneRejectionReason |  |
 relationship | memberOf | SceneRejectionReason.environmentReturnedFailure | SceneRejectionReason |  |
 relationship | memberOf | SceneRejectionReason.fallbackCannotDispatch | SceneRejectionReason |  |
+relationship | memberOf | SceneRejectionReason.hostTornDownDuringDispatch | SceneRejectionReason |  |
 relationship | memberOf | SceneRejectionReason.nothingActive | SceneRejectionReason |  |
 relationship | memberOf | SceneRejectionReason.sceneDeclarationMismatch | SceneRejectionReason |  |
 relationship | memberOf | SceneRejectionReason.sceneInstanceNotActive | SceneRejectionReason |  |
@@ -447,6 +448,7 @@ symbol | swift.enum.case | SceneRejectionReason.activeSceneMismatch | SceneRejec
 symbol | swift.enum.case | SceneRejectionReason.duplicateHostRegistration | SceneRejectionReason.duplicateHostRegistration | case duplicateHostRegistration | []
 symbol | swift.enum.case | SceneRejectionReason.environmentReturnedFailure | SceneRejectionReason.environmentReturnedFailure | case environmentReturnedFailure | []
 symbol | swift.enum.case | SceneRejectionReason.fallbackCannotDispatch | SceneRejectionReason.fallbackCannotDispatch | case fallbackCannotDispatch | []
+symbol | swift.enum.case | SceneRejectionReason.hostTornDownDuringDispatch | SceneRejectionReason.hostTornDownDuringDispatch | case hostTornDownDuringDispatch | []
 symbol | swift.enum.case | SceneRejectionReason.nothingActive | SceneRejectionReason.nothingActive | case nothingActive | []
 symbol | swift.enum.case | SceneRejectionReason.sceneDeclarationMismatch | SceneRejectionReason.sceneDeclarationMismatch | case sceneDeclarationMismatch | []
 symbol | swift.enum.case | SceneRejectionReason.sceneInstanceNotActive | SceneRejectionReason.sceneInstanceNotActive | case sceneInstanceNotActive | []

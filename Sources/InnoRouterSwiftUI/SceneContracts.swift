@@ -67,6 +67,13 @@ public enum SceneRejectionReason: String, Sendable, Equatable, Codable {
     /// in normal steady state should attach exactly one
     /// ``SceneHost`` per ``SceneStore``.
     case duplicateHostRegistration
+
+    /// The dispatcher's ``Task`` was cancelled (the owning view
+    /// disappeared, or the signal re-entered with a fresh dispatch
+    /// attempt) while a claimed intent was mid-flight. The claim is
+    /// released and the pending intent advances instead of leaving the
+    /// queue stuck behind an orphaned claim.
+    case hostTornDownDuringDispatch
 }
 
 /// Capability advertised by a dispatcher (``SceneHost`` or

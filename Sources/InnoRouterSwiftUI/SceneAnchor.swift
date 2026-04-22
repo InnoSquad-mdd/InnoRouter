@@ -27,6 +27,7 @@ public struct SceneAnchor<R: Route>: ViewModifier {
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var dispatcherToken = UUID()
     @State private var attachedPresentation: ScenePresentation<R>?
+    @State private var dispatchTask: Task<Void, Never>?
     private let scenes: SceneRegistry<R>
     private let attachedTo: R
     private let instanceID: UUID?
@@ -110,11 +111,16 @@ public struct SceneAnchor<R: Route>: ViewModifier {
                     instanceID: instanceID
                 )
                 store.registerFallbackDispatcher(dispatcherToken)
-                Task { @MainActor in
-                    await dispatchPendingRequests()
-                }
+                spawnDispatchTask()
             }
             .onDisappear {
+                // Cancel any in-flight dispatch so an outstanding claim
+                // is released through `.hostTornDownDuringDispatch`
+                // instead of silently completing against a scene that
+                // is no longer in the view tree.
+                dispatchTask?.cancel()
+                dispatchTask = nil
+
                 if let attachedPresentation {
                     store.detachDeclaredScene(attachedPresentation)
                     self.attachedPresentation = nil
@@ -122,14 +128,23 @@ public struct SceneAnchor<R: Route>: ViewModifier {
                 store.unregisterFallbackDispatcher(dispatcherToken)
             }
             .onChange(of: store.dispatchSignal) { _, _ in
-                Task { @MainActor in
-                    await dispatchPendingRequests()
-                }
+                spawnDispatchTask()
             }
     }
 
     @MainActor
+    private func spawnDispatchTask() {
+        // Replace any in-flight task with a fresh dispatcher so the
+        // anchor still owns the cancellation handle held by onDisappear.
+        dispatchTask?.cancel()
+        dispatchTask = Task { @MainActor in
+            await dispatchPendingRequests()
+        }
+    }
+
+    @MainActor
     private func dispatchPendingRequests() async {
+        guard let attachedPresentation else { return }
         await SceneDispatchDriver(
             store: store,
             scenes: scenes,
