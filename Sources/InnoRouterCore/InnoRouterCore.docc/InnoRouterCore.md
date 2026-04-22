@@ -23,3 +23,7 @@ This module does not know about SwiftUI, deep links, or presentation hosts. It o
 - <doc:Command-Batch-and-Transaction-Semantics>
 - <doc:Middleware-and-Cancellation>
 - <doc:Tutorial-StatePersistence>
+
+### Reference
+
+- <doc:Rejection-Reasons>
