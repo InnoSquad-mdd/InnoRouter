@@ -134,6 +134,7 @@ public struct SceneAnchor<R: Route>: ViewModifier {
             store: store,
             scenes: scenes,
             dispatcherToken: dispatcherToken,
+            capability: .fallbackAnchor(attachedTo: attachedPresentation),
             openWindow: { id, value in openWindow(id: id, value: value) },
             openImmersiveSpace: { id in await openImmersiveSpace(id: id) },
             dismissImmersiveSpace: { await dismissImmersiveSpace() },

@@ -67,6 +67,7 @@ public struct SceneHost<R: Route>: ViewModifier {
             store: store,
             scenes: scenes,
             dispatcherToken: dispatcherToken,
+            capability: .primaryHost,
             openWindow: { id, value in openWindow(id: id, value: value) },
             openImmersiveSpace: { id in await openImmersiveSpace(id: id) },
             dismissImmersiveSpace: { await dismissImmersiveSpace() },

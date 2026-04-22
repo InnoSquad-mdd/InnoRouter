@@ -14,6 +14,7 @@ internal struct SceneDispatchDriver<R: Route> {
     internal let store: SceneStore<R>
     internal let scenes: SceneRegistry<R>
     internal let dispatcherToken: UUID
+    internal let capability: SceneDispatchCapability<R>
     internal let openWindow: (String, UUID) -> Void
     internal let openImmersiveSpace: (String) async -> OpenImmersiveSpaceAction.Result
     internal let dismissImmersiveSpace: () async -> Void
@@ -30,6 +31,20 @@ internal struct SceneDispatchDriver<R: Route> {
         {
             let resolution = SceneIntentResolver(scenes: scenes)
                 .resolve(intent, state: store.snapshot)
+
+            // Fallback anchors must not commit cross-scene opens — they
+            // don't have authority over scenes other than their own, and a
+            // silent success would leave the store reporting "presented"
+            // for a window that never appeared.
+            if case .fallbackAnchor(let attachedPresentation) = capability,
+               !resolution.isServiceableByFallback(attachedTo: attachedPresentation) {
+                _ = store.completeClaimedRejection(
+                    for: intent,
+                    reason: .fallbackCannotDispatch,
+                    requestID: requestID
+                )
+                continue
+            }
 
             switch resolution {
             case .openWindow(let id, let value, let presentation):

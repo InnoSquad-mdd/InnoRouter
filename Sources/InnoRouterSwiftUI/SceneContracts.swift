@@ -45,6 +45,35 @@ public enum SceneRejectionReason: String, Sendable, Equatable, Codable {
     /// A newer intent replaced the pending intent before the host could
     /// commit it.
     case supersededByNewerIntent
+
+    /// The currently elected dispatcher is a fallback ``SceneAnchor``
+    /// attached to a different scene than the one the intent would
+    /// affect, so the intent is refused instead of being serviced from
+    /// an unrelated scene. Apps typically see this after the preferred
+    /// ``SceneHost`` scene disappears while cross-scene opens are still
+    /// queued; attach a new ``SceneHost`` to resume delivery.
+    case fallbackCannotDispatch
+}
+
+/// Capability advertised by a dispatcher (``SceneHost`` or
+/// ``SceneAnchor``) when it runs the dispatch loop.
+///
+/// Primary hosts can service any intent. Fallback anchors are
+/// deliberately restricted to operations that do not require
+/// authority over other scenes: dismissals of any scene and opens
+/// that target the anchor's own attached scene. Other opens are
+/// rejected with ``SceneRejectionReason/fallbackCannotDispatch`` so
+/// the queue advances instead of being silently committed by a
+/// dispatcher that cannot actually reach the target scene.
+internal enum SceneDispatchCapability<R: Route>: Equatable {
+    /// Full dispatch authority, held by exactly one ``SceneHost`` per
+    /// store.
+    case primaryHost
+
+    /// Restricted dispatch authority, held by any ``SceneAnchor``.
+    /// Same-scene opens and any dismissal are serviceable; cross-scene
+    /// opens are refused.
+    case fallbackAnchor(attachedTo: ScenePresentation<R>)
 }
 
 /// Intent queued by ``SceneStore`` for a ``SceneHost`` to act on.
