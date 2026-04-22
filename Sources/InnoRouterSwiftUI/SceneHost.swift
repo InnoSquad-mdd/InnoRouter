@@ -14,15 +14,36 @@ import SwiftUI
 
 import InnoRouterCore
 
-/// View modifier that dispatches a ``SceneStore``'s pending intents into
-/// SwiftUI's spatial scene environment actions.
+/// Primary dispatcher for a ``SceneStore`` on visionOS.
 ///
-/// Attach exactly one scene host per ``SceneStore``. Additional scene
-/// roots should use ``SceneAnchor`` for lifecycle reconciliation and
-/// fallback dispatch ownership when the host scene disappears.
+/// `SceneHost` is the single source of authority for every
+/// `openWindow` / `openImmersiveSpace` / `dismissImmersiveSpace` /
+/// `dismissWindow` call InnoRouter issues. When attached to a scene
+/// root, it reads those actions from SwiftUI's environment, claims
+/// pending intents from the store, runs the async dispatch loop, and
+/// commits results back through `completeClaimedOpen` /
+/// `completeClaimedDismissal` / `completeClaimedRejection`.
 ///
-/// Use the convenience wrapper ``SwiftUI/View/innoRouterSceneHost(_:scenes:)``
-/// instead of instantiating the modifier directly.
+/// Contract:
+///
+/// - **Attach exactly one `SceneHost` per ``SceneStore``.** Secondary
+///   hosts receive a
+///   ``SceneEvent/hostRegistrationRejected(reason:)`` event with
+///   ``SceneRejectionReason/duplicateHostRegistration`` and stay
+///   dormant. They do not crash the app, so SwiftUI scene
+///   rehydration / hot-reload flows that momentarily overlap two
+///   hosts are safe.
+/// - **Do not pair it with a ``SceneAnchor`` on the same scene.** The
+///   host already reconciles its own scene's lifecycle; adding an
+///   anchor registers a redundant fallback dispatcher on a scene the
+///   host owns.
+/// - **Every non-host scene should attach a ``SceneAnchor`` instead**
+///   so system-driven appear/disappear events keep
+///   ``SceneStore/currentScene`` and the internal inventory in sync.
+///
+/// Use the convenience wrapper
+/// ``SwiftUI/View/innoRouterSceneHost(_:scenes:)`` instead of
+/// instantiating the modifier directly.
 public struct SceneHost<R: Route>: ViewModifier {
     @Bindable private var store: SceneStore<R>
     @Environment(\.openWindow) private var openWindow

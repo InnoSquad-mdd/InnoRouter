@@ -10,15 +10,38 @@ import SwiftUI
 
 import InnoRouterCore
 
-/// View modifier that reconciles a scene root with a ``SceneStore``'s
-/// internal inventory and serves as a fallback dispatcher when no
-/// explicit ``SceneHost`` is currently live.
+/// Lifecycle reconciler + restricted fallback dispatcher for a
+/// ``SceneStore`` on visionOS.
 ///
-/// Apply one scene anchor to each `WindowGroup` / `ImmersiveSpace` root
-/// that participates in the store's scene registry. Anchors never emit
-/// public lifecycle events; they keep the store's internal scene
-/// inventory aligned with system-driven appear/disappear transitions and
-/// can temporarily own dispatch when the preferred host scene is gone.
+/// `SceneAnchor` has two jobs:
+///
+/// 1. **Inventory reconciliation.** When the system opens or closes a
+///    scene outside InnoRouter's explicit command path (for example
+///    via Control Center, SwitchToApp, or session restoration),
+///    the anchor's `onAppear` / `onDisappear` attach and detach the
+///    presentation in the store's internal inventory so
+///    ``SceneStore/currentScene`` stays honest.
+/// 2. **Fallback dispatch (restricted).** When the primary
+///    ``SceneHost`` scene is not currently live, any anchor on a
+///    sibling scene can temporarily claim pending intents. Fallback
+///    anchors are deliberately limited: they can only execute
+///    **same-scene opens** (re-opens for the scene they are attached
+///    to) and **any dismissal**. Cross-scene opens are rejected with
+///    ``SceneRejectionReason/fallbackCannotDispatch`` so the queue
+///    advances instead of silently committing a result from a
+///    dispatcher that cannot actually reach the target scene.
+///
+/// Contract:
+///
+/// - **Attach one anchor per non-host scene.** Every
+///   `WindowGroup` / `ImmersiveSpace` that participates in the
+///   store's ``SceneRegistry`` — except the one hosting the
+///   ``SceneHost`` — should carry a
+///   ``SwiftUI/View/innoRouterSceneAnchor(_:scenes:attachedTo:)``.
+/// - **Do not pair it with a ``SceneHost`` on the same scene.** The
+///   host already reconciles its own scene.
+/// - Anchors never emit public lifecycle events for inventory
+///   transitions; only explicit command paths broadcast ``SceneEvent``.
 public struct SceneAnchor<R: Route>: ViewModifier {
     @Bindable private var store: SceneStore<R>
     @Environment(\.openWindow) private var openWindow
