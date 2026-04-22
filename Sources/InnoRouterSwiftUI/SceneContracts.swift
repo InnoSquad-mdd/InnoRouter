@@ -1,3 +1,5 @@
+import Foundation
+
 import InnoRouterCore
 
 /// Lifecycle event emitted by ``SceneStore``.
@@ -36,6 +38,10 @@ public enum SceneRejectionReason: String, Sendable, Equatable, Codable {
     /// or metadata in the host's scene registry.
     case sceneDeclarationMismatch
 
+    /// The requested scene instance is not currently active in the
+    /// store's inventory.
+    case sceneInstanceNotActive
+
     /// A newer intent replaced the pending intent before the host could
     /// commit it.
     case supersededByNewerIntent
@@ -54,8 +60,8 @@ public enum SceneIntent<R: Route>: Sendable, Equatable {
     /// Dismiss the currently active immersive space.
     case dismissImmersive
 
-    /// Dismiss the window identified by `route`.
-    case dismissWindow(R)
+    /// Dismiss the specific window instance identified by `presentation`.
+    case dismissWindow(ScenePresentation<R>)
 }
 
 /// Declared scene metadata shared between your `App` scene declarations,
@@ -76,7 +82,7 @@ public struct SceneDeclaration<R: Route>: Sendable, Hashable {
     /// Route represented by this declaration.
     public let route: R
 
-    /// SwiftUI scene identifier used by `WindowGroup(id:)` or
+    /// SwiftUI scene identifier used by `WindowGroup(id:for:)` or
     /// `ImmersiveSpace(id:)`.
     public let id: String
 
@@ -161,8 +167,15 @@ public struct SceneRegistry<R: Route>: Sendable {
 internal extension ScenePresentation {
     var route: R {
         switch self {
-        case .window(let route), .volumetric(let route, _), .immersive(let route, _):
+        case .window(let route, _), .volumetric(let route, _, _), .immersive(let route, _, _):
             return route
+        }
+    }
+
+    var id: UUID {
+        switch self {
+        case .window(_, let id), .volumetric(_, _, let id), .immersive(_, _, let id):
+            return id
         }
     }
 
@@ -173,13 +186,12 @@ internal extension ScenePresentation {
         return false
     }
 
-    func matchesWindowDismissal(of route: R) -> Bool {
-        switch self {
-        case .window(let activeRoute), .volumetric(let activeRoute, _):
-            return activeRoute == route
-        case .immersive:
-            return false
-        }
+    var isWindowLike: Bool {
+        !isImmersive
+    }
+
+    func matchesWindowDismissal(of presentation: ScenePresentation<R>) -> Bool {
+        isWindowLike && presentation.isWindowLike && id == presentation.id
     }
 }
 
@@ -208,25 +220,38 @@ internal extension SceneIntent {
             return false
         case .dismissImmersive:
             return presentation.isImmersive
-        case .dismissWindow(let route):
-            return presentation.matchesWindowDismissal(of: route)
+        case .dismissWindow(let requestedPresentation):
+            return presentation.matchesWindowDismissal(of: requestedPresentation)
         }
     }
 }
 
 internal extension SceneDeclaration {
-    var presentation: ScenePresentation<R> {
+    func presentation(id: UUID = UUID()) -> ScenePresentation<R> {
         switch kind {
         case .window:
-            return .window(route)
+            return .window(route, id: id)
         case .volumetric(let size):
-            return .volumetric(route, size: size)
+            return .volumetric(route, size: size, id: id)
         case .immersive(let style):
-            return .immersive(route, style: style)
+            return .immersive(route, style: style, id: id)
         }
     }
 
     func matches(_ presentation: ScenePresentation<R>) -> Bool {
-        self.presentation == presentation
+        guard route == presentation.route else {
+            return false
+        }
+
+        switch (kind, presentation) {
+        case (.window, .window):
+            return true
+        case (.volumetric(let declaredSize), .volumetric(_, let actualSize, _)):
+            return declaredSize == actualSize
+        case (.immersive(let declaredStyle), .immersive(_, let actualStyle, _)):
+            return declaredStyle == actualStyle
+        default:
+            return false
+        }
     }
 }

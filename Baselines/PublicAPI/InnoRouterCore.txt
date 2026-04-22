@@ -150,9 +150,9 @@ relationship | memberOf | RouteStep.modalStyle | RouteStep |  |
 relationship | memberOf | RouteStep.push(_:) | RouteStep |  |
 relationship | memberOf | RouteStep.route | RouteStep |  |
 relationship | memberOf | RouteStep.sheet(_:) | RouteStep |  |
-relationship | memberOf | ScenePresentation.immersive(_:style:) | ScenePresentation |  |
-relationship | memberOf | ScenePresentation.volumetric(_:size:) | ScenePresentation |  |
-relationship | memberOf | ScenePresentation.window(_:) | ScenePresentation |  |
+relationship | memberOf | ScenePresentation.immersive(_:style:id:) | ScenePresentation |  |
+relationship | memberOf | ScenePresentation.volumetric(_:size:id:) | ScenePresentation |  |
+relationship | memberOf | ScenePresentation.window(_:id:) | ScenePresentation |  |
 relationship | memberOf | StatePersistence.decode(_:) | StatePersistence |  |
 relationship | memberOf | StatePersistence.decodeStack(_:) | StatePersistence |  |
 relationship | memberOf | StatePersistence.encode(_:) | StatePersistence |  |
@@ -266,9 +266,9 @@ symbol | swift.enum.case | RouteStackValidationError.missingRequiredRoot(expecte
 symbol | swift.enum.case | RouteStep.cover(_:) | RouteStep.cover(_:) | case cover(R) | []
 symbol | swift.enum.case | RouteStep.push(_:) | RouteStep.push(_:) | case push(R) | []
 symbol | swift.enum.case | RouteStep.sheet(_:) | RouteStep.sheet(_:) | case sheet(R) | []
-symbol | swift.enum.case | ScenePresentation.immersive(_:style:) | ScenePresentation.immersive(_:style:) | case immersive(R, style: ImmersiveStyle) | []
-symbol | swift.enum.case | ScenePresentation.volumetric(_:size:) | ScenePresentation.volumetric(_:size:) | case volumetric(R, size: VolumetricSize? = nil) | []
-symbol | swift.enum.case | ScenePresentation.window(_:) | ScenePresentation.window(_:) | case window(R) | []
+symbol | swift.enum.case | ScenePresentation.immersive(_:style:id:) | ScenePresentation.immersive(_:style:id:) | case immersive(R, style: ImmersiveStyle, id: UUID = UUID()) | []
+symbol | swift.enum.case | ScenePresentation.volumetric(_:size:id:) | ScenePresentation.volumetric(_:size:id:) | case volumetric(R, size: VolumetricSize? = nil, id: UUID = UUID()) | []
+symbol | swift.enum.case | ScenePresentation.window(_:id:) | ScenePresentation.window(_:id:) | case window(R, id: UUID = UUID()) | []
 symbol | swift.func.op | NavigationCommand.==(_:_:) | ==(_:_:) | static func == (lhs: NavigationCommand<R>, rhs: NavigationCommand<R>) -> Bool | []
 symbol | swift.init | AnyBatchNavigator.init(_:) | init(_:) | @MainActor init<N>(_ navigator: N) where R == N.RouteType, N : NavigationBatchExecutor, N : NavigationCommandExecutor, N : NavigationStateReader, N : NavigationTransactionExecutor | []
 symbol | swift.init | AnyModalMiddleware.init(_:) | init(_:) | @MainActor init<Wrapped>(_ middleware: Wrapped) where M == Wrapped.RouteType, Wrapped : ModalMiddleware | []

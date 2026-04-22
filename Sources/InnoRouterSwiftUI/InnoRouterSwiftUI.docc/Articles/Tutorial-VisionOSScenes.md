@@ -12,8 +12,8 @@ Coordinate visionOS spatial presentations through `SceneStore`,
 visionOS exposes three distinct "scene" primitives that are not
 modelled by `NavigationStore` / `ModalStore`:
 
-- a regular window, declared with `WindowGroup(id:)`
-- a volumetric window, declared with `WindowGroup(id:).windowStyle(.volumetric)`
+- a regular window, declared with `WindowGroup(id:for:)`
+- a volumetric window, declared with `WindowGroup(id:for:).windowStyle(.volumetric)`
 - an immersive space, declared with `ImmersiveSpace(id:)`
 
 SwiftUI's openers for these (`@Environment(\.openWindow)`,
@@ -51,14 +51,17 @@ struct MyApp: App {
     @State private var sceneStore = SceneStore<SpatialRoute>()
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        WindowGroup(id: "main", for: UUID.self) { $sceneID in
             ContentView()
                 .innoRouterSceneAnchor(
                     sceneStore,
                     scenes: spatialScenes,
-                    attachedTo: .main
+                    attachedTo: .main,
+                    instanceID: sceneID
                 )
                 .innoRouterSceneHost(sceneStore, scenes: spatialScenes)
+        } defaultValue: {
+            UUID()
         }
         ImmersiveSpace(id: "theatre") {
             TheatreView()
@@ -76,10 +79,12 @@ The shared `SceneRegistry` keeps route-to-id mapping and declaration
 metadata in one place. `SceneHost` should be attached exactly once for
 command dispatch, while `SceneAnchor` is attached to each scene root so
 system-driven appear/disappear events reconcile the store's inventory.
+Window and volumetric scenes use the `UUID` supplied by a value-based
+`WindowGroup`; immersive spaces keep the route-only anchor overload.
 If that preferred host scene disappears, a live anchor can temporarily
 take over dispatch until the host returns. That lets later
-`dismissWindow(.main)` or immersive lifecycle updates validate against
-real inventory instead of a single-slot summary.
+`dismissWindow(mainWindow)` or immersive lifecycle updates validate
+against real inventory instead of a single-slot summary.
 
 ## Opening and dismissing scenes
 
@@ -87,9 +92,11 @@ From anywhere that holds a reference to the store:
 
 ```swift
 // In the main window:
+let mainWindow = sceneStore.openWindow(.main)
 sceneStore.openImmersive(.theatre, style: .mixed)
 
 // Somewhere else later:
+sceneStore.dismissWindow(mainWindow)
 sceneStore.dismissImmersive()
 ```
 
@@ -108,8 +115,8 @@ explicit host is currently alive. If `openImmersiveSpace` returns
 the host emits a
 `SceneEvent.rejected(.open(.immersive(...)), reason: .environmentReturnedFailure)`
 and leaves the active scene inventory untouched. `currentScene` remains
-a recency-ordered summary of that inventory, not the sole source of
-truth for dismissal. Calling `dismissImmersive()` without an active
+a recency-ordered summary of that inventory, while `activeScenes`
+exposes the full inventory. Calling `dismissImmersive()` without an active
 immersive scene emits
 `SceneEvent.rejected(.dismissImmersive, reason: .nothingActive)`.
 `SceneAnchor` still never emits public lifecycle events; it reconciles
@@ -133,7 +140,8 @@ Task {
 The event taxonomy (`presented`, `dismissed`, `rejected`) is
 deliberately minimal. Rejections carry the original `SceneIntent` so
 subscribers can distinguish undeclared routes, declaration mismatches,
-and environment failures without synthesising placeholder routes.
+stale window handles, and environment failures without synthesising
+placeholder routes.
 
 ## Ornaments on any platform
 

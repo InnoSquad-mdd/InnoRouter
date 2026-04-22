@@ -64,17 +64,17 @@ public struct VolumetricSize: Sendable, Hashable, Codable {
 /// host layer can grow without changing this enum.
 public enum ScenePresentation<R: Route>: Sendable, Hashable {
     /// A regular window for `route`.
-    case window(R)
+    case window(R, id: UUID = UUID())
 
     /// A volumetric window for `route`, with an optional declared size
     /// contract. On visionOS the host validates this against a
     /// `WindowGroup` declared with `.windowStyle(.volumetric)`.
-    case volumetric(R, size: VolumetricSize? = nil)
+    case volumetric(R, size: VolumetricSize? = nil, id: UUID = UUID())
 
     /// An immersive space for `route`, with the declared immersion
     /// style. On visionOS the host validates this against the
     /// corresponding `ImmersiveSpace` declaration before dispatch.
-    case immersive(R, style: ImmersiveStyle)
+    case immersive(R, style: ImmersiveStyle, id: UUID = UUID())
 }
 
 // MARK: - Codable

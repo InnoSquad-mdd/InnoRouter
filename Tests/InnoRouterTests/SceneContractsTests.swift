@@ -12,6 +12,15 @@ private enum SceneTestRoute: String, Route {
     case secondary
 }
 
+private enum SceneTestIDs {
+    static let mainWindow = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    static let mainWindowDuplicate = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+    static let mainWindowStale = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+    static let volumeWindow = UUID(uuidString: "00000000-0000-0000-0000-000000000004")!
+    static let theatre = UUID(uuidString: "00000000-0000-0000-0000-000000000005")!
+    static let theatreTwo = UUID(uuidString: "00000000-0000-0000-0000-000000000006")!
+}
+
 private func makeSceneRegistry() -> SceneRegistry<SceneTestRoute> {
     SceneRegistry(
         .window(.main, id: "main-window"),
@@ -20,19 +29,24 @@ private func makeSceneRegistry() -> SceneRegistry<SceneTestRoute> {
     )
 }
 
-private func mainWindowPresentation() -> ScenePresentation<SceneTestRoute> {
-    .window(.main)
+private func mainWindowPresentation(
+    id: UUID = SceneTestIDs.mainWindow
+) -> ScenePresentation<SceneTestRoute> {
+    .window(.main, id: id)
 }
 
-private func volumePresentation() -> ScenePresentation<SceneTestRoute> {
-    .volumetric(.volume, size: VolumetricSize(x: 1, y: 1, z: 1))
+private func volumePresentation(
+    id: UUID = SceneTestIDs.volumeWindow
+) -> ScenePresentation<SceneTestRoute> {
+    .volumetric(.volume, size: VolumetricSize(x: 1, y: 1, z: 1), id: id)
 }
 
 private func theatrePresentation(
     route: SceneTestRoute = .theatre,
-    style: ImmersiveStyle = .mixed
+    style: ImmersiveStyle = .mixed,
+    id: UUID = SceneTestIDs.theatre
 ) -> ScenePresentation<SceneTestRoute> {
-    .immersive(route, style: style)
+    .immersive(route, style: style, id: id)
 }
 
 @Suite("SceneDispatcherRegistry Tests", .tags(.unit))
@@ -103,34 +117,6 @@ struct SceneStoreStateTests {
         #expect(state.pendingIntent == nil)
     }
 
-    @Test("pending immersive open keeps a real dismiss of the committed immersive scene")
-    func pendingImmersiveOpenPreservesDismissOfCommittedImmersive() throws {
-        var state = SceneStoreState<SceneTestRoute>()
-        let committedImmersive = theatrePresentation(route: .theatreTwo)
-        let pendingImmersive = theatrePresentation()
-
-        state.attach(committedImmersive)
-        #expect(state.requestOpen(pendingImmersive).isEmpty)
-
-        let events = state.requestDismissImmersive()
-
-        #expect(events == [.rejected(.open(pendingImmersive), reason: .supersededByNewerIntent)])
-        #expect(state.pendingIntent == .dismissImmersive)
-        #expect(state.snapshot.activeImmersive == committedImmersive)
-        #expect(state.currentScene == committedImmersive)
-
-        let requestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(requestID) == .dismissImmersive)
-        #expect(
-            state.completeDismissal(
-                of: committedImmersive,
-                requestID: requestID
-            ) == .broadcast(.dismissed(committedImmersive))
-        )
-        #expect(state.snapshot.activeImmersive == nil)
-        #expect(state.currentScene == nil)
-    }
-
     @Test("dismissWindow supersedes a matching pending window open")
     func dismissWindowSupersedesPendingOpen() {
         var state = SceneStoreState<SceneTestRoute>()
@@ -138,175 +124,172 @@ struct SceneStoreStateTests {
 
         #expect(state.requestOpen(mainWindow).isEmpty)
 
-        let events = state.requestDismissWindow(.main)
+        let events = state.requestDismissWindow(mainWindow)
 
         #expect(events == [.rejected(.open(mainWindow), reason: .supersededByNewerIntent)])
         #expect(state.currentScene == nil)
         #expect(state.pendingIntent == nil)
     }
 
-    @Test("invalid dismiss emits superseded and rejection events")
-    func invalidDismissAfterPendingOpenEmitsBothEvents() {
-        var state = SceneStoreState<SceneTestRoute>()
-        let immersive = theatrePresentation()
-
-        #expect(state.requestOpen(immersive).isEmpty)
-
-        let events = state.requestDismissWindow(.main)
-
-        #expect(
-            events == [
-                .rejected(.open(immersive), reason: .supersededByNewerIntent),
-                .rejected(.dismissWindow(.main), reason: .nothingActive)
-            ]
-        )
-        #expect(state.currentScene == nil)
-        #expect(state.pendingIntent == nil)
-    }
-
-    @Test("attached root window is dismissible through inventory membership")
-    func attachedRootWindowCanBeDismissed() {
-        var state = SceneStoreState<SceneTestRoute>()
-        state.attach(mainWindowPresentation())
-
-        let events = state.requestDismissWindow(.main)
-
-        #expect(events.isEmpty)
-        #expect(state.currentScene == mainWindowPresentation())
-        #expect(state.pendingIntent == .dismissWindow(.main))
-    }
-
-    @Test("duplicate active window open does not swallow a real dismissal")
-    func duplicateActiveWindowOpenStillQueuesDismissal() {
+    @Test("duplicate window opens queue independently before claim")
+    func duplicateWindowOpensQueueIndependently() throws {
         var state = SceneStoreState<SceneTestRoute>()
         let mainWindow = mainWindowPresentation()
+        let duplicateMainWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowDuplicate)
 
-        state.attach(mainWindow)
         #expect(state.requestOpen(mainWindow).isEmpty)
+        #expect(state.requestOpen(duplicateMainWindow).isEmpty)
+        #expect(state.queuedIntents == [.open(mainWindow), .open(duplicateMainWindow)])
 
-        let events = state.requestDismissWindow(.main)
-
-        #expect(events == [.rejected(.open(mainWindow), reason: .supersededByNewerIntent)])
-        #expect(state.pendingIntent == .dismissWindow(.main))
-    }
-
-    @Test("immersive round-trip preserves attached root window inventory")
-    func immersiveRoundTripPreservesAttachedWindow() throws {
-        var state = SceneStoreState<SceneTestRoute>()
-        let mainWindow = mainWindowPresentation()
-        let immersive = theatrePresentation()
-
-        state.attach(mainWindow)
-        #expect(state.requestOpen(immersive).isEmpty)
-        let openRequestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(openRequestID) == .open(immersive))
+        let firstRequestID = try #require(state.currentPendingRequestID)
+        #expect(state.claimPendingRequest(firstRequestID) == .open(mainWindow))
+        #expect(state.pendingIntent == nil)
+        #expect(state.currentPendingRequestID == nil)
         #expect(
             state.completeOpen(
-                immersive,
+                mainWindow,
                 accepted: true,
-                requestID: openRequestID
-            ) == .broadcast(.presented(immersive))
+                requestID: firstRequestID
+            ) == .broadcast(.presented(mainWindow))
         )
 
-        let dismissEvents = state.requestDismissImmersive()
-        #expect(dismissEvents.isEmpty)
-        #expect(state.pendingIntent == .dismissImmersive)
-        let dismissRequestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(dismissRequestID) == .dismissImmersive)
+        let secondRequestID = try #require(state.currentPendingRequestID)
+        #expect(state.claimPendingRequest(secondRequestID) == .open(duplicateMainWindow))
         #expect(
-            state.completeDismissal(
-                of: immersive,
-                requestID: dismissRequestID
-            ) == .broadcast(.dismissed(immersive))
+            state.completeOpen(
+                duplicateMainWindow,
+                accepted: true,
+                requestID: secondRequestID
+            ) == .broadcast(.presented(duplicateMainWindow))
         )
 
-        #expect(state.currentScene == mainWindow)
-        #expect(state.snapshot.windowPresentation(for: .main) == mainWindow)
-        #expect(state.snapshot.activeImmersive == nil)
+        #expect(state.snapshot.windowPresentations(for: .main) == [mainWindow, duplicateMainWindow])
+        #expect(state.currentScene == duplicateMainWindow)
+        #expect(state.pendingIntent == nil)
     }
 
-    @Test("wrong-route dismiss rejects against tracked inventory")
-    func dismissWindowRejectsWrongRoute() {
+    @Test("missing window instance dismiss rejects with sceneInstanceNotActive")
+    func dismissMissingWindowInstanceRejects() {
         var state = SceneStoreState<SceneTestRoute>()
         let mainWindow = mainWindowPresentation()
+        let staleWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowStale)
 
         state.attach(mainWindow)
 
-        let events = state.requestDismissWindow(.secondary)
+        let events = state.requestDismissWindow(staleWindow)
 
-        #expect(events == [.rejected(.dismissWindow(.secondary), reason: .activeSceneMismatch)])
+        #expect(events == [.rejected(.dismissWindow(staleWindow), reason: .sceneInstanceNotActive)])
         #expect(state.currentScene == mainWindow)
         #expect(state.pendingIntent == nil)
     }
 
-    @Test("completeDismissal removes only the targeted window")
-    func completeDismissalRemovesOnlyTargetWindow() throws {
+    @Test("duplicate route windows stay active independently")
+    func duplicateRouteWindowsStayActiveIndependently() {
         var state = SceneStoreState<SceneTestRoute>()
         let mainWindow = mainWindowPresentation()
-        let volume = volumePresentation()
+        let duplicateMainWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowDuplicate)
 
         state.attach(mainWindow)
-        state.attach(volume)
-        #expect(state.requestDismissWindow(.main).isEmpty)
+        state.attach(duplicateMainWindow)
+
+        #expect(state.snapshot.windowPresentations(for: .main) == [mainWindow, duplicateMainWindow])
+        #expect(state.snapshot.activeScenes == [mainWindow, duplicateMainWindow])
+        #expect(state.currentScene == duplicateMainWindow)
+    }
+
+    @Test("completeDismissal removes only the targeted duplicate window")
+    func completeDismissalRemovesOnlyTargetedDuplicateWindow() throws {
+        var state = SceneStoreState<SceneTestRoute>()
+        let mainWindow = mainWindowPresentation()
+        let duplicateMainWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowDuplicate)
+
+        state.attach(mainWindow)
+        state.attach(duplicateMainWindow)
+        #expect(state.requestDismissWindow(mainWindow).isEmpty)
+
         let requestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(requestID) == .dismissWindow(.main))
+        #expect(state.claimPendingRequest(requestID) == .dismissWindow(mainWindow))
 
         let completion = state.completeDismissal(of: mainWindow, requestID: requestID)
 
         #expect(completion == .broadcast(.dismissed(mainWindow)))
-        #expect(state.currentScene == volume)
-        #expect(state.snapshot.windowPresentation(for: .main) == nil)
-        #expect(state.snapshot.windowPresentation(for: .volume) == volume)
+        #expect(state.currentScene == duplicateMainWindow)
+        #expect(state.snapshot.windowPresentation(id: mainWindow.id) == nil)
+        #expect(state.snapshot.windowPresentations(for: .main) == [duplicateMainWindow])
     }
 
-    @Test("silent detach is a no-op after explicit dismissal")
+    @Test("duplicate window dismissals queue independently before claim")
+    func duplicateWindowDismissalsQueueIndependently() throws {
+        var state = SceneStoreState<SceneTestRoute>()
+        let mainWindow = mainWindowPresentation()
+        let duplicateMainWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowDuplicate)
+
+        state.attach(mainWindow)
+        state.attach(duplicateMainWindow)
+
+        #expect(state.requestDismissWindow(mainWindow).isEmpty)
+        #expect(state.requestDismissWindow(duplicateMainWindow).isEmpty)
+        #expect(
+            state.queuedIntents ==
+                [.dismissWindow(mainWindow), .dismissWindow(duplicateMainWindow)]
+        )
+
+        let firstRequestID = try #require(state.currentPendingRequestID)
+        #expect(state.claimPendingRequest(firstRequestID) == .dismissWindow(mainWindow))
+        #expect(state.pendingIntent == nil)
+        #expect(state.currentPendingRequestID == nil)
+        #expect(
+            state.completeDismissal(
+                of: mainWindow,
+                requestID: firstRequestID
+            ) == .broadcast(.dismissed(mainWindow))
+        )
+
+        let secondRequestID = try #require(state.currentPendingRequestID)
+        #expect(state.claimPendingRequest(secondRequestID) == .dismissWindow(duplicateMainWindow))
+        #expect(
+            state.completeDismissal(
+                of: duplicateMainWindow,
+                requestID: secondRequestID
+            ) == .broadcast(.dismissed(duplicateMainWindow))
+        )
+
+        #expect(state.snapshot.windowPresentations(for: .main).isEmpty)
+        #expect(state.currentScene == nil)
+        #expect(state.pendingIntent == nil)
+    }
+
+    @Test("dismissed duplicate window detach is idempotent")
     func detachAfterExplicitDismissalIsIdempotent() throws {
         var state = SceneStoreState<SceneTestRoute>()
         let mainWindow = mainWindowPresentation()
-        let volume = volumePresentation()
+        let duplicateMainWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowDuplicate)
 
         state.attach(mainWindow)
-        state.attach(volume)
-        #expect(state.requestDismissWindow(.main).isEmpty)
+        state.attach(duplicateMainWindow)
+        #expect(state.requestDismissWindow(mainWindow).isEmpty)
+
         let requestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(requestID) == .dismissWindow(.main))
+        #expect(state.claimPendingRequest(requestID) == .dismissWindow(mainWindow))
         _ = state.completeDismissal(of: mainWindow, requestID: requestID)
 
         state.detach(mainWindow)
 
-        #expect(state.currentScene == volume)
-        #expect(state.snapshot.windowPresentation(for: .main) == nil)
-        #expect(state.snapshot.windowPresentation(for: .volume) == volume)
+        #expect(state.currentScene == duplicateMainWindow)
+        #expect(state.snapshot.windowPresentation(id: mainWindow.id) == nil)
+        #expect(state.snapshot.windowPresentations(for: .main) == [duplicateMainWindow])
     }
 
-    @Test("claimed immersive open is deferred behind cleanup after supersede")
-    func supersededClaimedImmersiveOpenDefersLatestRequestUntilCleanup() throws {
+    @Test("identical dismissWindow requests are deduplicated")
+    func identicalDismissWindowRequestsAreDeduplicated() {
         var state = SceneStoreState<SceneTestRoute>()
-        let firstImmersive = theatrePresentation()
-        let secondImmersive = theatrePresentation(route: .theatreTwo)
+        let mainWindow = mainWindowPresentation()
 
-        #expect(state.requestOpen(firstImmersive).isEmpty)
-        let firstRequestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(firstRequestID) == .open(firstImmersive))
-        #expect(state.pendingIntent == nil)
+        state.attach(mainWindow)
 
-        let events = state.requestOpen(secondImmersive)
-
-        #expect(events == [.rejected(.open(firstImmersive), reason: .supersededByNewerIntent)])
-        #expect(state.pendingIntent == nil)
-
-        let completion = state.completeOpen(
-            firstImmersive,
-            accepted: true,
-            requestID: firstRequestID
-        )
-
-        #expect(completion == .cleanupSupersededImmersiveOpen)
-        #expect(state.pendingIntent == nil)
-
-        _ = state.finishSupersededImmersiveOpenCleanup(requestID: firstRequestID)
-
-        #expect(state.pendingIntent == .open(secondImmersive))
+        #expect(state.requestDismissWindow(mainWindow).isEmpty)
+        #expect(state.requestDismissWindow(mainWindow).isEmpty)
+        #expect(state.queuedIntents == [.dismissWindow(mainWindow)])
     }
 
     @Test("claimed immersive open preserves a follow-up dismiss until cleanup completes")
@@ -322,6 +305,8 @@ struct SceneStoreStateTests {
 
         #expect(events == [.rejected(.open(immersive), reason: .supersededByNewerIntent)])
         #expect(state.pendingIntent == nil)
+        #expect(state.currentPendingRequestID == nil)
+        #expect(state.queuedIntents == [.dismissImmersive])
         #expect(state.currentClaimedRequestID == requestID)
 
         let completion = state.completeOpen(
@@ -337,83 +322,32 @@ struct SceneStoreStateTests {
         )
         #expect(state.pendingIntent == nil)
         #expect(state.currentClaimedRequestID == nil)
+        #expect(state.snapshot.activeImmersive == nil)
+        #expect(state.currentScene == nil)
+    }
+
+    @Test("claimed immersive open preserves queued window opens until cleanup completes")
+    func claimedImmersiveOpenPreservesQueuedWindowOpens() throws {
+        var state = SceneStoreState<SceneTestRoute>()
+        let immersive = theatrePresentation()
+        let mainWindow = mainWindowPresentation()
+        let duplicateMainWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowDuplicate)
+
+        #expect(state.requestOpen(immersive).isEmpty)
+        let requestID = try #require(state.currentPendingRequestID)
+        #expect(state.claimPendingRequest(requestID) == .open(immersive))
+
+        let firstEvents = state.requestOpen(mainWindow)
+        #expect(firstEvents == [.rejected(.open(immersive), reason: .supersededByNewerIntent)])
+        #expect(state.queuedIntents == [.open(mainWindow)])
+        #expect(state.pendingIntent == nil)
         #expect(state.currentPendingRequestID == nil)
-        #expect(state.snapshot.activeImmersive == nil)
-        #expect(state.currentScene == nil)
-    }
 
-    @Test("claimed immersive open failure promotes a follow-up dismiss for final resolution")
-    func claimedImmersiveOpenFailurePromotesFollowUpDismiss() throws {
-        var state = SceneStoreState<SceneTestRoute>()
-        let immersive = theatrePresentation()
-
-        #expect(state.requestOpen(immersive).isEmpty)
-        let requestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(requestID) == .open(immersive))
-
-        let events = state.requestDismissImmersive()
-
-        #expect(events == [.rejected(.open(immersive), reason: .supersededByNewerIntent)])
-        #expect(
-            state.completeOpen(
-                immersive,
-                accepted: false,
-                requestID: requestID
-            ) == SceneClaimCompletion<SceneTestRoute>.none
-        )
-        #expect(state.pendingIntent == .dismissImmersive)
-        #expect(state.currentPendingRequestID != nil)
-        #expect(state.currentClaimedRequestID == nil)
-    }
-
-    @Test("immersive cleanup clears committed immersive state before broadcasting dismissal")
-    func supersededImmersiveCleanupClearsCommittedImmersiveState() throws {
-        var state = SceneStoreState<SceneTestRoute>()
-        let originallyAttachedImmersive = theatrePresentation(route: .theatreTwo)
-        let staleImmersive = theatrePresentation()
-
-        state.attach(originallyAttachedImmersive)
-        #expect(state.requestOpen(staleImmersive).isEmpty)
-        let requestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(requestID) == .open(staleImmersive))
-
-        let events = state.requestDismissImmersive()
-
-        #expect(events == [.rejected(.open(staleImmersive), reason: .supersededByNewerIntent)])
-        #expect(
-            state.completeOpen(
-                staleImmersive,
-                accepted: true,
-                requestID: requestID
-            ) == .cleanupSupersededImmersiveOpen
-        )
-        #expect(
-            state.finishSupersededImmersiveOpenCleanup(requestID: requestID) ==
-                .broadcast(.dismissed(staleImmersive))
-        )
-        #expect(state.snapshot.activeImmersive == nil)
-        #expect(state.currentScene == nil)
+        let secondEvents = state.requestOpen(duplicateMainWindow)
+        #expect(secondEvents.isEmpty)
+        #expect(state.queuedIntents == [.open(mainWindow), .open(duplicateMainWindow)])
         #expect(state.pendingIntent == nil)
-
-        let followUpEvents = state.requestDismissImmersive()
-
-        #expect(followUpEvents == [.rejected(.dismissImmersive, reason: .nothingActive)])
-    }
-
-    @Test("duplicate active immersive open superseded by dismiss queues the real dismissal")
-    func duplicateActiveImmersiveOpenStillQueuesDismissal() throws {
-        var state = SceneStoreState<SceneTestRoute>()
-        let immersive = theatrePresentation()
-
-        state.attach(immersive)
-        #expect(state.requestOpen(immersive).isEmpty)
-        let requestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(requestID) == .open(immersive))
-
-        let events = state.requestDismissImmersive()
-
-        #expect(events == [.rejected(.open(immersive), reason: .supersededByNewerIntent)])
-        #expect(state.pendingIntent == nil)
+        #expect(state.currentPendingRequestID == nil)
 
         let completion = state.completeOpen(
             immersive,
@@ -421,57 +355,49 @@ struct SceneStoreStateTests {
             requestID: requestID
         )
 
-        #expect(completion == SceneClaimCompletion<SceneTestRoute>.none)
-        #expect(state.pendingIntent == .dismissImmersive)
-        #expect(state.snapshot.activeImmersive == immersive)
-    }
-
-    @Test("stale immersive dismissal completion is ignored after supersede")
-    func staleImmersiveDismissalCompletionIsIgnored() throws {
-        var state = SceneStoreState<SceneTestRoute>()
-        let immersive = theatrePresentation()
-        let mainWindow = mainWindowPresentation()
-
-        state.attach(immersive)
-        #expect(state.requestDismissImmersive().isEmpty)
-        let staleRequestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(staleRequestID) == .dismissImmersive)
-
-        let events = state.requestOpen(mainWindow)
-
-        #expect(events == [.rejected(.dismissImmersive, reason: .supersededByNewerIntent)])
+        #expect(completion == .cleanupSupersededImmersiveOpen)
         #expect(
-            state.completeDismissal(
-                of: immersive,
-                requestID: staleRequestID
-            ) == SceneClaimCompletion<SceneTestRoute>.none
+            state.finishSupersededImmersiveOpenCleanup(requestID: requestID) ==
+                SceneClaimCompletion<SceneTestRoute>.none
         )
         #expect(state.snapshot.activeImmersive == nil)
-        #expect(state.currentScene == nil)
-        #expect(state.pendingIntent == .open(mainWindow))
+        #expect(state.queuedIntents == [.open(mainWindow), .open(duplicateMainWindow)])
 
-        let resolution = SceneIntentResolver(scenes: makeSceneRegistry()).resolve(
-            .dismissImmersive,
-            state: state.snapshot
+        let firstWindowRequestID = try #require(state.currentPendingRequestID)
+        #expect(state.claimPendingRequest(firstWindowRequestID) == .open(mainWindow))
+        #expect(
+            state.completeOpen(
+                mainWindow,
+                accepted: true,
+                requestID: firstWindowRequestID
+            ) == .broadcast(.presented(mainWindow))
         )
 
-        #expect(resolution == .reject(.dismissImmersive, reason: .nothingActive))
+        let secondWindowRequestID = try #require(state.currentPendingRequestID)
+        #expect(state.claimPendingRequest(secondWindowRequestID) == .open(duplicateMainWindow))
+        #expect(
+            state.completeOpen(
+                duplicateMainWindow,
+                accepted: true,
+                requestID: secondWindowRequestID
+            ) == .broadcast(.presented(duplicateMainWindow))
+        )
+
+        #expect(state.snapshot.windowPresentations(for: .main) == [mainWindow, duplicateMainWindow])
+        #expect(state.currentScene == duplicateMainWindow)
     }
 
-    @Test("currentScene remains a recency summary of active inventory")
-    func currentSceneTracksRecencySummary() throws {
+    @Test("immersive round-trip preserves duplicate window inventory")
+    func immersiveRoundTripPreservesAttachedWindows() throws {
         var state = SceneStoreState<SceneTestRoute>()
         let mainWindow = mainWindowPresentation()
-        let volume = volumePresentation()
+        let duplicateMainWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowDuplicate)
         let immersive = theatrePresentation()
 
         state.attach(mainWindow)
-        #expect(state.currentScene == mainWindow)
-
-        state.attach(volume)
-        #expect(state.currentScene == volume)
-
+        state.attach(duplicateMainWindow)
         #expect(state.requestOpen(immersive).isEmpty)
+
         let openRequestID = try #require(state.currentPendingRequestID)
         #expect(state.claimPendingRequest(openRequestID) == .open(immersive))
         #expect(
@@ -486,7 +412,35 @@ struct SceneStoreStateTests {
         #expect(state.requestDismissImmersive().isEmpty)
         let dismissRequestID = try #require(state.currentPendingRequestID)
         #expect(state.claimPendingRequest(dismissRequestID) == .dismissImmersive)
-        _ = state.completeDismissal(of: immersive, requestID: dismissRequestID)
+        #expect(
+            state.completeDismissal(
+                of: immersive,
+                requestID: dismissRequestID
+            ) == .broadcast(.dismissed(immersive))
+        )
+
+        #expect(state.snapshot.windowPresentations(for: .main) == [mainWindow, duplicateMainWindow])
+        #expect(state.currentScene == duplicateMainWindow)
+        #expect(state.snapshot.activeImmersive == nil)
+    }
+
+    @Test("currentScene remains a recency summary of active inventory")
+    func currentSceneTracksRecencySummary() {
+        var state = SceneStoreState<SceneTestRoute>()
+        let mainWindow = mainWindowPresentation()
+        let duplicateMainWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowDuplicate)
+        let volume = volumePresentation()
+
+        state.attach(mainWindow)
+        #expect(state.currentScene == mainWindow)
+
+        state.attach(duplicateMainWindow)
+        #expect(state.currentScene == duplicateMainWindow)
+
+        state.detach(duplicateMainWindow)
+        #expect(state.currentScene == mainWindow)
+
+        state.attach(volume)
         #expect(state.currentScene == volume)
     }
 
@@ -496,20 +450,24 @@ struct SceneStoreStateTests {
         let mainWindow = mainWindowPresentation()
 
         state.attach(mainWindow)
-        #expect(state.requestDismissWindow(.main).isEmpty)
+        #expect(state.requestDismissWindow(mainWindow).isEmpty)
+
         let requestID = try #require(state.currentPendingRequestID)
-        #expect(state.claimPendingRequest(requestID) == .dismissWindow(.main))
+        #expect(state.claimPendingRequest(requestID) == .dismissWindow(mainWindow))
 
         let completion = state.completeRejection(
-            for: .dismissWindow(.main),
+            for: .dismissWindow(mainWindow),
             reason: .activeSceneMismatch,
             requestID: requestID
         )
 
-        #expect(completion == .broadcast(.rejected(.dismissWindow(.main), reason: .activeSceneMismatch)))
+        #expect(
+            completion ==
+                .broadcast(.rejected(.dismissWindow(mainWindow), reason: .activeSceneMismatch))
+        )
         #expect(state.currentScene == mainWindow)
         #expect(state.pendingIntent == nil)
-        #expect(state.snapshot.windowPresentation(for: .main) == mainWindow)
+        #expect(state.snapshot.windowPresentation(id: mainWindow.id) == mainWindow)
     }
 
     @Test("completeOpen failure preserves committed inventory")
@@ -520,6 +478,7 @@ struct SceneStoreStateTests {
 
         state.attach(mainWindow)
         #expect(state.requestOpen(immersive).isEmpty)
+
         let requestID = try #require(state.currentPendingRequestID)
         #expect(state.claimPendingRequest(requestID) == .open(immersive))
 
@@ -529,10 +488,13 @@ struct SceneStoreStateTests {
             requestID: requestID
         )
 
-        #expect(completion == .broadcast(.rejected(.open(immersive), reason: .environmentReturnedFailure)))
+        #expect(
+            completion ==
+                .broadcast(.rejected(.open(immersive), reason: .environmentReturnedFailure))
+        )
         #expect(state.currentScene == mainWindow)
         #expect(state.pendingIntent == nil)
-        #expect(state.snapshot.windowPresentation(for: .main) == mainWindow)
+        #expect(state.snapshot.windowPresentation(id: mainWindow.id) == mainWindow)
         #expect(state.snapshot.activeImmersive == nil)
     }
 }
@@ -542,7 +504,10 @@ struct SceneIntentResolverTests {
     @Test("open rejects undeclared routes")
     func openRejectsUndeclaredRoute() {
         let resolver = SceneIntentResolver(scenes: makeSceneRegistry())
-        let presentation: ScenePresentation<SceneTestRoute> = .window(.secondary)
+        let presentation: ScenePresentation<SceneTestRoute> = .window(
+            .secondary,
+            id: SceneTestIDs.mainWindowStale
+        )
 
         let resolution = resolver.resolve(
             .open(presentation),
@@ -555,7 +520,10 @@ struct SceneIntentResolverTests {
     @Test("open rejects kind mismatch against the registry")
     func openRejectsKindMismatch() {
         let resolver = SceneIntentResolver(scenes: makeSceneRegistry())
-        let presentation: ScenePresentation<SceneTestRoute> = .window(.theatre)
+        let presentation: ScenePresentation<SceneTestRoute> = .window(
+            .theatre,
+            id: SceneTestIDs.mainWindowStale
+        )
 
         let resolution = resolver.resolve(
             .open(presentation),
@@ -570,7 +538,8 @@ struct SceneIntentResolverTests {
         let resolver = SceneIntentResolver(scenes: makeSceneRegistry())
         let volumetricMismatch: ScenePresentation<SceneTestRoute> = .volumetric(
             .volume,
-            size: VolumetricSize(x: 2, y: 2, z: 2)
+            size: VolumetricSize(x: 2, y: 2, z: 2),
+            id: SceneTestIDs.volumeWindow
         )
         let immersiveMismatch = theatrePresentation(style: .full)
 
@@ -607,24 +576,61 @@ struct SceneIntentResolverTests {
             state: SceneStoreState<SceneTestRoute>().snapshot
         )
 
-        #expect(windowResolution == .openWindow(id: "main-window", presentation: windowPresentation))
-        #expect(volumeResolution == .openWindow(id: "volume-window", presentation: volume))
+        #expect(
+            windowResolution ==
+                .openWindow(
+                    id: "main-window",
+                    value: windowPresentation.id,
+                    presentation: windowPresentation
+                )
+        )
+        #expect(
+            volumeResolution ==
+                .openWindow(
+                    id: "volume-window",
+                    value: volume.id,
+                    presentation: volume
+                )
+        )
         #expect(immersiveResolution == .openImmersive(id: "theatre-space", presentation: immersive))
     }
 
-    @Test("dismissWindow resolves against inventory even when currentScene is immersive")
-    func dismissWindowUsesInventoryMembership() {
+    @Test("dismissWindow resolves the specific instance even with duplicate routes")
+    func dismissWindowUsesSpecificInstanceMembership() {
         let resolver = SceneIntentResolver(scenes: makeSceneRegistry())
         var state = SceneStoreState<SceneTestRoute>()
         let mainWindow = mainWindowPresentation()
+        let duplicateMainWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowDuplicate)
         let immersive = theatrePresentation()
 
         state.attach(mainWindow)
+        state.attach(duplicateMainWindow)
         state.attach(immersive)
 
-        let resolution = resolver.resolve(.dismissWindow(.main), state: state.snapshot)
+        let resolution = resolver.resolve(.dismissWindow(mainWindow), state: state.snapshot)
 
-        #expect(resolution == .dismissWindow(id: "main-window", presentation: mainWindow))
+        #expect(
+            resolution ==
+                .dismissWindow(
+                    id: "main-window",
+                    value: mainWindow.id,
+                    presentation: mainWindow
+                )
+        )
+    }
+
+    @Test("dismissWindow rejects a stale instance handle")
+    func dismissWindowRejectsMissingInstance() {
+        let resolver = SceneIntentResolver(scenes: makeSceneRegistry())
+        var state = SceneStoreState<SceneTestRoute>()
+        let mainWindow = mainWindowPresentation()
+        let staleWindow = mainWindowPresentation(id: SceneTestIDs.mainWindowStale)
+
+        state.attach(mainWindow)
+
+        let resolution = resolver.resolve(.dismissWindow(staleWindow), state: state.snapshot)
+
+        #expect(resolution == .reject(.dismissWindow(staleWindow), reason: .sceneInstanceNotActive))
     }
 
     @Test("dismissImmersive uses active immersive membership instead of currentScene alone")
@@ -650,8 +656,8 @@ struct SceneIntentResolverTests {
 
         state.attach(activeScene)
 
-        let resolution = resolver.resolve(.dismissWindow(.main), state: state.snapshot)
+        let resolution = resolver.resolve(.dismissWindow(activeScene), state: state.snapshot)
 
-        #expect(resolution == .reject(.dismissWindow(.main), reason: .sceneDeclarationMismatch))
+        #expect(resolution == .reject(.dismissWindow(activeScene), reason: .sceneDeclarationMismatch))
     }
 }

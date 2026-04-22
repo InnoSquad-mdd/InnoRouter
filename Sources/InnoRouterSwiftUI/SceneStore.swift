@@ -34,14 +34,17 @@ import InnoRouterCore
 ///     @State private var sceneStore = SceneStore<SpatialRoute>()
 ///
 ///     var body: some Scene {
-///         WindowGroup(id: "main") {
+///         WindowGroup(id: "main", for: UUID.self) { $sceneID in
 ///             MainView()
 ///                 .innoRouterSceneAnchor(
 ///                     sceneStore,
 ///                     scenes: spatialScenes,
-///                     attachedTo: .main
+///                     attachedTo: .main,
+///                     instanceID: sceneID
 ///                 )
 ///                 .innoRouterSceneHost(sceneStore, scenes: spatialScenes)
+///         } defaultValue: {
+///             UUID()
 ///         }
 ///         ImmersiveSpace(id: SpatialRoute.theatre.rawValue) {
 ///             TheatreView()
@@ -67,6 +70,9 @@ public final class SceneStore<R: Route> {
     /// if nothing is active.
     public private(set) var currentScene: ScenePresentation<R>?
 
+    /// Recency-ordered active scene inventory.
+    public private(set) var activeScenes: [ScenePresentation<R>]
+
     /// Next intent the host should act on. The host clears this field via
     /// ``completeOpen(_:accepted:)`` / ``completeDismissal(of:)`` /
     /// ``completeRejection(for:reason:)`` after dispatching the
@@ -86,6 +92,7 @@ public final class SceneStore<R: Route> {
         self.state = state
         self.dispatcherRegistry = SceneDispatcherRegistry()
         self.currentScene = state.currentScene
+        self.activeScenes = state.activeScenes
         self.pendingIntent = state.pendingIntent
         self.currentPendingRequestID = state.currentPendingRequestID
         self.currentClaimedRequestID = state.currentClaimedRequestID
@@ -98,18 +105,26 @@ public final class SceneStore<R: Route> {
         broadcaster.stream()
     }
 
-    /// Requests that the host open a regular window for `route`.
-    public func openWindow(_ route: R) {
+    /// Requests that the host open a regular window for `route` and
+    /// returns the created scene handle.
+    @discardableResult
+    public func openWindow(_ route: R) -> ScenePresentation<R> {
+        let presentation = ScenePresentation<R>.window(route)
         applyRequestMutation {
-            $0.requestOpen(.window(route))
+            $0.requestOpen(presentation)
         }
+        return presentation
     }
 
-    /// Requests that the host open a volumetric window for `route`.
-    public func openVolumetric(_ route: R, size: VolumetricSize? = nil) {
+    /// Requests that the host open a volumetric window for `route` and
+    /// returns the created scene handle.
+    @discardableResult
+    public func openVolumetric(_ route: R, size: VolumetricSize? = nil) -> ScenePresentation<R> {
+        let presentation = ScenePresentation<R>.volumetric(route, size: size)
         applyRequestMutation {
-            $0.requestOpen(.volumetric(route, size: size))
+            $0.requestOpen(presentation)
         }
+        return presentation
     }
 
     /// Requests that the host open an immersive space for `route`.
@@ -126,10 +141,14 @@ public final class SceneStore<R: Route> {
         }
     }
 
-    /// Requests that the host dismiss the window carrying `route`.
-    public func dismissWindow(_ route: R) {
+    /// Requests that the host dismiss the specific window instance.
+    public func dismissWindow(_ presentation: ScenePresentation<R>) {
+        precondition(
+            presentation.isWindowLike,
+            "SceneStore.dismissWindow expects a window or volumetric presentation."
+        )
         applyRequestMutation {
-            $0.requestDismissWindow(route)
+            $0.requestDismissWindow(presentation)
         }
     }
 
@@ -169,9 +188,20 @@ public final class SceneStore<R: Route> {
         state.snapshot
     }
 
-    internal func attachDeclaredScene(_ presentation: ScenePresentation<R>) {
+    @discardableResult
+    internal func attachDeclaredScene(
+        route: R,
+        scenes: SceneRegistry<R>,
+        instanceID: UUID?
+    ) -> ScenePresentation<R> {
+        let declaration = scenes.declaration(for: route)!
+        let presentation = state.presentationForAttachment(
+            declaration: declaration,
+            instanceID: instanceID
+        )
         state.attach(presentation)
         syncFromState()
+        return presentation
     }
 
     internal func detachDeclaredScene(_ presentation: ScenePresentation<R>) {
@@ -346,6 +376,7 @@ public final class SceneStore<R: Route> {
 
     private func syncFromState() {
         currentScene = state.currentScene
+        activeScenes = state.activeScenes
         pendingIntent = state.pendingIntent
         currentPendingRequestID = state.currentPendingRequestID
         currentClaimedRequestID = state.currentClaimedRequestID
@@ -382,6 +413,9 @@ public final class SceneStore<R: Route> {
         previousPendingRequestID: UUID?,
         previousElectedDispatcherToken: UUID?
     ) {
+        guard currentClaimedRequestID == nil else {
+            return
+        }
         guard currentPendingRequestID != nil else {
             return
         }

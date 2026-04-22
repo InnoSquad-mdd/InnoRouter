@@ -31,7 +31,7 @@ jobs:
           - name: watchOS
             destination: "platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)"
           - name: visionOS
-            destination: "platform=visionOS Simulator,name=Apple Vision Pro"
+            destination: "generic/platform=visionOS Simulator"
 
     steps:
       - name: Checkout

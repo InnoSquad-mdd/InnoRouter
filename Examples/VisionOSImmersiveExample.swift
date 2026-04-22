@@ -29,7 +29,7 @@ struct VisionOSImmersiveExampleApp: App {
     )
 
     var body: some Scene {
-        WindowGroup(id: SpatialRoute.main.rawValue) {
+        WindowGroup(id: SpatialRoute.main.rawValue, for: UUID.self) { $sceneID in
             VisionOSMainView()
                 .innoRouterOrnament(OrnamentAnchor(anchor: .bottom)) {
                     VisionOSControlBar(store: sceneStore)
@@ -37,9 +37,12 @@ struct VisionOSImmersiveExampleApp: App {
                 .innoRouterSceneAnchor(
                     sceneStore,
                     scenes: scenes,
-                    attachedTo: .main
+                    attachedTo: .main,
+                    instanceID: sceneID
                 )
                 .innoRouterSceneHost(sceneStore, scenes: scenes)
+        } defaultValue: {
+            UUID()
         }
 
         ImmersiveSpace(id: SpatialRoute.theatre.rawValue) {

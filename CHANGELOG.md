@@ -64,6 +64,19 @@ product-level SwiftUI-only vs cross-surface decision.
   watchOS apps should fall back to `NavigationHost` /
   `CoordinatorHost` in the `#else` branch of a `#if !os(watchOS)`
   check. All other platforms are unaffected.
+- **visionOS scene handles are now instance-aware on the unreleased
+  scene surface**:
+  - `ScenePresentation<R>` cases carry stable `UUID` instance ids.
+  - `SceneStore.openWindow(_:)` / `openVolumetric(_:,size:)` now
+    return the created `ScenePresentation<R>` handle, and
+    `SceneStore.dismissWindow(_:)` now dismisses that handle rather
+    than a bare route.
+  - `SceneStore.activeScenes` exposes the full recency-ordered scene
+    inventory, while `currentScene` remains the summary of the most
+    recent active scene.
+  - `SceneAnchor` adds an `instanceID` overload for window and
+    volumetric scenes, intended for value-based
+    `WindowGroup(id:for:defaultValue:)` declarations.
 
 ### Added — Core authorities
 

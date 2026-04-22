@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-for required in swift xcrun python3 diff; do
+for required in swift xcrun python3 diff xcodebuild; do
   if ! command -v "$required" >/dev/null 2>&1; then
     echo "[check-public-api] $required is required" >&2
     exit 1
@@ -189,44 +189,86 @@ if missing:
 PY
 }
 
-echo "[check-public-api] Building package for symbol extraction"
-swift build >/dev/null
+read_target_context() {
+  local target_triple_arg="${1:-}"
 
-echo "[check-public-api] Verifying source-level @Sendable contracts"
-check_sendable_contracts "$ROOT_DIR"
+  if [[ -n "$target_triple_arg" ]]; then
+    swift -print-target-info -target "$target_triple_arg" | python3 -c '
+import json, sys
 
-build_bin_dir="$(swift build --show-bin-path)"
-modules_dir="$build_bin_dir/Modules"
-module_cache_dir="$build_bin_dir/ModuleCache"
-sdk_path="$(xcrun --show-sdk-path)"
-sdk_platform_path="$(xcrun --show-sdk-platform-path 2>/dev/null || true)"
-platform_frameworks_dir=""
-if [[ -n "$sdk_platform_path" ]]; then
-  candidate_platform_frameworks_dir="$sdk_platform_path/Developer/Library/Frameworks"
-  if [[ -d "$candidate_platform_frameworks_dir" ]]; then
-    platform_frameworks_dir="$candidate_platform_frameworks_dir"
+info = json.load(sys.stdin)
+print("{}\t{}".format(info["target"]["triple"], info["paths"]["runtimeResourcePath"]))
+'
+    return
   fi
-fi
 
-framework_search_args=()
-if [[ -n "$platform_frameworks_dir" ]]; then
-  framework_search_args=(-F "$platform_frameworks_dir")
-fi
-
-[[ -d "$modules_dir" ]] || { echo "[check-public-api] Missing modules directory: $modules_dir" >&2; exit 1; }
-[[ -d "$module_cache_dir" ]] || { echo "[check-public-api] Missing module cache directory: $module_cache_dir" >&2; exit 1; }
-[[ -n "$sdk_path" ]] || { echo "[check-public-api] Failed to locate SDK path" >&2; exit 1; }
-
-target_info_output="$(
   swift -print-target-info | python3 -c '
 import json, sys
 
 info = json.load(sys.stdin)
 print("{}\t{}".format(info["target"]["triple"], info["paths"]["runtimeResourcePath"]))
 '
-)"
-IFS=$'\t' read -r target_triple resource_dir <<< "$target_info_output"
-toolchain_bin_dir="$(cd "$(dirname "$(dirname "$resource_dir")")/bin" && pwd -P)"
+}
+
+resolve_platform_frameworks_dir() {
+  local sdk_name="${1:-}"
+  local sdk_platform_path=""
+
+  if [[ -n "$sdk_name" ]]; then
+    sdk_platform_path="$(xcrun --sdk "$sdk_name" --show-sdk-platform-path 2>/dev/null || true)"
+  else
+    sdk_platform_path="$(xcrun --show-sdk-platform-path 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$sdk_platform_path" ]]; then
+    return
+  fi
+
+  local candidate_platform_frameworks_dir="$sdk_platform_path/Developer/Library/Frameworks"
+  if [[ -d "$candidate_platform_frameworks_dir" ]]; then
+    printf '%s\n' "$candidate_platform_frameworks_dir"
+  fi
+}
+
+echo "[check-public-api] Building package for symbol extraction"
+swift build >/dev/null
+
+XR_TRIPLE="arm64-apple-xros2.0-simulator"
+XR_SDK_PATH="$(xcrun --sdk xrsimulator --show-sdk-path)"
+[[ -n "$XR_SDK_PATH" ]] || { echo "[check-public-api] Failed to locate xrsimulator SDK path" >&2; exit 1; }
+XR_DERIVED_DATA_PATH="$temp_root/xros-derived-data"
+
+echo "[check-public-api] Building InnoRouterSwiftUI for visionOS symbol extraction"
+xcodebuild build \
+  -scheme InnoRouterSwiftUI \
+  -destination 'generic/platform=visionOS Simulator' \
+  -derivedDataPath "$XR_DERIVED_DATA_PATH" \
+  -quiet
+
+echo "[check-public-api] Verifying source-level @Sendable contracts"
+check_sendable_contracts "$ROOT_DIR"
+
+HOST_BUILD_BIN_DIR="$(swift build --show-bin-path)"
+HOST_MODULES_DIR="$HOST_BUILD_BIN_DIR/Modules"
+HOST_MODULE_CACHE_DIR="$HOST_BUILD_BIN_DIR/ModuleCache"
+HOST_SDK_PATH="$(xcrun --show-sdk-path)"
+HOST_PLATFORM_FRAMEWORKS_DIR="$(resolve_platform_frameworks_dir)"
+IFS=$'\t' read -r HOST_TARGET_TRIPLE HOST_RESOURCE_DIR <<< "$(read_target_context)"
+
+XR_PRODUCTS_DIR="$XR_DERIVED_DATA_PATH/Build/Products/Debug-xrsimulator"
+XR_MODULES_DIR="$XR_PRODUCTS_DIR"
+XR_MODULE_CACHE_DIR="$XR_DERIVED_DATA_PATH/ModuleCache.noindex"
+XR_PLATFORM_FRAMEWORKS_DIR="$(resolve_platform_frameworks_dir xrsimulator)"
+XR_PACKAGE_FRAMEWORKS_DIR="$XR_PRODUCTS_DIR/PackageFrameworks"
+IFS=$'\t' read -r XR_TARGET_CONTEXT_TRIPLE XR_RESOURCE_DIR <<< "$(read_target_context "$XR_TRIPLE")"
+
+[[ -d "$HOST_MODULES_DIR" ]] || { echo "[check-public-api] Missing modules directory: $HOST_MODULES_DIR" >&2; exit 1; }
+[[ -d "$HOST_MODULE_CACHE_DIR" ]] || { echo "[check-public-api] Missing module cache directory: $HOST_MODULE_CACHE_DIR" >&2; exit 1; }
+[[ -n "$HOST_SDK_PATH" ]] || { echo "[check-public-api] Failed to locate host SDK path" >&2; exit 1; }
+[[ -d "$XR_PRODUCTS_DIR" ]] || { echo "[check-public-api] Missing xros products directory: $XR_PRODUCTS_DIR" >&2; exit 1; }
+[[ -d "$XR_MODULE_CACHE_DIR" ]] || { echo "[check-public-api] Missing xros module cache directory: $XR_MODULE_CACHE_DIR" >&2; exit 1; }
+
+toolchain_bin_dir="$(cd "$(dirname "$(dirname "$HOST_RESOURCE_DIR")")/bin" && pwd -P)"
 swift_symbolgraph_extract_bin="$toolchain_bin_dir/swift-symbolgraph-extract"
 
 [[ -x "$swift_symbolgraph_extract_bin" ]] || {
@@ -285,7 +327,7 @@ def repo_source_path(symbol: dict) -> pathlib.Path | None:
         return None
     return path
 
-symbol_graph_paths = sorted(pathlib.Path(raw_dir).glob("*.symbols.json"))
+symbol_graph_paths = sorted(pathlib.Path(raw_dir).rglob("*.symbols.json"))
 
 for symbol_graph_path in symbol_graph_paths:
     document = json.loads(symbol_graph_path.read_text())
@@ -347,6 +389,20 @@ PY
 extract_product_symbols() {
   local target_name="$1"
   local output_dir="$2"
+  local modules_dir="$3"
+  local module_cache_dir="$4"
+  local sdk_path="$5"
+  local target_triple="$6"
+  local resource_dir="$7"
+  shift 7
+
+  local -a framework_search_args=()
+  while [[ $# -gt 0 ]]; do
+    if [[ -n "$1" ]]; then
+      framework_search_args+=(-F "$1")
+    fi
+    shift
+  done
 
   rm -rf "$output_dir"
   mkdir -p "$output_dir"
@@ -386,7 +442,29 @@ while IFS=$'\t' read -r product_name target_name; do
   normalized_path="$temp_root/normalized/${product_name}.txt"
 
   echo "[check-public-api] Extracting $product_name ($target_name)"
-  extract_product_symbols "$target_name" "$raw_dir"
+  extract_product_symbols \
+    "$target_name" \
+    "$raw_dir/host" \
+    "$HOST_MODULES_DIR" \
+    "$HOST_MODULE_CACHE_DIR" \
+    "$HOST_SDK_PATH" \
+    "$HOST_TARGET_TRIPLE" \
+    "$HOST_RESOURCE_DIR" \
+    "$HOST_PLATFORM_FRAMEWORKS_DIR"
+
+  if [[ "$product_name" == "InnoRouterSwiftUI" ]]; then
+    extract_product_symbols \
+      "$target_name" \
+      "$raw_dir/xros" \
+      "$XR_MODULES_DIR" \
+      "$XR_MODULE_CACHE_DIR" \
+      "$XR_SDK_PATH" \
+      "$XR_TARGET_CONTEXT_TRIPLE" \
+      "$XR_RESOURCE_DIR" \
+      "$XR_PACKAGE_FRAMEWORKS_DIR" \
+      "$XR_PLATFORM_FRAMEWORKS_DIR"
+  fi
+
   mkdir -p "$(dirname "$normalized_path")"
   normalize_symbol_graph "$product_name" "$raw_dir" "$normalized_path" "$ROOT_DIR_CANONICAL"
 

@@ -15,11 +15,14 @@ func visionOSImmersiveSmoke() {
         .window(.main, id: VisionOSSmokeRoute.main.rawValue),
         .immersive(.theatre, id: VisionOSSmokeRoute.theatre.rawValue, style: .mixed)
     )
+    let mainWindow = store.openWindow(.main)
+    store.dismissWindow(mainWindow)
     store.openImmersive(.theatre, style: .mixed)
     store.dismissImmersive()
     _ = store.events
+    _ = store.activeScenes
     _ = EmptyView()
-        .innoRouterSceneAnchor(store, scenes: scenes, attachedTo: .main)
+        .innoRouterSceneAnchor(store, scenes: scenes, attachedTo: .main, instanceID: UUID())
         .innoRouterSceneHost(store, scenes: scenes)
     _ = EmptyView().innoRouterSceneAnchor(store, scenes: scenes, attachedTo: .theatre)
 

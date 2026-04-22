@@ -199,7 +199,7 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     "macOS|platform=macOS"
     "tvOS|platform=tvOS Simulator,name=Apple TV"
     "watchOS|platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)"
-    "visionOS|platform=visionOS Simulator,name=Apple Vision Pro"
+    "visionOS|generic/platform=visionOS Simulator"
   )
 
   # Normalise the user's filter list: lowercase, split on , or space.

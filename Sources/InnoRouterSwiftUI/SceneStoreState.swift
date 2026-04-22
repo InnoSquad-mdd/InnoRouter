@@ -64,25 +64,29 @@ internal struct SceneDispatcherRegistry: Equatable {
 
 internal struct SceneStoreSnapshot<R: Route>: Equatable {
     internal let currentScene: ScenePresentation<R>?
-    internal let openWindowsByRoute: [R: ScenePresentation<R>]
+    internal let activeScenes: [ScenePresentation<R>]
+    internal let openWindowsByID: [UUID: ScenePresentation<R>]
     internal let activeImmersive: ScenePresentation<R>?
 
     internal var hasActiveScenes: Bool {
-        !openWindowsByRoute.isEmpty || activeImmersive != nil
+        !activeScenes.isEmpty
     }
 
-    internal func windowPresentation(for route: R) -> ScenePresentation<R>? {
-        openWindowsByRoute[route]
+    internal func windowPresentation(id: UUID) -> ScenePresentation<R>? {
+        openWindowsByID[id]
+    }
+
+    internal func windowPresentations(for route: R) -> [ScenePresentation<R>] {
+        activeScenes.filter { $0.route == route && $0.isWindowLike }
     }
 }
 
 internal struct SceneStoreState<R: Route>: Equatable {
     internal private(set) var currentScene: ScenePresentation<R>?
-    internal private(set) var pendingRequest: ScenePendingRequest<R>?
+    internal private(set) var queuedRequests: [ScenePendingRequest<R>]
     internal private(set) var claimedRequest: SceneClaimedRequest<R>?
-    internal private(set) var deferredRequest: ScenePendingRequest<R>?
 
-    private var openWindowsByRoute: [R: ScenePresentation<R>]
+    private var openWindowsByID: [UUID: ScenePresentation<R>]
     private var activeImmersive: ScenePresentation<R>?
     private var activeScenesInRecencyOrder: [ScenePresentation<R>]
 
@@ -91,12 +95,11 @@ internal struct SceneStoreState<R: Route>: Equatable {
         pendingIntent: SceneIntent<R>? = nil
     ) {
         self.currentScene = nil
-        self.pendingRequest = pendingIntent.map {
-            ScenePendingRequest(id: UUID(), intent: $0)
-        }
+        self.queuedRequests = pendingIntent.map {
+            [ScenePendingRequest(id: UUID(), intent: $0)]
+        } ?? []
         self.claimedRequest = nil
-        self.deferredRequest = nil
-        self.openWindowsByRoute = [:]
+        self.openWindowsByID = [:]
         self.activeImmersive = nil
         self.activeScenesInRecencyOrder = []
 
@@ -105,93 +108,103 @@ internal struct SceneStoreState<R: Route>: Equatable {
         }
     }
 
+    private var claimableHeadRequest: ScenePendingRequest<R>? {
+        guard claimedRequest == nil else {
+            return nil
+        }
+
+        return queuedRequests.first
+    }
+
     internal var pendingIntent: SceneIntent<R>? {
-        pendingRequest?.intent
+        claimableHeadRequest?.intent
     }
 
     internal var currentPendingRequestID: UUID? {
-        pendingRequest?.id
+        claimableHeadRequest?.id
     }
 
     internal var currentClaimedRequestID: UUID? {
         claimedRequest?.request.id
     }
 
+    internal var queuedIntents: [SceneIntent<R>] {
+        queuedRequests.map(\.intent)
+    }
+
+    internal var activeScenes: [ScenePresentation<R>] {
+        activeScenesInRecencyOrder.filter { isActive($0) }
+    }
+
     internal var snapshot: SceneStoreSnapshot<R> {
         SceneStoreSnapshot(
             currentScene: currentScene,
-            openWindowsByRoute: openWindowsByRoute,
+            activeScenes: activeScenes,
+            openWindowsByID: openWindowsByID,
             activeImmersive: activeImmersive
         )
     }
 
     internal mutating func requestOpen(_ presentation: ScenePresentation<R>) -> [SceneEvent<R>] {
-        let intent = SceneIntent<R>.open(presentation)
-        let preparation = prepareForNewIntent(intent)
-        guard let queueTarget = preparation.queueTarget else {
-            return preparation.events
-        }
-
-        queue(makePendingRequest(for: intent), in: queueTarget)
-        return preparation.events
+        enqueueIntent(.open(presentation))
     }
 
     internal mutating func requestDismissImmersive() -> [SceneEvent<R>] {
         let intent = SceneIntent<R>.dismissImmersive
-        let preparation = prepareForNewIntent(intent)
-        var events = preparation.events
-        guard let queueTarget = preparation.queueTarget else {
-            return events
-        }
+        if activeImmersive == nil, hasClaimedImmersiveRequest == false {
+            if let cancellationEvent = consumeQueuedOpenCanceled(by: intent) {
+                return [cancellationEvent]
+            }
 
-        guard
-            activeImmersive != nil ||
-                allowsDeferredImmersiveDismissWithoutCommittedActiveScene(in: queueTarget)
-        else {
-            events.append(
+            return [
                 .rejected(
                     intent,
                     reason: snapshot.hasActiveScenes ? .activeSceneMismatch : .nothingActive
                 )
-            )
-            return events
+            ]
         }
 
-        queue(makePendingRequest(for: intent), in: queueTarget)
-        return events
+        return enqueueIntent(intent)
     }
 
-    internal mutating func requestDismissWindow(_ route: R) -> [SceneEvent<R>] {
-        let intent = SceneIntent<R>.dismissWindow(route)
-        let preparation = prepareForNewIntent(intent)
-        var events = preparation.events
-        guard let queueTarget = preparation.queueTarget else {
-            return events
+    internal mutating func requestDismissWindow(
+        _ presentation: ScenePresentation<R>
+    ) -> [SceneEvent<R>] {
+        precondition(
+            presentation.isWindowLike,
+            "SceneStoreState.requestDismissWindow expects a window or volumetric presentation."
+        )
+
+        let intent = SceneIntent<R>.dismissWindow(presentation)
+        if queuedRequests.contains(where: { $0.intent == intent }) {
+            return []
         }
 
-        guard openWindowsByRoute[route] != nil else {
-            events.append(
+        guard openWindowsByID[presentation.id] == presentation else {
+            if let cancellationEvent = consumeQueuedOpenCanceled(by: intent) {
+                return [cancellationEvent]
+            }
+
+            return [
                 .rejected(
                     intent,
-                    reason: snapshot.hasActiveScenes ? .activeSceneMismatch : .nothingActive
+                    reason: .sceneInstanceNotActive
                 )
-            )
-            return events
+            ]
         }
 
-        queue(makePendingRequest(for: intent), in: queueTarget)
-        return events
+        return enqueueIntent(intent)
     }
 
     internal mutating func claimPendingRequest(_ requestID: UUID) -> SceneIntent<R>? {
         guard claimedRequest == nil else {
             return nil
         }
-        guard let pendingRequest, pendingRequest.id == requestID else {
+        guard let pendingRequest = queuedRequests.first, pendingRequest.id == requestID else {
             return nil
         }
 
-        self.pendingRequest = nil
+        queuedRequests.removeFirst()
         claimedRequest = SceneClaimedRequest(request: pendingRequest, status: .active)
         return pendingRequest.intent
     }
@@ -202,6 +215,45 @@ internal struct SceneStoreState<R: Route>: Equatable {
 
     internal mutating func detach(_ presentation: ScenePresentation<R>) {
         deactivate(presentation)
+    }
+
+    internal func presentationForAttachment(
+        declaration: SceneDeclaration<R>,
+        instanceID: UUID?
+    ) -> ScenePresentation<R> {
+        if let instanceID {
+            return declaration.presentation(id: instanceID)
+        }
+
+        if let activeImmersive, declaration.matches(activeImmersive) {
+            return activeImmersive
+        }
+
+        let inFlightRequests = [
+            claimedRequest?.request
+        ]
+
+        for request in inFlightRequests {
+            guard let presentation = request?.intent.openedPresentation else {
+                continue
+            }
+            guard presentation.isImmersive, declaration.matches(presentation) else {
+                continue
+            }
+            return presentation
+        }
+
+        for request in queuedRequests {
+            guard let presentation = request.intent.openedPresentation else {
+                continue
+            }
+            guard presentation.isImmersive, declaration.matches(presentation) else {
+                continue
+            }
+            return presentation
+        }
+
+        return declaration.presentation()
     }
 
     internal mutating func completeOpen(
@@ -231,7 +283,6 @@ internal struct SceneStoreState<R: Route>: Equatable {
                 event = .rejected(.open(presentation), reason: .environmentReturnedFailure)
             }
 
-            promoteDeferredIfPossible()
             return .broadcast(event)
 
         case .superseded:
@@ -241,7 +292,6 @@ internal struct SceneStoreState<R: Route>: Equatable {
             }
 
             self.claimedRequest = nil
-            promoteDeferredIfPossible()
             return SceneClaimCompletion.none
 
         case .awaitingSupersededImmersiveOpenCleanup:
@@ -266,13 +316,10 @@ internal struct SceneStoreState<R: Route>: Equatable {
         self.claimedRequest = nil
         clearCommittedImmersiveState()
 
-        if let cleanedUpPresentation, deferredRequest?.intent == .dismissImmersive {
-            deferredRequest = nil
-            promoteDeferredIfPossible()
+        if let cleanedUpPresentation, consumeQueuedDismissImmersiveIfPresent() {
             return .broadcast(.dismissed(cleanedUpPresentation))
         }
 
-        promoteDeferredIfPossible()
         return SceneClaimCompletion.none
     }
 
@@ -295,12 +342,10 @@ internal struct SceneStoreState<R: Route>: Equatable {
 
         if status == .active {
             deactivate(presentation)
-            promoteDeferredIfPossible()
             return .broadcast(.dismissed(presentation))
         }
 
         silentlyReconcileSupersededDismissalIfNeeded(of: presentation, status: status)
-        promoteDeferredIfPossible()
         return SceneClaimCompletion.none
     }
 
@@ -321,7 +366,6 @@ internal struct SceneStoreState<R: Route>: Equatable {
 
         let status = claimedRequest.status
         self.claimedRequest = nil
-        promoteDeferredIfPossible()
 
         if status == .active {
             return .broadcast(.rejected(intent, reason: reason))
@@ -330,113 +374,120 @@ internal struct SceneStoreState<R: Route>: Equatable {
         return SceneClaimCompletion.none
     }
 
-    private enum QueueTarget {
-        case pending
-        case deferred
+    private func makePendingRequest(for intent: SceneIntent<R>) -> ScenePendingRequest<R> {
+        ScenePendingRequest(id: UUID(), intent: intent)
     }
 
-    private mutating func prepareForNewIntent(
-        _ newIntent: SceneIntent<R>
-    ) -> (events: [SceneEvent<R>], queueTarget: QueueTarget?) {
-        if claimedRequest?.request.intent.isImmersiveOperation == true {
-            return prepareForNewIntentWhileImmersiveRequestIsClaimed(newIntent)
-        }
-
-        guard let pendingRequest else {
-            return ([], .pending)
-        }
-        guard pendingRequest.intent != newIntent else {
-            return ([], nil)
-        }
-
-        self.pendingRequest = nil
-
-        let supersededEvent = SceneEvent<R>.rejected(
-            pendingRequest.intent,
-            reason: .supersededByNewerIntent
-        )
-
-        if canDropFollowUpDismissAfterSupersedingPendingOpen(
-            pendingIntent: pendingRequest.intent,
-            with: newIntent
-        ) {
-            return ([supersededEvent], nil)
-        }
-
-        return ([supersededEvent], .pending)
+    private var hasClaimedImmersiveRequest: Bool {
+        claimedRequest?.request.intent.isImmersiveOperation == true
     }
 
-    private mutating func prepareForNewIntentWhileImmersiveRequestIsClaimed(
-        _ newIntent: SceneIntent<R>
-    ) -> (events: [SceneEvent<R>], queueTarget: QueueTarget?) {
-        var events: [SceneEvent<R>] = []
-
-        if let deferredRequest {
-            if deferredRequest.intent == newIntent {
-                return ([], nil)
-            }
-
-            self.deferredRequest = nil
-            events.append(
-                .rejected(
-                    deferredRequest.intent,
-                    reason: .supersededByNewerIntent
-                )
-            )
-
+    private mutating func enqueueIntent(_ newIntent: SceneIntent<R>) -> [SceneEvent<R>] {
+        let claimedPreparation = prepareClaimedImmersiveForNewIntent(newIntent)
+        var events = claimedPreparation.events
+        guard claimedPreparation.shouldEnqueue else {
+            return events
         }
 
+        let queuedPreparation = prepareQueuedRequests(for: newIntent)
+        events.append(contentsOf: queuedPreparation.events)
+        guard let insertionIndex = queuedPreparation.insertionIndex else {
+            return events
+        }
+
+        queuedRequests.insert(makePendingRequest(for: newIntent), at: insertionIndex)
+        return events
+    }
+
+    private mutating func prepareClaimedImmersiveForNewIntent(
+        _ newIntent: SceneIntent<R>
+    ) -> (events: [SceneEvent<R>], shouldEnqueue: Bool) {
         guard var claimedRequest else {
-            return (events, .pending)
+            return ([], true)
+        }
+        guard claimedRequest.request.intent.isImmersiveOperation else {
+            return ([], true)
         }
 
         if claimedRequest.status == .active, claimedRequest.request.intent == newIntent {
-            return (events, nil)
+            return ([], false)
         }
 
         if claimedRequest.status == .active {
             claimedRequest.status = .superseded
             self.claimedRequest = claimedRequest
-            events.append(
-                .rejected(
-                    claimedRequest.request.intent,
-                    reason: .supersededByNewerIntent
-                )
+            return (
+                [
+                    .rejected(
+                        claimedRequest.request.intent,
+                        reason: .supersededByNewerIntent
+                    )
+                ],
+                true
             )
         }
 
-        return (events, .deferred)
+        return ([], true)
     }
 
-    private mutating func queue(
-        _ request: ScenePendingRequest<R>,
-        in target: QueueTarget
-    ) {
-        switch target {
-        case .pending:
-            pendingRequest = request
-        case .deferred:
-            deferredRequest = request
+    private mutating func prepareQueuedRequests(
+        for newIntent: SceneIntent<R>
+    ) -> (events: [SceneEvent<R>], insertionIndex: Int?) {
+        if queuedRequests.contains(where: { $0.intent == newIntent }) {
+            return ([], nil)
         }
+
+        guard newIntent.isImmersiveOperation else {
+            return ([], queuedRequests.endIndex)
+        }
+
+        guard let existingIndex = queuedRequests.firstIndex(where: { $0.intent.isImmersiveOperation }) else {
+            return ([], queuedRequests.endIndex)
+        }
+
+        let replacedRequest = queuedRequests.remove(at: existingIndex)
+        let supersededEvent = SceneEvent<R>.rejected(
+            replacedRequest.intent,
+            reason: .supersededByNewerIntent
+        )
+
+        if canDropFollowUpDismissAfterSupersedingPendingOpen(
+            pendingIntent: replacedRequest.intent,
+            with: newIntent
+        ) {
+            return ([supersededEvent], nil)
+        }
+
+        return ([supersededEvent], existingIndex)
     }
 
-    private mutating func promoteDeferredIfPossible() {
-        guard claimedRequest == nil else {
-            return
-        }
-        guard pendingRequest == nil else {
-            return
-        }
-        guard let deferredRequest else {
-            return
+    private mutating func consumeQueuedOpenCanceled(
+        by dismissIntent: SceneIntent<R>
+    ) -> SceneEvent<R>? {
+        guard let index = queuedRequests.firstIndex(where: { request in
+            guard let pendingPresentation = request.intent.openedPresentation else {
+                return false
+            }
+
+            return dismissIntent.dismissesSameScene(as: pendingPresentation)
+        }) else {
+            return nil
         }
 
-        self.deferredRequest = nil
-        pendingRequest = deferredRequest
+        let removedRequest = queuedRequests.remove(at: index)
+        return .rejected(
+            removedRequest.intent,
+            reason: .supersededByNewerIntent
+        )
     }
 
-    private func makePendingRequest(for intent: SceneIntent<R>) -> ScenePendingRequest<R> {
-        ScenePendingRequest(id: UUID(), intent: intent)
+    private mutating func consumeQueuedDismissImmersiveIfPresent() -> Bool {
+        guard let index = queuedRequests.firstIndex(where: { $0.intent == .dismissImmersive }) else {
+            return false
+        }
+
+        queuedRequests.remove(at: index)
+        return true
     }
 
     private func needsImmersiveCleanupAfterSupersededOpen(
@@ -446,20 +497,7 @@ internal struct SceneStoreState<R: Route>: Equatable {
             return false
         }
 
-        return activeImmersive != presentation
-    }
-
-    private func allowsDeferredImmersiveDismissWithoutCommittedActiveScene(
-        in queueTarget: QueueTarget
-    ) -> Bool {
-        guard queueTarget == .deferred else {
-            return false
-        }
-        guard let claimedPresentation = claimedRequest?.request.intent.openedPresentation else {
-            return false
-        }
-
-        return claimedPresentation.isImmersive
+        return activeImmersive?.id != presentation.id
     }
 
     private func canDropFollowUpDismissAfterSupersedingPendingOpen(
@@ -478,8 +516,8 @@ internal struct SceneStoreState<R: Route>: Equatable {
             return false
         case .dismissImmersive:
             return activeImmersive == nil
-        case .dismissWindow(let route):
-            return openWindowsByRoute[route] == nil
+        case .dismissWindow(let presentation):
+            return openWindowsByID[presentation.id] == nil
         }
     }
 
@@ -500,10 +538,10 @@ internal struct SceneStoreState<R: Route>: Equatable {
     private mutating func activate(_ presentation: ScenePresentation<R>) {
         switch presentation {
         case .window, .volumetric:
-            openWindowsByRoute[presentation.route] = presentation
+            openWindowsByID[presentation.id] = presentation
         case .immersive:
-            if let activeImmersive, activeImmersive.route != presentation.route {
-                activeScenesInRecencyOrder.removeAll { $0.route == activeImmersive.route }
+            if let activeImmersive, activeImmersive.id != presentation.id {
+                activeScenesInRecencyOrder.removeAll { $0.id == activeImmersive.id }
             }
             self.activeImmersive = presentation
         }
@@ -521,32 +559,31 @@ internal struct SceneStoreState<R: Route>: Equatable {
     private mutating func deactivate(_ presentation: ScenePresentation<R>) {
         switch presentation {
         case .window, .volumetric:
-            openWindowsByRoute.removeValue(forKey: presentation.route)
+            openWindowsByID.removeValue(forKey: presentation.id)
         case .immersive:
-            if activeImmersive?.route == presentation.route {
+            if activeImmersive?.id == presentation.id {
                 activeImmersive = nil
             }
         }
 
-        activeScenesInRecencyOrder.removeAll { $0.route == presentation.route }
+        activeScenesInRecencyOrder.removeAll { $0.id == presentation.id }
         syncCurrentScene()
     }
 
     private mutating func touch(_ presentation: ScenePresentation<R>) {
-        activeScenesInRecencyOrder.removeAll { $0.route == presentation.route }
+        activeScenesInRecencyOrder.removeAll { $0.id == presentation.id }
         activeScenesInRecencyOrder.append(presentation)
     }
 
     private mutating func syncCurrentScene() {
-        let activeScenes = activeScenesInRecencyOrder.filter { isActive($0) }
         activeScenesInRecencyOrder = activeScenes
-        currentScene = activeScenes.last
+        currentScene = activeScenesInRecencyOrder.last
     }
 
     private func isActive(_ presentation: ScenePresentation<R>) -> Bool {
         switch presentation {
         case .window, .volumetric:
-            return openWindowsByRoute[presentation.route] == presentation
+            return openWindowsByID[presentation.id] == presentation
         case .immersive:
             return activeImmersive == presentation
         }
@@ -556,8 +593,8 @@ internal struct SceneStoreState<R: Route>: Equatable {
         for presentation: ScenePresentation<R>
     ) -> SceneIntent<R> {
         switch presentation {
-        case .window(let route), .volumetric(let route, _):
-            return .dismissWindow(route)
+        case .window, .volumetric:
+            return .dismissWindow(presentation)
         case .immersive:
             return .dismissImmersive
         }

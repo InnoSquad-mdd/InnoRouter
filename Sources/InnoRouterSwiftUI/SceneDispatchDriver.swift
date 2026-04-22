@@ -5,6 +5,7 @@
 
 #if os(visionOS)
 
+import Foundation
 import SwiftUI
 
 import InnoRouterCore
@@ -13,10 +14,10 @@ internal struct SceneDispatchDriver<R: Route> {
     internal let store: SceneStore<R>
     internal let scenes: SceneRegistry<R>
     internal let dispatcherToken: UUID
-    internal let openWindow: (String) -> Void
+    internal let openWindow: (String, UUID) -> Void
     internal let openImmersiveSpace: (String) async -> OpenImmersiveSpaceAction.Result
     internal let dismissImmersiveSpace: () async -> Void
-    internal let dismissWindow: (String) -> Void
+    internal let dismissWindow: (String, UUID) -> Void
 
     @MainActor
     internal func run() async {
@@ -31,8 +32,8 @@ internal struct SceneDispatchDriver<R: Route> {
                 .resolve(intent, state: store.snapshot)
 
             switch resolution {
-            case .openWindow(let id, let presentation):
-                openWindow(id)
+            case .openWindow(let id, let value, let presentation):
+                openWindow(id, value)
                 _ = store.completeClaimedOpen(
                     presentation,
                     accepted: true,
@@ -52,8 +53,8 @@ internal struct SceneDispatchDriver<R: Route> {
                     _ = store.finishSupersededImmersiveOpenCleanup(requestID: requestID)
                 }
 
-            case .dismissWindow(let id, let presentation):
-                dismissWindow(id)
+            case .dismissWindow(let id, let value, let presentation):
+                dismissWindow(id, value)
                 _ = store.completeClaimedDismissal(of: presentation, requestID: requestID)
 
             case .dismissImmersive(let presentation):

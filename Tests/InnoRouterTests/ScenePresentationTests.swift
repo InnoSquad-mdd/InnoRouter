@@ -78,6 +78,20 @@ struct ScenePresentationTests {
         #expect(mixed != full)
     }
 
+    @Test("Same route with different instance ids are not equal")
+    func instanceIDInequality() {
+        let first: ScenePresentation<SpatialRoute> = .window(
+            .dashboard,
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        )
+        let second: ScenePresentation<SpatialRoute> = .window(
+            .dashboard,
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        )
+
+        #expect(first != second)
+    }
+
     @Test("Volumetric size inequality surfaces through Equatable")
     func volumetricSizeInequality() {
         let a: ScenePresentation<SpatialRoute> = .volumetric(.detail, size: VolumetricSize(x: 1, y: 1, z: 1))
