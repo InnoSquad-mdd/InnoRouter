@@ -28,10 +28,10 @@ struct RoutableBehaviorTests {
         let embedded = ShapeRoute.Cases.square.embed(())
         #expect(embedded == .square)
 
-        let extracted = ShapeRoute.Cases.square.extract(embedded)
+        let extracted: Void? = ShapeRoute.Cases.square.extract(embedded)
         #expect(extracted != nil)
 
-        let mismatched = ShapeRoute.Cases.square.extract(.rectangle(width: 1, height: 2))
+        let mismatched: Void? = ShapeRoute.Cases.square.extract(.rectangle(width: 1, height: 2))
         #expect(mismatched == nil)
     }
 

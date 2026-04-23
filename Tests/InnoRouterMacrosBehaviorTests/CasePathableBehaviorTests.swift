@@ -25,10 +25,10 @@ struct CasePathableBehaviorTests {
     func embedExtract_roundtrip_parameterless() {
         let path = UIEvent.Cases.tapped
         let embedded = path.embed(())
-        let extracted = path.extract(embedded)
+        let extracted: Void? = path.extract(embedded)
         #expect(extracted != nil)
 
-        let mismatched = path.extract(.opened(id: "x"))
+        let mismatched: Void? = path.extract(.opened(id: "x"))
         #expect(mismatched == nil)
     }
 
