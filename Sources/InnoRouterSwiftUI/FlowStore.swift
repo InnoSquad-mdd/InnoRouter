@@ -620,6 +620,7 @@ public final class FlowStore<R: Route> {
         case .middleware(let debugName, _): return debugName
         case .conditionFailed: return nil
         case .custom: return nil
+        case .staleAfterPrepare: return nil
         }
     }
 

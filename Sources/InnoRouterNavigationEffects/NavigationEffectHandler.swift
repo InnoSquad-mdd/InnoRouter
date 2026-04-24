@@ -11,6 +11,7 @@ public final class NavigationEffectHandler<R: Route> {
     private let executeCommand: @MainActor (NavigationCommand<R>) -> NavigationResult<R>
     private let executeBatchCommands: @MainActor ([NavigationCommand<R>], Bool) -> NavigationBatchResult<R>
     private let executeTransactionCommands: @MainActor ([NavigationCommand<R>]) -> NavigationTransactionResult<R>
+    private let readState: @MainActor () -> RouteStack<R>
 
     /// 마지막 실행 결과
     public private(set) var lastResult: NavigationResult<R>?
@@ -29,6 +30,9 @@ public final class NavigationEffectHandler<R: Route> {
         }
         self.executeTransactionCommands = { commands in
             navigator.executeTransaction(commands)
+        }
+        self.readState = {
+            navigator.state
         }
     }
 
@@ -96,6 +100,20 @@ public final class NavigationEffectHandler<R: Route> {
         return execute(command)
     }
 
+    /// Returns `true` when every command in the batch would succeed against the current
+    /// ``RouteStack`` when executed sequentially. Used by async guards to pre-flight a
+    /// plan after `await` without committing any change.
+    public func canExecuteSequentially(_ commands: [NavigationCommand<R>]) -> Bool {
+        var preview = readState()
+        let engine = NavigationEngine<R>()
+        for command in commands {
+            if !engine.apply(command, to: &preview).isSuccess {
+                return false
+            }
+        }
+        return true
+    }
+
     @discardableResult
     public func executeGuarded(
         _ command: NavigationCommand<R>,
@@ -103,6 +121,12 @@ public final class NavigationEffectHandler<R: Route> {
     ) async -> NavigationResult<R> {
         switch await prepare(command) {
         case .proceed(let updatedCommand):
+            guard updatedCommand.canExecute(on: readState()) else {
+                let result: NavigationResult<R> = .cancelled(.staleAfterPrepare(command: updatedCommand))
+                lastResult = result
+                lastBatchResult = nil
+                return result
+            }
             return execute(updatedCommand)
         case .cancel(let reason):
             let result: NavigationResult<R> = .cancelled(reason)
