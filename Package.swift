@@ -210,6 +210,30 @@ let package = Package(
         ),
 
         // MARK: - Example Smoke Targets
+        //
+        // Most smoke files live in one shared target (`InnoRouterExamplesSmoke`)
+        // because their top-level symbols don't collide. Two smokes
+        // (`Standalone` and `Coordinator`) both declare `HomeRoute`, so
+        // they stay in their own targets to avoid a module-level
+        // redeclaration. If a future smoke needs a distinct name, add it
+        // to the shared target and append the file to the exclude list
+        // on the two solo targets.
+        .target(
+            name: "InnoRouterExamplesSmoke",
+            dependencies: ["InnoRouter", "InnoRouterMacros"],
+            path: "ExamplesSmoke",
+            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift"],
+            sources: [
+                "AppShellSmoke.swift",
+                "DeepLinkSmoke.swift",
+                "MacrosSmoke.swift",
+                "ModalSmoke.swift",
+                "MultiPlatformSmoke.swift",
+                "SplitCoordinatorSmoke.swift",
+                "VisionOSImmersiveSmoke.swift",
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         .target(
             name: "InnoRouterStandaloneExampleSmoke",
             dependencies: ["InnoRouter"],
@@ -224,62 +248,6 @@ let package = Package(
             path: "ExamplesSmoke",
             exclude: ["StandaloneSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
             sources: ["CoordinatorSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterDeepLinkExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["DeepLinkSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterSplitCoordinatorExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["SplitCoordinatorSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterAppShellExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["AppShellSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterModalExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["ModalSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterMacrosExampleSmoke",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["MacrosSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterMultiPlatformExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["MultiPlatformSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterVisionOSImmersiveExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift"],
-            sources: ["VisionOSImmersiveSmoke.swift"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
@@ -320,17 +288,32 @@ let package = Package(
             dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSwiftUI"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // InnoRouterMacrosPlugin is a CompilerPlugin built host-only
+        // (macOS). Restricting this test target's dependencies to macOS
+        // stops Xcode from pulling the macOS-built plugin .o into a
+        // visionOS / tvOS / watchOS test binary linker step.
+        // `@testable import InnoRouterMacrosPlugin` inside each test
+        // file is additionally guarded by `#if
+        // canImport(InnoRouterMacrosPlugin)` so the file is empty on
+        // non-macOS platforms.
         .testTarget(
             name: "InnoRouterMacrosTests",
             dependencies: [
-                "InnoRouterMacrosPlugin",
-                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-            ]
+                .target(name: "InnoRouterMacrosPlugin", condition: .when(platforms: [.macOS])),
+                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax", condition: .when(platforms: [.macOS])),
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "InnoRouterMacrosBehaviorTests",
             dependencies: [
-                "InnoRouterMacros",
+                // Macros product + plugin are host-only (macOS). Gate
+                // the dependency so non-macOS test builds don't try to
+                // link the macOS-built plugin .o into the test binary.
+                // Each test file is additionally wrapped in
+                // `#if canImport(InnoRouterMacrosPlugin)` so the module
+                // is empty on non-macOS platforms.
+                .target(name: "InnoRouterMacros", condition: .when(platforms: [.macOS])),
                 "InnoRouterCore",
             ],
             swiftSettings: [.swiftLanguageMode(.v6)]

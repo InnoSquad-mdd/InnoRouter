@@ -51,18 +51,26 @@ struct MyApp: App {
     @State private var sceneStore = SceneStore<SpatialRoute>()
 
     var body: some Scene {
+        // Host-owned scene: SceneHost only. Do NOT also attach a
+        // SceneAnchor here — the host already reconciles its own
+        // scene's lifecycle, and a redundant anchor registers a
+        // fallback dispatcher on the scene the host already owns.
         WindowGroup(id: "main", for: UUID.self) { $sceneID in
             ContentView()
-                .innoRouterSceneAnchor(
+                .innoRouterSceneHost(
                     sceneStore,
                     scenes: spatialScenes,
                     attachedTo: .main,
                     instanceID: sceneID
                 )
-                .innoRouterSceneHost(sceneStore, scenes: spatialScenes)
         } defaultValue: {
             UUID()
         }
+
+        // Non-host scene: SceneAnchor only. Keeps the store's
+        // inventory in sync with system-driven appear/disappear and
+        // can temporarily serve dismissals if the host scene is gone;
+        // fallback opens are still limited to the same scene.
         ImmersiveSpace(id: "theatre") {
             TheatreView()
                 .innoRouterSceneAnchor(
@@ -76,15 +84,29 @@ struct MyApp: App {
 ```
 
 The shared `SceneRegistry` keeps route-to-id mapping and declaration
-metadata in one place. `SceneHost` should be attached exactly once for
-command dispatch, while `SceneAnchor` is attached to each scene root so
-system-driven appear/disappear events reconcile the store's inventory.
-Window and volumetric scenes use the `UUID` supplied by a value-based
-`WindowGroup`; immersive spaces keep the route-only anchor overload.
-If that preferred host scene disappears, a live anchor can temporarily
-take over dispatch until the host returns. That lets later
-`dismissWindow(mainWindow)` or immersive lifecycle updates validate
-against real inventory instead of a single-slot summary.
+metadata in one place.
+
+### Which modifier goes where?
+
+| Scene declaration | Attach `SceneHost` | Attach `SceneAnchor` |
+|---|---|---|
+| The app's primary `WindowGroup` | ✅ exactly once | ❌ redundant |
+| Secondary `WindowGroup` | ❌ | ✅ |
+| `ImmersiveSpace` | ❌ | ✅ |
+| Any scene that isn't the host's scene | ❌ | ✅ |
+
+A mnemonic: **"one host per store, one anchor per non-host scene"**.
+`SceneHost` is the single primary dispatcher; `SceneAnchor` is a
+lifecycle reconciler that also serves as a restricted fallback
+dispatcher for its own scene. Fallback anchors are deliberately
+limited to same-scene opens and any dismissal — a cross-scene open
+arriving while the host is gone is rejected with
+`SceneRejectionReason.fallbackCannotDispatch` so the queue advances
+rather than silently succeeding on a scene the anchor can't reach.
+
+Window and volumetric host or anchor scenes use the `UUID` supplied by
+a value-based `WindowGroup`; immersive spaces keep the route-only
+overloads.
 
 ## Opening and dismissing scenes
 

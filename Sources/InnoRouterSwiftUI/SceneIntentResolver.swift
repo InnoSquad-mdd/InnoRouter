@@ -10,6 +10,29 @@ internal enum SceneDispatchPlan<R: Route>: Equatable {
     case reject(SceneIntent<R>, reason: SceneRejectionReason)
 }
 
+internal extension SceneDispatchPlan {
+    /// Whether a fallback anchor attached to `anchorPresentation` is
+    /// allowed to execute this plan.
+    ///
+    /// Dismissals and resolver-level rejections are always serviceable
+    /// — they don't need cross-scene authority. Opens are only
+    /// serviceable when they target the anchor's own attached
+    /// presentation, so a theatre anchor cannot silently commit a
+    /// main-window open and one window instance cannot commit an open
+    /// for a different window instance with the same route.
+    func isServiceableByFallback(
+        attachedTo anchorPresentation: ScenePresentation<R>
+    ) -> Bool {
+        switch self {
+        case .openWindow(_, _, let presentation),
+             .openImmersive(_, let presentation):
+            return presentation == anchorPresentation
+        case .dismissWindow, .dismissImmersive, .reject:
+            return true
+        }
+    }
+}
+
 internal struct SceneIntentResolver<R: Route> {
     internal let scenes: SceneRegistry<R>
 

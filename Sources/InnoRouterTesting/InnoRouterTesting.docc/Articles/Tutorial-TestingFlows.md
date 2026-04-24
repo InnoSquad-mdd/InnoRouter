@@ -142,6 +142,110 @@ Prefer `receive*` for production assertions — they cover both
 state and the emission order — but escape hatches are useful for
 sanity checks.
 
+## Testing middleware behaviour directly
+
+The modal-blocking example above tests middleware *through* a flow
+store. Sometimes you want to test the middleware itself — does it
+correctly pass through, cancel, or rewrite commands for every input
+shape? `NavigationTestStore` + `ModalTestStore` let you do that
+without a FlowStore in the middle.
+
+```swift
+@MainActor
+private final class RecordingMiddleware: NavigationMiddleware {
+    typealias RouteType = AppRoute
+
+    private(set) var seenCommands: [NavigationCommand<AppRoute>] = []
+
+    func willExecute(
+        _ command: NavigationCommand<AppRoute>,
+        state: RouteStack<AppRoute>
+    ) -> NavigationInterception<AppRoute> {
+        seenCommands.append(command)
+        if case .push(let route) = command, route == .signup {
+            return .cancel(.middleware(debugName: "BlockSignup", command: command))
+        }
+        return .proceed(command)
+    }
+
+    func didExecute(
+        _ command: NavigationCommand<AppRoute>,
+        result: NavigationResult<AppRoute>,
+        state: RouteStack<AppRoute>
+    ) -> NavigationResult<AppRoute> {
+        result
+    }
+}
+
+@Test
+@MainActor
+func middlewareCancelsSignupButNotWelcome() {
+    let middleware = RecordingMiddleware()
+    let store = NavigationTestStore<AppRoute>(
+        configuration: .init(
+            middlewares: [.init(middleware: middleware, debugName: "Recorder")]
+        )
+    )
+
+    store.send(.push(.welcome))
+    store.receiveChange { _, to in to.path == [.welcome] }
+
+    store.send(.push(.signup))
+    store.receiveIntercepted(reason: .middleware(debugName: "BlockSignup", command: .push(.signup)))
+
+    #expect(middleware.seenCommands.count == 2)
+    store.expectNoMoreEvents()
+}
+```
+
+Recording middlewares work naturally with `@MainActor final class`
+and mutable state. Pair them with `receiveIntercepted` to assert
+which interceptions fired and in what order, and with direct
+reads on the middleware instance to assert which commands it saw.
+
+## Property-based test recipes
+
+InnoRouter's own property-based suites use
+`Tests/InnoRouterTests/PropertyTestSupport.swift`. That helper lives
+in this repository's test target, not in the shipped
+`InnoRouterTesting` product, so downstream apps should copy or adapt
+the pattern rather than expect `@testable import InnoRouterTesting`
+to expose `SeededGenerator`, `Arbitrary`, or `FlowModelState`.
+
+The idiom is **Swift Testing `@Test(arguments:)` iterated over many
+seeds**, each seed driving a deterministic random intent stream:
+
+```swift
+@Test(arguments: 0..<100)
+@MainActor
+func randomFlowIntentsPreserveInvariants(seed: UInt64) async {
+    var rng = SeededGenerator(seed: seed)
+    let store = FlowTestStore<AppRoute>(exhaustivity: .off)
+
+    for _ in 0..<30 {
+        let intent = Arbitrary.flowIntent(
+            rng: &rng,
+            routes: [.welcome, .preAuth, .signup]
+        )
+        store.send(intent)
+    }
+
+    // Invariant: modal-tail is always the final step, never in the middle.
+    let modalIndices = store.path.indices.filter { store.path[$0].isModal }
+    #expect(modalIndices.allSatisfy { $0 == store.path.count - 1 })
+}
+```
+
+Swift Testing runs the 100 parameterised cases in parallel by
+default, so total wall-clock time stays close to a single iteration.
+
+A pairs-with pattern: **run the random stream through both the
+real store and a reference model**, then assert they agree step by
+step. That's how `FlowStorePropertyBasedTests` catches subtle
+divergences between the journal-driven implementation and the
+intended semantics. See this repository's PropertyTestSupport source
+for the model-driven `FlowModelState` pattern.
+
 ## Next steps
 
 - Read the `Tutorial-LoginOnboarding` guide in the
@@ -150,3 +254,6 @@ sanity checks.
 - Read the `Tutorial-MiddlewareComposition` guide in the
   `InnoRouterSwiftUI` documentation catalog for the middleware
   surfaces the harness asserts against.
+- Cross-reference `<doc:Rejection-Reasons>` (in InnoRouterCore) for
+  the full rejection taxonomy your `receiveIntentRejected` /
+  `receiveIntercepted` calls can pattern-match on.

@@ -17,6 +17,12 @@ public enum SceneEvent<R: Route>: Sendable, Equatable {
 
     /// An open or dismiss request was rejected.
     case rejected(SceneIntent<R>, reason: SceneRejectionReason)
+
+    /// A ``SceneHost`` tried to register but the store already has a
+    /// primary dispatcher. The losing host goes dormant instead of
+    /// crashing so SwiftUI scene rehydration and hot-reload don't
+    /// take the app down.
+    case hostRegistrationRejected(reason: SceneRejectionReason)
 }
 
 /// Reason a ``SceneStore`` open/dismiss intent was rejected.
@@ -45,6 +51,50 @@ public enum SceneRejectionReason: String, Sendable, Equatable, Codable {
     /// A newer intent replaced the pending intent before the host could
     /// commit it.
     case supersededByNewerIntent
+
+    /// The currently elected dispatcher is a fallback ``SceneAnchor``
+    /// attached to a different scene than the one the intent would
+    /// affect, so the intent is refused instead of being serviced from
+    /// an unrelated scene. Apps typically see this after the preferred
+    /// ``SceneHost`` scene disappears while cross-scene opens are still
+    /// queued; attach a new ``SceneHost`` to resume delivery.
+    case fallbackCannotDispatch
+
+    /// A second ``SceneHost`` tried to register with the store while
+    /// another host was already primary. The losing host goes dormant
+    /// rather than crashing so SwiftUI scene rehydration and hot-reload
+    /// sequences remain safe in production. Apps that hit this reason
+    /// in normal steady state should attach exactly one
+    /// ``SceneHost`` per ``SceneStore``.
+    case duplicateHostRegistration
+
+    /// The dispatcher's ``Task`` was cancelled (the owning view
+    /// disappeared, or the signal re-entered with a fresh dispatch
+    /// attempt) while a claimed intent was mid-flight. The claim is
+    /// released and the pending intent advances instead of leaving the
+    /// queue stuck behind an orphaned claim.
+    case hostTornDownDuringDispatch
+}
+
+/// Capability advertised by a dispatcher (``SceneHost`` or
+/// ``SceneAnchor``) when it runs the dispatch loop.
+///
+/// Primary hosts can service any intent. Fallback anchors are
+/// deliberately restricted to operations that do not require
+/// authority over other scenes: dismissals of any scene and opens
+/// that target the anchor's own attached scene. Other opens are
+/// rejected with ``SceneRejectionReason/fallbackCannotDispatch`` so
+/// the queue advances instead of being silently committed by a
+/// dispatcher that cannot actually reach the target scene.
+internal enum SceneDispatchCapability<R: Route>: Equatable {
+    /// Full dispatch authority, held by exactly one ``SceneHost`` per
+    /// store.
+    case primaryHost
+
+    /// Restricted dispatch authority, held by any ``SceneAnchor``.
+    /// Same-scene opens and any dismissal are serviceable; cross-scene
+    /// opens are refused.
+    case fallbackAnchor(attachedTo: ScenePresentation<R>)
 }
 
 /// Intent queued by ``SceneStore`` for a ``SceneHost`` to act on.

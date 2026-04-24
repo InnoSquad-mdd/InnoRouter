@@ -36,13 +36,12 @@ import InnoRouterCore
 ///     var body: some Scene {
 ///         WindowGroup(id: "main", for: UUID.self) { $sceneID in
 ///             MainView()
-///                 .innoRouterSceneAnchor(
+///                 .innoRouterSceneHost(
 ///                     sceneStore,
 ///                     scenes: spatialScenes,
 ///                     attachedTo: .main,
 ///                     instanceID: sceneID
 ///                 )
-///                 .innoRouterSceneHost(sceneStore, scenes: spatialScenes)
 ///         } defaultValue: {
 ///             UUID()
 ///         }
@@ -82,6 +81,7 @@ public final class SceneStore<R: Route> {
     internal private(set) var currentPendingRequestID: UUID?
     internal private(set) var currentClaimedRequestID: UUID?
     internal private(set) var dispatchSignal: UInt64
+    internal private(set) var dispatcherSignal: UInt64
 
     @ObservationIgnored
     private let broadcaster: EventBroadcaster<SceneEvent<R>>
@@ -97,6 +97,7 @@ public final class SceneStore<R: Route> {
         self.currentPendingRequestID = state.currentPendingRequestID
         self.currentClaimedRequestID = state.currentClaimedRequestID
         self.dispatchSignal = 0
+        self.dispatcherSignal = 0
         self.broadcaster = EventBroadcaster()
     }
 
@@ -188,6 +189,11 @@ public final class SceneStore<R: Route> {
         state.snapshot
     }
 
+    internal func attachDeclaredScene(_ presentation: ScenePresentation<R>) {
+        state.attach(presentation)
+        syncFromState()
+    }
+
     @discardableResult
     internal func attachDeclaredScene(
         route: R,
@@ -209,22 +215,40 @@ public final class SceneStore<R: Route> {
         syncFromState()
     }
 
-    internal func registerDispatcherHost(_ token: UUID) {
+    /// Registers `token` as the store's primary dispatcher host.
+    ///
+    /// Returns `true` when the host successfully becomes primary and
+    /// should run its dispatch loop. Returns `false` when another
+    /// ``SceneHost`` is already primary — the losing host should treat
+    /// itself as dormant (no dispatch, no `unregisterDispatcherHost` on
+    /// teardown), and a ``SceneEvent/hostRegistrationRejected(reason:)``
+    /// with ``SceneRejectionReason/duplicateHostRegistration`` is
+    /// broadcast so consumers see the collision.
+    ///
+    /// Previously this crashed via `preconditionFailure`, which made
+    /// SwiftUI scene rehydration / hot-reload transitions unsafe in
+    /// production. The recoverable return lets the two hosts race
+    /// without taking the app down.
+    @discardableResult
+    internal func registerDispatcherHost(_ token: UUID) -> Bool {
         let previousPendingRequestID = currentPendingRequestID
         let previousElectedDispatcherToken = dispatcherRegistry.electedDispatcherToken
 
         guard dispatcherRegistry.registerPrimaryHost(token) else {
-            preconditionFailure(
-                "SceneHost requires exactly one dispatcher host per SceneStore. " +
-                "Attach .innoRouterSceneHost(_:scenes:) once and use " +
-                ".innoRouterSceneAnchor(_:scenes:attachedTo:) for each scene root."
+            broadcaster.broadcast(
+                .hostRegistrationRejected(reason: .duplicateHostRegistration)
             )
+            return false
         }
 
         signalDispatchIfNeeded(
             previousPendingRequestID: previousPendingRequestID,
             previousElectedDispatcherToken: previousElectedDispatcherToken
         )
+        signalDispatcherChangeIfNeeded(
+            previousElectedDispatcherToken: previousElectedDispatcherToken
+        )
+        return true
     }
 
     internal func unregisterDispatcherHost(_ token: UUID) {
@@ -235,6 +259,9 @@ public final class SceneStore<R: Route> {
 
         signalDispatchIfNeeded(
             previousPendingRequestID: previousPendingRequestID,
+            previousElectedDispatcherToken: previousElectedDispatcherToken
+        )
+        signalDispatcherChangeIfNeeded(
             previousElectedDispatcherToken: previousElectedDispatcherToken
         )
     }
@@ -249,6 +276,9 @@ public final class SceneStore<R: Route> {
             previousPendingRequestID: previousPendingRequestID,
             previousElectedDispatcherToken: previousElectedDispatcherToken
         )
+        signalDispatcherChangeIfNeeded(
+            previousElectedDispatcherToken: previousElectedDispatcherToken
+        )
     }
 
     internal func unregisterFallbackDispatcher(_ token: UUID) {
@@ -259,6 +289,9 @@ public final class SceneStore<R: Route> {
 
         signalDispatchIfNeeded(
             previousPendingRequestID: previousPendingRequestID,
+            previousElectedDispatcherToken: previousElectedDispatcherToken
+        )
+        signalDispatcherChangeIfNeeded(
             previousElectedDispatcherToken: previousElectedDispatcherToken
         )
     }
@@ -430,6 +463,16 @@ public final class SceneStore<R: Route> {
         }
 
         dispatchSignal &+= 1
+    }
+
+    private func signalDispatcherChangeIfNeeded(
+        previousElectedDispatcherToken: UUID?
+    ) {
+        guard previousElectedDispatcherToken != dispatcherRegistry.electedDispatcherToken else {
+            return
+        }
+
+        dispatcherSignal &+= 1
     }
 
     isolated deinit {

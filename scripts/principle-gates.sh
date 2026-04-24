@@ -38,6 +38,18 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
       exit 1
     fi
   done
+
+  # Rejecting `all` combined with individual names keeps the flag
+  # unambiguous. Before this guard, `--platforms=all,ios` silently
+  # behaved the same as `--platforms=all`, which would have hidden
+  # a typo or a confused expectation about what the probe actually
+  # ran.
+  TOKEN_COUNT="$(echo "$NORMALIZED_PLATFORMS_ARG" | wc -w | tr -d ' ')"
+  if [[ " $NORMALIZED_PLATFORMS_ARG " == *" all "* && "$TOKEN_COUNT" != "1" ]]; then
+    echo "[principle-gates] Failed: --platforms=all cannot be combined with specific platforms"
+    echo "[principle-gates]         Use --platforms=all on its own, or drop 'all' and list platforms explicitly"
+    exit 1
+  fi
 fi
 
 echo "[principle-gates] Running swift test"
@@ -53,15 +65,9 @@ echo "[principle-gates] Checking maintainer docs consistency"
 ./scripts/check-docs-consistency.sh
 
 echo "[principle-gates] Building example smoke targets"
+swift build --target InnoRouterExamplesSmoke
 swift build --target InnoRouterStandaloneExampleSmoke
 swift build --target InnoRouterCoordinatorExampleSmoke
-swift build --target InnoRouterDeepLinkExampleSmoke
-swift build --target InnoRouterSplitCoordinatorExampleSmoke
-swift build --target InnoRouterAppShellExampleSmoke
-swift build --target InnoRouterModalExampleSmoke
-swift build --target InnoRouterMacrosExampleSmoke
-swift build --target InnoRouterMultiPlatformExampleSmoke
-swift build --target InnoRouterVisionOSImmersiveExampleSmoke
 swift build --target InnoRouterNavigationEffects
 swift build --target InnoRouterDeepLinkEffects
 swift build --target InnoRouterEffects

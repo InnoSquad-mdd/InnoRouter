@@ -2,6 +2,14 @@
 // InnoRouterMacrosBehaviorTests - @CasePathable runtime semantics
 // Copyright © 2025 Inno Squad. All rights reserved.
 
+// MARK: - Platform: InnoRouterMacrosPlugin is a host-only CompilerPlugin.
+// On non-macOS simulator builds Xcode flattens the plugin as a regular
+// dependency and the linker pulls the macOS-built .o into the test
+// binary. Gate the whole file so non-macOS platforms compile an empty
+// module; the expansion semantics verified here are exercised on the
+// macOS CI leg instead.
+#if canImport(InnoRouterMacrosPlugin)
+
 import Testing
 import InnoRouterMacros
 
@@ -85,3 +93,5 @@ struct CasePathableBehaviorTests {
     // `Tests/InnoRouterMacrosTests`. Leaving a comment here so the contrast with
     // `@Routable` is discoverable to future contributors.
 }
+
+#endif
