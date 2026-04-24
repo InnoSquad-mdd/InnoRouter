@@ -26,9 +26,16 @@ report_path = sys.argv[1]
 with open(report_path, "r", encoding="utf-8") as handle:
     report = json.load(handle)
 
-failed = [sample for sample in report.get("samples", []) if not sample.get("passed", True)]
-if report.get("passed", True) and not failed:
+samples = report.get("samples", [])
+failed = [sample for sample in samples if not sample.get("passed", True)]
+overall_passed = report.get("passed", True)
+
+if overall_passed and not failed:
     sys.exit(0)
+
+if not failed:
+    print("[performance-smoke] Overall report failed but no individual samples regressed")
+    sys.exit(1)
 
 print(f"[performance-smoke] Failed: {len(failed)} sample(s) regressed past their threshold")
 for sample in failed:

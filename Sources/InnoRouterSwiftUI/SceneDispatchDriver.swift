@@ -65,6 +65,14 @@ internal struct SceneDispatchDriver<R: Route> {
                 // the claim rather than committing a result the next
                 // dispatcher has no way to reconcile.
                 if Task.isCancelled {
+                    if result == .opened,
+                       store.snapshot.activeImmersive != presentation {
+                        // Duplicate re-opens can return `.opened` for an
+                        // already committed immersive scene. Dismissing in
+                        // that case would close the live scene while the
+                        // store correctly keeps it active.
+                        await dismissImmersiveSpace()
+                    }
                     _ = store.completeClaimedRejection(
                         for: intent,
                         reason: .hostTornDownDuringDispatch,

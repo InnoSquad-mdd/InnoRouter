@@ -36,13 +36,12 @@ import InnoRouterCore
 ///     var body: some Scene {
 ///         WindowGroup(id: "main", for: UUID.self) { $sceneID in
 ///             MainView()
-///                 .innoRouterSceneAnchor(
+///                 .innoRouterSceneHost(
 ///                     sceneStore,
 ///                     scenes: spatialScenes,
 ///                     attachedTo: .main,
 ///                     instanceID: sceneID
 ///                 )
-///                 .innoRouterSceneHost(sceneStore, scenes: spatialScenes)
 ///         } defaultValue: {
 ///             UUID()
 ///         }
@@ -82,6 +81,7 @@ public final class SceneStore<R: Route> {
     internal private(set) var currentPendingRequestID: UUID?
     internal private(set) var currentClaimedRequestID: UUID?
     internal private(set) var dispatchSignal: UInt64
+    internal private(set) var dispatcherSignal: UInt64
 
     @ObservationIgnored
     private let broadcaster: EventBroadcaster<SceneEvent<R>>
@@ -97,6 +97,7 @@ public final class SceneStore<R: Route> {
         self.currentPendingRequestID = state.currentPendingRequestID
         self.currentClaimedRequestID = state.currentClaimedRequestID
         self.dispatchSignal = 0
+        self.dispatcherSignal = 0
         self.broadcaster = EventBroadcaster()
     }
 
@@ -188,6 +189,11 @@ public final class SceneStore<R: Route> {
         state.snapshot
     }
 
+    internal func attachDeclaredScene(_ presentation: ScenePresentation<R>) {
+        state.attach(presentation)
+        syncFromState()
+    }
+
     @discardableResult
     internal func attachDeclaredScene(
         route: R,
@@ -239,6 +245,9 @@ public final class SceneStore<R: Route> {
             previousPendingRequestID: previousPendingRequestID,
             previousElectedDispatcherToken: previousElectedDispatcherToken
         )
+        signalDispatcherChangeIfNeeded(
+            previousElectedDispatcherToken: previousElectedDispatcherToken
+        )
         return true
     }
 
@@ -250,6 +259,9 @@ public final class SceneStore<R: Route> {
 
         signalDispatchIfNeeded(
             previousPendingRequestID: previousPendingRequestID,
+            previousElectedDispatcherToken: previousElectedDispatcherToken
+        )
+        signalDispatcherChangeIfNeeded(
             previousElectedDispatcherToken: previousElectedDispatcherToken
         )
     }
@@ -264,6 +276,9 @@ public final class SceneStore<R: Route> {
             previousPendingRequestID: previousPendingRequestID,
             previousElectedDispatcherToken: previousElectedDispatcherToken
         )
+        signalDispatcherChangeIfNeeded(
+            previousElectedDispatcherToken: previousElectedDispatcherToken
+        )
     }
 
     internal func unregisterFallbackDispatcher(_ token: UUID) {
@@ -274,6 +289,9 @@ public final class SceneStore<R: Route> {
 
         signalDispatchIfNeeded(
             previousPendingRequestID: previousPendingRequestID,
+            previousElectedDispatcherToken: previousElectedDispatcherToken
+        )
+        signalDispatcherChangeIfNeeded(
             previousElectedDispatcherToken: previousElectedDispatcherToken
         )
     }
@@ -445,6 +463,16 @@ public final class SceneStore<R: Route> {
         }
 
         dispatchSignal &+= 1
+    }
+
+    private func signalDispatcherChangeIfNeeded(
+        previousElectedDispatcherToken: UUID?
+    ) {
+        guard previousElectedDispatcherToken != dispatcherRegistry.electedDispatcherToken else {
+            return
+        }
+
+        dispatcherSignal &+= 1
     }
 
     isolated deinit {

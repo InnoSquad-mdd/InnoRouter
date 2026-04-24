@@ -49,7 +49,7 @@ associated values.
 
 | Source | Symbol | Emits through |
 |---|---|---|
-| Middleware `willExecute` returning `.cancel(_)` | `ModalCancellationReason` | `ModalEvent.intercepted(_)` |
+| Middleware `willExecute` returning `.cancel(_)` | `ModalCancellationReason` | `ModalEvent.commandIntercepted(command:result:)` with `.cancelled(_)` |
 
 ### `ModalCancellationReason`
 
@@ -128,16 +128,13 @@ cases arrive alongside successful transitions. A single analytics
 listener can cover the full surface:
 
 ```swift
-Task {
-    for await event in navigationStore.events {
-        if case .intercepted(let reason) = event {
-            analytics.record("nav-cancel", reason: reason)
-        }
-    }
+let navigationResult = navigationStore.execute(.push(.profile))
+if case .cancelled(let reason) = navigationResult {
+    analytics.record("nav-cancel", reason: reason)
 }
 Task {
     for await event in modalStore.events {
-        if case .intercepted(let reason) = event {
+        if case .commandIntercepted(_, .cancelled(let reason)) = event {
             analytics.record("modal-cancel", reason: reason)
         }
     }

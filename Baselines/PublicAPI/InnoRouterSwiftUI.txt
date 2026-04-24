@@ -241,6 +241,8 @@ relationship | memberOf | SceneEvent.presented(_:) | SceneEvent |  |
 relationship | memberOf | SceneEvent.rejected(_:reason:) | SceneEvent |  |
 relationship | memberOf | SceneHost.body(content:) | SceneHost |  |
 relationship | memberOf | SceneHost.init(store:scenes:) | SceneHost |  |
+relationship | memberOf | SceneHost.init(store:scenes:attachedTo:) | SceneHost |  |
+relationship | memberOf | SceneHost.init(store:scenes:attachedTo:instanceID:) | SceneHost |  |
 relationship | memberOf | SceneIntent.dismissImmersive | SceneIntent |  |
 relationship | memberOf | SceneIntent.dismissWindow(_:) | SceneIntent |  |
 relationship | memberOf | SceneIntent.open(_:) | SceneIntent |  |
@@ -481,6 +483,8 @@ symbol | swift.init | SceneAnchor.init(store:scenes:attachedTo:) | init(store:sc
 symbol | swift.init | SceneAnchor.init(store:scenes:attachedTo:instanceID:) | init(store:scenes:attachedTo:instanceID:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) | []
 symbol | swift.init | SceneDeclaration.init(route:id:kind:) | init(route:id:kind:) | init(route: R, id: String, kind: SceneDeclaration<R>.Kind) | []
 symbol | swift.init | SceneHost.init(store:scenes:) | init(store:scenes:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>) | []
+symbol | swift.init | SceneHost.init(store:scenes:attachedTo:) | init(store:scenes:attachedTo:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) | []
+symbol | swift.init | SceneHost.init(store:scenes:attachedTo:instanceID:) | init(store:scenes:attachedTo:instanceID:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) | []
 symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: SceneDeclaration<R>...) | []
 symbol | swift.init | SceneRegistry.init(_:) | init(_:) | init(_ declarations: [SceneDeclaration<R>]) | []
 symbol | swift.init | SceneStore.init() | init() | @MainActor init() | []
@@ -562,6 +566,8 @@ symbol | swift.method | View.innoRouterOrnament(_:content:) | innoRouterOrnament
 symbol | swift.method | View.innoRouterSceneAnchor(_:scenes:attachedTo:) | innoRouterSceneAnchor(_:scenes:attachedTo:) | @MainActor func innoRouterSceneAnchor<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) -> some View where R : Route | []
 symbol | swift.method | View.innoRouterSceneAnchor(_:scenes:attachedTo:instanceID:) | innoRouterSceneAnchor(_:scenes:attachedTo:instanceID:) | @MainActor func innoRouterSceneAnchor<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) -> some View where R : Route | []
 symbol | swift.method | View.innoRouterSceneHost(_:scenes:) | innoRouterSceneHost(_:scenes:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>) -> some View where R : Route | []
+symbol | swift.method | View.innoRouterSceneHost(_:scenes:attachedTo:) | innoRouterSceneHost(_:scenes:attachedTo:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) -> some View where R : Route | []
+symbol | swift.method | View.innoRouterSceneHost(_:scenes:attachedTo:instanceID:) | innoRouterSceneHost(_:scenes:attachedTo:instanceID:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) -> some View where R : Route | []
 symbol | swift.property | ChildCoordinator.onCancel | onCancel | @MainActor var onCancel: (@MainActor () -> Void)? { get set } | []
 symbol | swift.property | ChildCoordinator.onFinish | onFinish | @MainActor var onFinish: (@MainActor (Self.Result) -> Void)? { get set } | []
 symbol | swift.property | ChildCoordinatorTaskTracker.activeCount | activeCount | @MainActor var activeCount: Int { get } | []

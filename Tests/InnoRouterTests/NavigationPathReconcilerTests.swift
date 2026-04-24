@@ -139,6 +139,8 @@ struct NavigationPathReconcilerTests {
             executeBatch: recorder.executeBatch
         )
 
+        #expect(recorder.singles.isEmpty)
+        #expect(recorder.batches.count == 1)
         #expect(recorder.batches.first == [.push(.home), .push(.detail)])
     }
 
@@ -216,6 +218,18 @@ struct NavigationPathReconcilerTests {
             .ignore,
             .custom { _, _ in .ignore },
         ]
-        #expect(policies.count == 4)
+
+        for policy in policies {
+            switch policy {
+            case .replace, .assertAndReplace, .ignore:
+                break
+            case .custom(let resolver):
+                let resolution = resolver([.home], [.detail])
+                if case .ignore = resolution {
+                    break
+                }
+                Issue.record("Expected smoke-test resolver to return .ignore")
+            }
+        }
     }
 }

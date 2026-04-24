@@ -16,15 +16,17 @@ internal extension SceneDispatchPlan {
     ///
     /// Dismissals and resolver-level rejections are always serviceable
     /// — they don't need cross-scene authority. Opens are only
-    /// serviceable when they target the anchor's own attached scene,
-    /// so a theatre anchor cannot silently commit a main-window open.
+    /// serviceable when they target the anchor's own attached
+    /// presentation, so a theatre anchor cannot silently commit a
+    /// main-window open and one window instance cannot commit an open
+    /// for a different window instance with the same route.
     func isServiceableByFallback(
         attachedTo anchorPresentation: ScenePresentation<R>
     ) -> Bool {
         switch self {
-        case .openWindow(_, let presentation),
+        case .openWindow(_, _, let presentation),
              .openImmersive(_, let presentation):
-            return presentation.route == anchorPresentation.route
+            return presentation == anchorPresentation
         case .dismissWindow, .dismissImmersive, .reject:
             return true
         }

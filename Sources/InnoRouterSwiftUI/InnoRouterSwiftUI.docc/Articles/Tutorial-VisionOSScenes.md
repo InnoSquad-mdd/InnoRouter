@@ -55,17 +55,22 @@ struct MyApp: App {
         // SceneAnchor here — the host already reconciles its own
         // scene's lifecycle, and a redundant anchor registers a
         // fallback dispatcher on the scene the host already owns.
-        WindowGroup(id: "main", for: UUID.self) { _ in
+        WindowGroup(id: "main", for: UUID.self) { $sceneID in
             ContentView()
-                .innoRouterSceneHost(sceneStore, scenes: spatialScenes)
+                .innoRouterSceneHost(
+                    sceneStore,
+                    scenes: spatialScenes,
+                    attachedTo: .main,
+                    instanceID: sceneID
+                )
         } defaultValue: {
             UUID()
         }
 
         // Non-host scene: SceneAnchor only. Keeps the store's
         // inventory in sync with system-driven appear/disappear and
-        // can temporarily serve same-scene dismissals if the host
-        // scene is gone.
+        // can temporarily serve dismissals if the host scene is gone;
+        // fallback opens are still limited to the same scene.
         ImmersiveSpace(id: "theatre") {
             TheatreView()
                 .innoRouterSceneAnchor(
@@ -99,8 +104,9 @@ arriving while the host is gone is rejected with
 `SceneRejectionReason.fallbackCannotDispatch` so the queue advances
 rather than silently succeeding on a scene the anchor can't reach.
 
-Window and volumetric scenes use the `UUID` supplied by a value-based
-`WindowGroup`; immersive spaces keep the route-only anchor overload.
+Window and volumetric host or anchor scenes use the `UUID` supplied by
+a value-based `WindowGroup`; immersive spaces keep the route-only
+overloads.
 
 ## Opening and dismissing scenes
 

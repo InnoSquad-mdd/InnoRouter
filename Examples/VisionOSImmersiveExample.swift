@@ -33,20 +33,26 @@ struct VisionOSImmersiveExampleApp: App {
         // SceneHost per store handles every open/dismiss through
         // SwiftUI's environment actions. Attach ornaments here but NOT
         // a SceneAnchor: the host already owns this scene.
-        WindowGroup(id: SpatialRoute.main.rawValue, for: UUID.self) { _ in
+        WindowGroup(id: SpatialRoute.main.rawValue, for: UUID.self) { $sceneID in
             VisionOSMainView()
                 .innoRouterOrnament(OrnamentAnchor(anchor: .bottom)) {
                     VisionOSControlBar(store: sceneStore)
                 }
-                .innoRouterSceneHost(sceneStore, scenes: scenes)
+                .innoRouterSceneHost(
+                    sceneStore,
+                    scenes: scenes,
+                    attachedTo: .main,
+                    instanceID: sceneID
+                )
         } defaultValue: {
             UUID()
         }
 
         // Every non-host scene needs a SceneAnchor so its system-driven
         // appear/disappear transitions stay in sync with SceneStore's
-        // inventory, and so it can temporarily serve same-scene
-        // dismissals if the host scene is gone.
+        // inventory. Fallback opening is limited to the same scene,
+        // but dismissals are handled for any scene while the host scene
+        // is gone.
         ImmersiveSpace(id: SpatialRoute.theatre.rawValue) {
             VisionOSTheatreView()
                 .innoRouterSceneAnchor(

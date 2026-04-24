@@ -187,10 +187,10 @@ func middlewareCancelsSignupButNotWelcome() {
         )
     )
 
-    store.send(.go(.welcome))
+    store.send(.push(.welcome))
     store.receiveChange { _, to in to.path == [.welcome] }
 
-    store.send(.go(.signup))
+    store.send(.push(.signup))
     store.receiveIntercepted(reason: .middleware(debugName: "BlockSignup", command: .push(.signup)))
 
     #expect(middleware.seenCommands.count == 2)
@@ -205,11 +205,12 @@ reads on the middleware instance to assert which commands it saw.
 
 ## Property-based test recipes
 
-`InnoRouterTests/Support/PropertyTestSupport.swift` (available to
-your own tests when you `@testable import InnoRouterTesting`)
-provides the scaffolding used by InnoRouter's own property-based
-suites: seeded PRNG, route/command generators, and reference-model
-state machines.
+InnoRouter's own property-based suites use
+`Tests/InnoRouterTests/PropertyTestSupport.swift`. That helper lives
+in this repository's test target, not in the shipped
+`InnoRouterTesting` product, so downstream apps should copy or adapt
+the pattern rather than expect `@testable import InnoRouterTesting`
+to expose `SeededGenerator`, `Arbitrary`, or `FlowModelState`.
 
 The idiom is **Swift Testing `@Test(arguments:)` iterated over many
 seeds**, each seed driving a deterministic random intent stream:
@@ -224,7 +225,7 @@ func randomFlowIntentsPreserveInvariants(seed: UInt64) async {
     for _ in 0..<30 {
         let intent = Arbitrary.flowIntent(
             rng: &rng,
-            routes: AppRoute.allCases
+            routes: [.welcome, .preAuth, .signup]
         )
         store.send(intent)
     }
@@ -242,8 +243,8 @@ A pairs-with pattern: **run the random stream through both the
 real store and a reference model**, then assert they agree step by
 step. That's how `FlowStorePropertyBasedTests` catches subtle
 divergences between the journal-driven implementation and the
-intended semantics. See the PropertyTestSupport source for the
-model-driven `FlowModelState` pattern.
+intended semantics. See this repository's PropertyTestSupport source
+for the model-driven `FlowModelState` pattern.
 
 ## Next steps
 

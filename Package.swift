@@ -301,7 +301,8 @@ let package = Package(
             dependencies: [
                 .target(name: "InnoRouterMacrosPlugin", condition: .when(platforms: [.macOS])),
                 .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax", condition: .when(platforms: [.macOS])),
-            ]
+            ],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "InnoRouterMacrosBehaviorTests",
