@@ -3,6 +3,94 @@
 import PackageDescription
 import CompilerPluginSupport
 
+// MARK: - Example target helpers
+//
+// Every per-file example target has the identical shape:
+// `path: <directory>`, exclude every sibling source, include only
+// the named source, depend on the InnoRouter umbrella (+ optionally
+// `InnoRouterMacros`). Hand-rolling that for nine targets repeats
+// the same exclude list nine times and is the source of every
+// "added a new example, forgot to update sibling exclude lists"
+// drift. The two helpers below collapse the boilerplate to a
+// single call site that takes the file name, derives the exclude
+// list from the directory contents declaratively, and keeps the
+// rest of the manifest readable.
+
+/// All human-facing example sources under `Examples/`.
+///
+/// Order is informational only — `exampleTarget` builds an
+/// exclude list out of "everything except the named source". Adding
+/// or removing an entry here is the single edit needed to add or
+/// remove an example target.
+private let exampleSources: [String] = [
+    "StandaloneExample.swift",
+    "CoordinatorExample.swift",
+    "DeepLinkExample.swift",
+    "SplitCoordinatorExample.swift",
+    "AppShellExample.swift",
+    "MultiPlatformExample.swift",
+    "VisionOSImmersiveExample.swift",
+]
+
+/// Smoke files that live in their own per-file targets because
+/// they declare top-level symbols (e.g. `HomeRoute`) that collide
+/// with another smoke. Everything outside this list shares
+/// `InnoRouterExamplesSmoke`.
+private let soloSmokeSources: [String] = [
+    "StandaloneSmoke.swift",
+    "CoordinatorSmoke.swift",
+]
+
+/// All smoke sources under `ExamplesSmoke/`. Used both to derive
+/// the shared target's `sources` (everything not in
+/// `soloSmokeSources`) and the per-file solo targets' `exclude`
+/// lists.
+private let smokeSources: [String] = [
+    "AppShellSmoke.swift",
+    "CoordinatorSmoke.swift",
+    "DeepLinkSmoke.swift",
+    "MacrosSmoke.swift",
+    "ModalSmoke.swift",
+    "MultiPlatformSmoke.swift",
+    "SplitCoordinatorSmoke.swift",
+    "StandaloneSmoke.swift",
+    "VisionOSImmersiveSmoke.swift",
+]
+
+/// Build a per-file `Examples/` target. The exclude list is
+/// derived from `exampleSources` so adding a new example only
+/// requires appending its file name to `exampleSources` and adding
+/// one `exampleTarget(...)` call here.
+private func exampleTarget(
+    name: String,
+    source: String
+) -> Target {
+    .target(
+        name: name,
+        dependencies: ["InnoRouter", "InnoRouterMacros"],
+        path: "Examples",
+        exclude: exampleSources.filter { $0 != source },
+        sources: [source],
+        swiftSettings: [.swiftLanguageMode(.v6)]
+    )
+}
+
+/// Build a per-file `ExamplesSmoke/` target. Used only for the
+/// solo smokes whose top-level symbols collide with another smoke.
+private func soloSmokeTarget(
+    name: String,
+    source: String
+) -> Target {
+    .target(
+        name: name,
+        dependencies: ["InnoRouter"],
+        path: "ExamplesSmoke",
+        exclude: smokeSources.filter { $0 != source },
+        sources: [source],
+        swiftSettings: [.swiftLanguageMode(.v6)]
+    )
+}
+
 let package = Package(
     name: "InnoRouter",
     platforms: [
@@ -152,62 +240,16 @@ let package = Package(
         // `Examples/` is never exercised by a consumer site, so latent generator bugs
         // stay invisible until end-users hit them. The per-file split mirrors
         // `ExamplesSmoke/` because several examples reuse names like `HomeRoute`.
-        .target(
-            name: "InnoRouterStandaloneExample",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
-            path: "Examples",
-            exclude: ["CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
-            sources: ["StandaloneExample.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterCoordinatorExample",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
-            path: "Examples",
-            exclude: ["StandaloneExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
-            sources: ["CoordinatorExample.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterDeepLinkExample",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
-            path: "Examples",
-            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
-            sources: ["DeepLinkExample.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterSplitCoordinatorExample",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
-            path: "Examples",
-            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
-            sources: ["SplitCoordinatorExample.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterAppShellExample",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
-            path: "Examples",
-            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "MultiPlatformExample.swift", "VisionOSImmersiveExample.swift"],
-            sources: ["AppShellExample.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterMultiPlatformExample",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
-            path: "Examples",
-            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "VisionOSImmersiveExample.swift"],
-            sources: ["MultiPlatformExample.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterVisionOSImmersiveExample",
-            dependencies: ["InnoRouter", "InnoRouterMacros"],
-            path: "Examples",
-            exclude: ["StandaloneExample.swift", "CoordinatorExample.swift", "DeepLinkExample.swift", "SplitCoordinatorExample.swift", "AppShellExample.swift", "MultiPlatformExample.swift"],
-            sources: ["VisionOSImmersiveExample.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
+        // `exampleTarget(name:source:)` derives the exclude list from
+        // `exampleSources` so adding a new example is a one-line append + one-line
+        // call rather than nine sibling-list edits.
+        exampleTarget(name: "InnoRouterStandaloneExample",       source: "StandaloneExample.swift"),
+        exampleTarget(name: "InnoRouterCoordinatorExample",      source: "CoordinatorExample.swift"),
+        exampleTarget(name: "InnoRouterDeepLinkExample",         source: "DeepLinkExample.swift"),
+        exampleTarget(name: "InnoRouterSplitCoordinatorExample", source: "SplitCoordinatorExample.swift"),
+        exampleTarget(name: "InnoRouterAppShellExample",         source: "AppShellExample.swift"),
+        exampleTarget(name: "InnoRouterMultiPlatformExample",    source: "MultiPlatformExample.swift"),
+        exampleTarget(name: "InnoRouterVisionOSImmersiveExample", source: "VisionOSImmersiveExample.swift"),
 
         // MARK: - Example Smoke Targets
         //
@@ -216,40 +258,18 @@ let package = Package(
         // (`Standalone` and `Coordinator`) both declare `HomeRoute`, so
         // they stay in their own targets to avoid a module-level
         // redeclaration. If a future smoke needs a distinct name, add it
-        // to the shared target and append the file to the exclude list
-        // on the two solo targets.
+        // to `smokeSources` and (if it does not collide) leave it out of
+        // `soloSmokeSources` — the shared target picks it up automatically.
         .target(
             name: "InnoRouterExamplesSmoke",
             dependencies: ["InnoRouter", "InnoRouterMacros"],
             path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "CoordinatorSmoke.swift"],
-            sources: [
-                "AppShellSmoke.swift",
-                "DeepLinkSmoke.swift",
-                "MacrosSmoke.swift",
-                "ModalSmoke.swift",
-                "MultiPlatformSmoke.swift",
-                "SplitCoordinatorSmoke.swift",
-                "VisionOSImmersiveSmoke.swift",
-            ],
+            exclude: soloSmokeSources,
+            sources: smokeSources.filter { !soloSmokeSources.contains($0) },
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
-        .target(
-            name: "InnoRouterStandaloneExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["CoordinatorSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["StandaloneSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
-        .target(
-            name: "InnoRouterCoordinatorExampleSmoke",
-            dependencies: ["InnoRouter"],
-            path: "ExamplesSmoke",
-            exclude: ["StandaloneSmoke.swift", "DeepLinkSmoke.swift", "SplitCoordinatorSmoke.swift", "AppShellSmoke.swift", "ModalSmoke.swift", "MacrosSmoke.swift", "MultiPlatformSmoke.swift", "VisionOSImmersiveSmoke.swift"],
-            sources: ["CoordinatorSmoke.swift"],
-            swiftSettings: [.swiftLanguageMode(.v6)]
-        ),
+        soloSmokeTarget(name: "InnoRouterStandaloneExampleSmoke",  source: "StandaloneSmoke.swift"),
+        soloSmokeTarget(name: "InnoRouterCoordinatorExampleSmoke", source: "CoordinatorSmoke.swift"),
 
         // MARK: - Macro Declarations (Public API)
         .target(
