@@ -63,6 +63,62 @@ dependencies: [
 ]
 ```
 
+## Upgrading to 3.0.0
+
+**3.0.0 is the first public release of InnoRouter.** There is no
+public 1.x or 2.x lineage to migrate from — `3.0.0` is the baseline.
+The leading-digit `3` reflects internal milestone history, not a
+breaking change against any previously shipped public package.
+
+### SemVer commitment for the 3.x line
+
+Within `3.x.y` releases, InnoRouter follows
+[Semantic Versioning](https://semver.org/) strictly:
+
+- **`3.x.y` → `3.x.(y+1)`** patch releases: bug fixes only. No
+  public-API signature changes. No observable behavior changes other
+  than fixing the documented bug.
+- **`3.x.y` → `3.(x+1).0`** minor releases: additive only. New types,
+  new methods, new cases, new configuration options. Existing
+  signatures keep their shape and existing call sites keep compiling
+  unmodified.
+- **`3.x.y` → `4.0.0`** major releases: anything that breaks source
+  compatibility, removes a public symbol, narrows a generic
+  constraint, or changes documented runtime behavior in a way that
+  can surprise existing call sites.
+
+Pre-release tags use the `3.1.0-rc.1` / `3.2.0-beta.2` form. The
+release workflow's `^[0-9]+\.[0-9]+\.[0-9]+$` regex only accepts
+final tags; pre-release tags ship through a separate manual flow
+documented in [`RELEASING.md`](RELEASING.md).
+
+### What counts as a breaking change
+
+For the purposes of the 3.x SemVer commitment, a *breaking change*
+means any of:
+
+- Removing or renaming a public symbol (type, method, property,
+  associated type, case).
+- Changing a public method signature in a way that fails to compile
+  for an existing call site (adding a non-defaulted parameter,
+  tightening a generic constraint, swapping return type).
+- Changing the documented behavior of a public API such that an
+  existing correct caller produces a different observable outcome
+  (e.g., flipping a default `NavigationPathMismatchPolicy`).
+- Raising the minimum supported Swift toolchain or platform floor.
+
+Conversely, the following are *not* breaking and may land in any
+minor release:
+
+- Adding new cases to a non-`@frozen` public enum.
+- Adding new defaulted parameters to a public method.
+- Tightening internal-only types.
+- Performance improvements that preserve semantics.
+- Doc-only changes.
+
+The full pre-release sweep that landed in 3.0.0 is summarized in
+[`CHANGELOG.md`](CHANGELOG.md).
+
 ### Imports
 
 The umbrella target `InnoRouter` re-exports everything except the

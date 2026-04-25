@@ -15,6 +15,66 @@ Disallowed tag format:
 
 The release workflow validates `GITHUB_REF_NAME` with `^[0-9]+\.[0-9]+\.[0-9]+$` and fails on anything else.
 
+### Pre-release tags
+
+Release-candidate and beta channels use the
+`<major>.<minor>.<patch>-<channel>.<n>` form:
+
+- `3.1.0-rc.1` (release candidate)
+- `3.2.0-beta.2` (beta)
+
+Pre-release tags do **not** match the GA regex above. They run on
+the same `release.yml` workflow only when the workflow is dispatched
+manually with the `prerelease=true` input — they never trigger on
+`push` of the tag itself. A pre-release tag publishes a GitHub
+Release marked as pre-release and a DocC subtree under
+`/InnoRouter/<tag>/`, but does **not** update `/latest/`. Only a
+bare-semver GA tag advances `/latest/`.
+
+## SemVer commitment
+
+InnoRouter 3.x follows [Semantic Versioning](https://semver.org/)
+strictly. The public commitment lives in
+[`README.md`](README.md#upgrading-to-300); this section documents
+the maintainer-side rules.
+
+### What counts as a breaking change
+
+Within the 3.x line, treating any of the following as in-scope for
+a *minor* release is a release-process bug:
+
+- Removing or renaming a public symbol.
+- Changing a public method signature so that an existing call site
+  fails to compile (adding a non-defaulted parameter, tightening a
+  generic constraint, changing the return type).
+- Changing the documented runtime behavior of a public API in a way
+  that flips the observable outcome for an existing correct caller.
+- Raising the minimum supported Swift toolchain or platform floor.
+
+Anything in that list goes to a `4.0.0` cycle. The
+`Baselines/PublicAPI` symbol-graph baseline gate is the
+machine-checked half of this contract; reviewer judgment is the
+other half (behavior changes that don't show up in the symbol
+graph still count).
+
+### What is safe in a minor release
+
+- Adding new cases to a non-`@frozen` public enum.
+- Adding new defaulted parameters to a public method.
+- Adding new public types, methods, or properties.
+- Tightening internal/private types.
+- Behavior changes that fix a bug whose previous behavior was
+  documented as incorrect (call this out in CHANGELOG `[Fixed]`).
+- Doc-only changes.
+
+### Toolchain pin
+
+`xcode-version` in `.github/workflows/principle-gates.yml` and
+`.github/workflows/platforms.yml` is pinned to a specific Xcode
+release rather than `latest-stable` so CI is reproducible across
+the lifetime of a release. **When cutting a new release, audit and
+optionally bump that pin** — see the release checklist below.
+
 ## What a release publishes
 
 A release tag triggers:
@@ -97,6 +157,15 @@ Migration guides are intentionally not part of this release process.
 - All `.docc` catalogs build locally.
 - `NavigationStore`, `ModalStore`, deep-link, effect, and macro docs reflect current symbols.
 - Release notes links point to the current README, RELEASING guide, and DocC portal.
+- `xcode-version` in `principle-gates.yml` and `platforms.yml` is
+  current — bump to the latest stable Xcode release at release time
+  if it has drifted, and re-run `principle-gates.sh` locally with
+  the same toolchain.
+- Macro tests (`Tests/InnoRouterMacrosTests`,
+  `Tests/InnoRouterMacrosBehaviorTests`) execute on macOS (host) only
+  — confirm CI runs them on a macOS runner. Linux CI may import
+  `InnoRouterMacrosPlugin` for build coverage but cannot expand
+  macros without SwiftSyntax host-plugin support.
 
 ## GitHub Pages note
 

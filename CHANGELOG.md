@@ -11,6 +11,17 @@ P0 / P1 / P3 backlog items are shipped; P0 / P1 / P3 surface is
 stable; only P2-3 UIKit escape hatch remains open behind a
 product-level SwiftUI-only vs cross-surface decision.
 
+### Stability
+
+3.0.0 is the first public release. The 3.x line follows
+[Semantic Versioning](https://semver.org/) strictly — patch
+releases are bug-fix only, minor releases are additive, and any
+breaking change goes to a 4.0.0 cycle. See the
+[Upgrading to 3.0.0](README.md#upgrading-to-300) section in the
+README and the SemVer commitment in
+[`RELEASING.md`](RELEASING.md#semver-commitment) for the full
+contract.
+
 ### Added — All Apple platforms via SwiftUI
 
 - **visionOS 2** added as a supported platform floor, alongside the
