@@ -70,9 +70,30 @@ struct ReplaceKeywordWithEnumFixIt: FixItMessage {
     }
 }
 
+/// Note attached to ``MacroDiagnostic/requiresEnum`` when the
+/// misapplied declaration is a `protocol` or `actor`. These shapes
+/// differ from `enum` enough that a one-keyword FixIt would silently
+/// erase important semantics (witness tables, isolation), so the
+/// macro emits a refactor hint instead of an automated rewrite.
+struct RequiresEnumManualRefactorNote: NoteMessage {
+    let originalKeyword: String
+
+    var message: String {
+        "Refactor manually — declaration shape differs from enum (`\(originalKeyword)` cannot be safely auto-replaced)."
+    }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "requiresEnumManualRefactor")
+    }
+
+    var noteID: MessageID { fixItID }
+}
+
 /// Emits the "must be applied to an enum" diagnostic and attaches a
 /// keyword-replacement FixIt when the misapplied declaration is a
-/// `struct` or `class`.
+/// `struct` or `class`. For `protocol` / `actor` declarations the
+/// diagnostic carries a manual-refactor note instead, because those
+/// shapes cannot be safely auto-rewritten as enums.
 func emitRequiresEnumDiagnostic(
     macroName: String,
     node: AttributeSyntax,
@@ -80,10 +101,12 @@ func emitRequiresEnumDiagnostic(
     context: some MacroExpansionContext
 ) {
     let fixIts = makeRequiresEnumFixIts(for: declaration)
+    let notes = makeRequiresEnumNotes(for: declaration, attachedTo: node)
     context.diagnose(
         Diagnostic(
             node: node,
             message: MacroDiagnostic.requiresEnum(macroName: macroName),
+            notes: notes,
             fixIts: fixIts
         )
     )
@@ -135,6 +158,25 @@ private func makeRequiresEnumFixIts(
         return [keywordReplacementFixIt(
             original: classDecl.classKeyword,
             originalKeyword: "class"
+        )]
+    }
+    return []
+}
+
+private func makeRequiresEnumNotes(
+    for declaration: some DeclGroupSyntax,
+    attachedTo node: AttributeSyntax
+) -> [Note] {
+    if let protocolDecl = declaration.as(ProtocolDeclSyntax.self) {
+        return [Note(
+            node: Syntax(protocolDecl.protocolKeyword),
+            message: RequiresEnumManualRefactorNote(originalKeyword: "protocol")
+        )]
+    }
+    if let actorDecl = declaration.as(ActorDeclSyntax.self) {
+        return [Note(
+            node: Syntax(actorDecl.actorKeyword),
+            message: RequiresEnumManualRefactorNote(originalKeyword: "actor")
         )]
     }
     return []
