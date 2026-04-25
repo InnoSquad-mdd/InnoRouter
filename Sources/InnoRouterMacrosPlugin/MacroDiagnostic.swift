@@ -17,11 +17,16 @@ enum MacroDiagnostic: DiagnosticMessage {
     /// Declaration is an enum but has no cases — expansion produces
     /// nothing useful; surfaced as a warning, not an error.
     case emptyEnum(macroName: String)
+    /// Declaration is a generic enum. The generated `CasePath<Self, T>`
+    /// members cannot propagate the parent's generic parameters into a
+    /// nested `enum Cases`, so expansion is rejected as an error.
+    case unsupportedGenericEnum(macroName: String)
 
     var severity: DiagnosticSeverity {
         switch self {
         case .requiresEnum: return .error
         case .emptyEnum: return .warning
+        case .unsupportedGenericEnum: return .error
         }
     }
 
@@ -31,6 +36,8 @@ enum MacroDiagnostic: DiagnosticMessage {
             return "@\(name) can only be applied to enum declarations"
         case .emptyEnum(let name):
             return "@\(name) applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro"
+        case .unsupportedGenericEnum(let name):
+            return "@\(name) does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum."
         }
     }
 
@@ -40,6 +47,8 @@ enum MacroDiagnostic: DiagnosticMessage {
             return MessageID(domain: "InnoRouterMacros", id: "requiresEnum")
         case .emptyEnum:
             return MessageID(domain: "InnoRouterMacros", id: "emptyEnum")
+        case .unsupportedGenericEnum:
+            return MessageID(domain: "InnoRouterMacros", id: "unsupportedGenericEnum")
         }
     }
 }
@@ -90,6 +99,25 @@ func emitEmptyEnumDiagnostic(
         Diagnostic(
             node: node,
             message: MacroDiagnostic.emptyEnum(macroName: macroName)
+        )
+    )
+}
+
+/// Emits the "generic enums are not supported" diagnostic. The diagnostic is
+/// pinned to the enum's generic parameter clause when available so the
+/// compiler error highlights the offending `<...>` rather than the macro
+/// attribute itself.
+func emitUnsupportedGenericEnumDiagnostic(
+    macroName: String,
+    node: AttributeSyntax,
+    enumDecl: EnumDeclSyntax,
+    context: some MacroExpansionContext
+) {
+    let anchor: SyntaxProtocol = enumDecl.genericParameterClause ?? Syntax(node)
+    context.diagnose(
+        Diagnostic(
+            node: anchor,
+            message: MacroDiagnostic.unsupportedGenericEnum(macroName: macroName)
         )
     )
 }
