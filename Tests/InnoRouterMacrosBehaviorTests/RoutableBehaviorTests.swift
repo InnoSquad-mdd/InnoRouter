@@ -114,7 +114,21 @@ struct RoutableBehaviorTests {
     // currently triggers a Swift 6.3 compiler crash in SIL lowering when the generic
     // subscript returns `(T, U)?` for a tuple `Value`. Tuple order preservation is
     // still verified above via `path.extract(_:)` direct calls, which exercise the
-    // same generator output. Track Swift bug before re-enabling subscript tuple form.
+    // same generator output.
+    //
+    // Re-enable when:
+    //   - the upstream Swift compiler ships a fix for the SIL crash
+    //     (track via swiftlang/swift; the generated subscript shape
+    //     is `subscript<Value>(case path: CasePath<Self, Value>) ->
+    //     Value? { ... }`), AND
+    //   - `swift test --filter RoutableBehaviorTests` on the pinned
+    //     CI Xcode (see `.github/workflows/principle-gates.yml`)
+    //     passes a temporary `route[case: ShapeRoute.Cases.rectangle]`
+    //     probe locally without crashing the test process.
+    //
+    // The platform constraint (macOS-only execution) is unchanged when
+    // re-enabling — see Tests/InnoRouterMacrosBehaviorTests/README.md
+    // for the host-platform requirement.
 
     // MARK: - Route conformance
 
