@@ -5,6 +5,11 @@ import InnoRouterCore
 /// `FlowIntent` mirrors the intent layers used by `NavigationStore` /
 /// `ModalStore` but operates on the unified `FlowStore` path where navigation
 /// and modal progression live in a single array of `RouteStep`s.
+///
+/// Conformance to `Sendable` is **unconditional** because every ``Route`` is
+/// required to be `Sendable`. Callers can therefore freely move `FlowIntent`
+/// values across actor boundaries without additional `where R: Sendable`
+/// constraints.
 public enum FlowIntent<R: Route>: Sendable, Equatable {
     /// Push a route onto the navigation stack prefix of the flow.
     case push(R)

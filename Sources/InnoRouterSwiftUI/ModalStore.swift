@@ -4,6 +4,12 @@ import SwiftUI
 
 @_spi(InternalTrace) import InnoRouterCore
 
+/// View-layer intent dispatched to ``ModalStore/send(_:)``.
+///
+/// Conformance to `Sendable` is **unconditional** because every ``Route`` is
+/// required to be `Sendable`. Callers can therefore freely move `ModalIntent`
+/// values across actor boundaries without additional `where M: Sendable`
+/// constraints.
 public enum ModalIntent<M: Route>: Sendable, Equatable {
     case present(M, style: ModalPresentationStyle)
     case dismiss

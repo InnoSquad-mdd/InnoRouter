@@ -44,13 +44,20 @@ public protocol ModalIntentDispatching: AnyObject {
     func send(_ intent: ModalIntent<RouteType>)
 }
 
+/// Type-erased dispatcher used to publish ``ModalIntent`` values through the
+/// SwiftUI environment.
+///
+/// The dispatcher is `@MainActor`-isolated. ``ModalIntent`` itself is
+/// `Sendable` because `Route` conforms to `Sendable`; the closure stored here
+/// is annotated `@Sendable` so the dispatcher can be safely captured from
+/// detached tasks before the eventual hop back to the main actor.
 @MainActor
 public final class AnyModalIntentDispatcher<M: Route>: ModalIntentDispatching {
     public typealias RouteType = M
 
-    private let sendIntent: @MainActor (ModalIntent<M>) -> Void
+    private let sendIntent: @MainActor @Sendable (ModalIntent<M>) -> Void
 
-    public init(send: @escaping @MainActor (ModalIntent<M>) -> Void) {
+    public init(send: @escaping @MainActor @Sendable (ModalIntent<M>) -> Void) {
         self.sendIntent = send
     }
 
