@@ -1,4 +1,5 @@
 # Public API baseline for InnoRouterNavigationEffects
+relationship | memberOf | NavigationEffectHandler.canExecuteSequentially(_:) | NavigationEffectHandler |  |
 relationship | memberOf | NavigationEffectHandler.execute(_:) | NavigationEffectHandler |  |
 relationship | memberOf | NavigationEffectHandler.execute(_:stopOnFailure:) | NavigationEffectHandler |  |
 relationship | memberOf | NavigationEffectHandler.executeGuarded(_:prepare:) | NavigationEffectHandler |  |
@@ -18,6 +19,7 @@ relationship | requirementOf | NavigationEffect.navigationCommand | NavigationEf
 symbol | swift.associatedtype | NavigationEffect.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.class | NavigationEffectHandler | NavigationEffectHandler | @MainActor final class NavigationEffectHandler<R> where R : Route | []
 symbol | swift.init | NavigationEffectHandler.init(navigator:) | init(navigator:) | @MainActor init<N>(navigator: N) where R == N.RouteType, N : NavigationBatchExecutor, N : NavigationCommandExecutor, N : NavigationStateReader, N : NavigationTransactionExecutor | []
+symbol | swift.method | NavigationEffectHandler.canExecuteSequentially(_:) | canExecuteSequentially(_:) | @MainActor func canExecuteSequentially(_ commands: [NavigationCommand<R>]) -> Bool | []
 symbol | swift.method | NavigationEffectHandler.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> | []
 symbol | swift.method | NavigationEffectHandler.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ commands: [NavigationCommand<R>]) -> NavigationBatchResult<R> | []
 symbol | swift.method | NavigationEffectHandler.execute(_:stopOnFailure:) | execute(_:stopOnFailure:) | @discardableResult @MainActor func execute(_ commands: [NavigationCommand<R>], stopOnFailure: Bool) -> NavigationBatchResult<R> | []

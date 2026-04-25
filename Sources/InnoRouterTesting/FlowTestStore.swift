@@ -250,11 +250,17 @@ public final class FlowTestStore<R: Route> {
     // sub-case explicitly, which makes failures readable in test output
     // without callers having to embed the case name in their predicates.
 
-    /// Asserts the next queued event is `.navigation(.changed(from:to:))`.
-    ///
-    /// - Parameter predicate: optional payload check on the `(from, to)`
-    ///   pair. Defaults to accepting any payload, in which case the helper
-    ///   only verifies the case shape.
+    // Asserts the next queued event is `.navigation(.changed(from:to:))`.
+    // The optional predicate payload check defaults to accepting any
+    // `(from, to)` pair; without it the helper only verifies the case
+    // shape. The trailing `fileID` / `filePath` / `line` / `column`
+    // parameters carry the call-site location into Swift Testing's
+    // `Issue.record(...)` and are intended to use their `#`-literal
+    // defaults — callers do not pass them explicitly. (Non-doc comment:
+    // the predicate-based `receiveNavigation` overload above is also
+    // intentionally undocumented in DocC because adding `- Parameter`
+    // sections for the four source-location defaults would noise the
+    // generated reference for every overload.)
     public func receiveNavigationChanged(
         _ predicate: (RouteStack<R>, RouteStack<R>) -> Bool = { _, _ in true },
         fileID: String = #fileID,
@@ -274,7 +280,7 @@ public final class FlowTestStore<R: Route> {
         )
     }
 
-    /// Asserts the next queued event is `.navigation(.batchExecuted(_))`.
+    // Asserts the next queued event is `.navigation(.batchExecuted(_))`.
     public func receiveNavigationBatch(
         _ predicate: (NavigationBatchResult<R>) -> Bool = { _ in true },
         fileID: String = #fileID,
@@ -294,7 +300,7 @@ public final class FlowTestStore<R: Route> {
         )
     }
 
-    /// Asserts the next queued event is `.navigation(.transactionExecuted(_))`.
+    // Asserts the next queued event is `.navigation(.transactionExecuted(_))`.
     public func receiveNavigationTransaction(
         _ predicate: (NavigationTransactionResult<R>) -> Bool = { _ in true },
         fileID: String = #fileID,
@@ -314,7 +320,7 @@ public final class FlowTestStore<R: Route> {
         )
     }
 
-    /// Asserts the next queued event is `.navigation(.middlewareMutation(_))`.
+    // Asserts the next queued event is `.navigation(.middlewareMutation(_))`.
     public func receiveNavigationMiddlewareMutation(
         _ predicate: (MiddlewareMutationEvent<R>) -> Bool = { _ in true },
         fileID: String = #fileID,
@@ -334,7 +340,7 @@ public final class FlowTestStore<R: Route> {
         )
     }
 
-    /// Asserts the next queued event is `.navigation(.pathMismatch(_))`.
+    // Asserts the next queued event is `.navigation(.pathMismatch(_))`.
     public func receiveNavigationPathMismatch(
         _ predicate: (NavigationPathMismatchEvent<R>) -> Bool = { _ in true },
         fileID: String = #fileID,
@@ -354,7 +360,7 @@ public final class FlowTestStore<R: Route> {
         )
     }
 
-    /// Asserts the next queued event is `.modal(.presented(_))`.
+    // Asserts the next queued event is `.modal(.presented(_))`.
     public func receiveModalPresented(
         _ predicate: (ModalPresentation<R>) -> Bool = { _ in true },
         fileID: String = #fileID,
@@ -374,7 +380,7 @@ public final class FlowTestStore<R: Route> {
         )
     }
 
-    /// Asserts the next queued event is `.modal(.dismissed(_, reason:))`.
+    // Asserts the next queued event is `.modal(.dismissed(_, reason:))`.
     public func receiveModalDismissed(
         _ predicate: (ModalPresentation<R>, ModalDismissalReason) -> Bool = { _, _ in true },
         fileID: String = #fileID,
@@ -394,7 +400,7 @@ public final class FlowTestStore<R: Route> {
         )
     }
 
-    /// Asserts the next queued event is `.modal(.queueChanged(old:new:))`.
+    // Asserts the next queued event is `.modal(.queueChanged(old:new:))`.
     public func receiveModalQueueChanged(
         _ predicate: ([ModalPresentation<R>], [ModalPresentation<R>]) -> Bool = { _, _ in true },
         fileID: String = #fileID,
@@ -414,7 +420,7 @@ public final class FlowTestStore<R: Route> {
         )
     }
 
-    /// Asserts the next queued event is `.modal(.commandIntercepted(command:result:))`.
+    // Asserts the next queued event is `.modal(.commandIntercepted(command:result:))`.
     public func receiveModalCommandIntercepted(
         _ predicate: (ModalCommand<R>, ModalExecutionResult<R>) -> Bool = { _, _ in true },
         fileID: String = #fileID,
@@ -434,7 +440,7 @@ public final class FlowTestStore<R: Route> {
         )
     }
 
-    /// Asserts the next queued event is `.modal(.middlewareMutation(_))`.
+    // Asserts the next queued event is `.modal(.middlewareMutation(_))`.
     public func receiveModalMiddlewareMutation(
         _ predicate: (ModalMiddlewareMutationEvent<R>) -> Bool = { _ in true },
         fileID: String = #fileID,

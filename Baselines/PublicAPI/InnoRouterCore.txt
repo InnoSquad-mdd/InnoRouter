@@ -40,6 +40,10 @@ relationship | memberOf | CasePath.callAsFunction() | CasePath |  |
 relationship | memberOf | CasePath.embed | CasePath |  |
 relationship | memberOf | CasePath.extract | CasePath |  |
 relationship | memberOf | CasePath.init(embed:extract:) | CasePath |  |
+relationship | memberOf | EventBufferingPolicy.bufferingNewest(_:) | EventBufferingPolicy |  |
+relationship | memberOf | EventBufferingPolicy.bufferingOldest(_:) | EventBufferingPolicy |  |
+relationship | memberOf | EventBufferingPolicy.default | EventBufferingPolicy |  |
+relationship | memberOf | EventBufferingPolicy.unbounded | EventBufferingPolicy |  |
 relationship | memberOf | FlowPlan.init(steps:) | FlowPlan |  |
 relationship | memberOf | FlowPlan.steps | FlowPlan |  |
 relationship | memberOf | FlowPlanApplyResult.applied(path:) | FlowPlanApplyResult |  |
@@ -79,6 +83,7 @@ relationship | memberOf | NavigationBatchResult.stateBefore | NavigationBatchRes
 relationship | memberOf | NavigationCancellationReason.conditionFailed | NavigationCancellationReason |  |
 relationship | memberOf | NavigationCancellationReason.custom(_:) | NavigationCancellationReason |  |
 relationship | memberOf | NavigationCancellationReason.middleware(debugName:command:) | NavigationCancellationReason |  |
+relationship | memberOf | NavigationCancellationReason.staleAfterPrepare(command:) | NavigationCancellationReason |  |
 relationship | memberOf | NavigationCommand.==(_:_:) | NavigationCommand |  |
 relationship | memberOf | NavigationCommand.canExecute(on:using:) | NavigationCommand |  |
 relationship | memberOf | NavigationCommand.pop | NavigationCommand |  |
@@ -99,7 +104,10 @@ relationship | memberOf | NavigationResult.cancelled(_:) | NavigationResult |  |
 relationship | memberOf | NavigationResult.emptyStack | NavigationResult |  |
 relationship | memberOf | NavigationResult.insufficientStackDepth(requested:available:) | NavigationResult |  |
 relationship | memberOf | NavigationResult.invalidPopCount(_:) | NavigationResult |  |
+relationship | memberOf | NavigationResult.isEngineFailure | NavigationResult |  |
+relationship | memberOf | NavigationResult.isMiddlewareCancellation | NavigationResult |  |
 relationship | memberOf | NavigationResult.isSuccess | NavigationResult |  |
+relationship | memberOf | NavigationResult.middlewareCancellationReason | NavigationResult |  |
 relationship | memberOf | NavigationResult.multiple(_:) | NavigationResult |  |
 relationship | memberOf | NavigationResult.routeNotFound(_:) | NavigationResult |  |
 relationship | memberOf | NavigationResult.success | NavigationResult |  |
@@ -189,6 +197,7 @@ symbol | swift.associatedtype | NavigationStateReader.RouteType | RouteType | as
 symbol | swift.associatedtype | NavigationTransactionExecutor.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.class | AnyBatchNavigator | AnyBatchNavigator | @MainActor final class AnyBatchNavigator<R> where R : Route | []
 symbol | swift.class | AnyNavigator | AnyNavigator | @MainActor final class AnyNavigator<R> where R : Route | []
+symbol | swift.enum | EventBufferingPolicy | EventBufferingPolicy | enum EventBufferingPolicy | []
 symbol | swift.enum | FlowPlanApplyResult | FlowPlanApplyResult | enum FlowPlanApplyResult<R> where R : Route | []
 symbol | swift.enum | FlowRejectionReason | FlowRejectionReason | enum FlowRejectionReason | []
 symbol | swift.enum | ImmersiveStyle | ImmersiveStyle | enum ImmersiveStyle | []
@@ -206,6 +215,9 @@ symbol | swift.enum | OrnamentAnchor.Anchor | OrnamentAnchor.Anchor | enum Ancho
 symbol | swift.enum | RouteStackValidationError | RouteStackValidationError | enum RouteStackValidationError<R> where R : Route | []
 symbol | swift.enum | RouteStep | RouteStep | enum RouteStep<R> where R : Route | []
 symbol | swift.enum | ScenePresentation | ScenePresentation | enum ScenePresentation<R> where R : Route | []
+symbol | swift.enum.case | EventBufferingPolicy.bufferingNewest(_:) | EventBufferingPolicy.bufferingNewest(_:) | case bufferingNewest(Int) | []
+symbol | swift.enum.case | EventBufferingPolicy.bufferingOldest(_:) | EventBufferingPolicy.bufferingOldest(_:) | case bufferingOldest(Int) | []
+symbol | swift.enum.case | EventBufferingPolicy.unbounded | EventBufferingPolicy.unbounded | case unbounded | []
 symbol | swift.enum.case | FlowPlanApplyResult.applied(path:) | FlowPlanApplyResult.applied(path:) | case applied(path: [RouteStep<R>]) | []
 symbol | swift.enum.case | FlowPlanApplyResult.rejected(currentPath:) | FlowPlanApplyResult.rejected(currentPath:) | case rejected(currentPath: [RouteStep<R>]) | []
 symbol | swift.enum.case | FlowRejectionReason.invalidResetPath | FlowRejectionReason.invalidResetPath | case invalidResetPath | []
@@ -231,6 +243,7 @@ symbol | swift.enum.case | ModalPresentationStyle.sheet | ModalPresentationStyle
 symbol | swift.enum.case | NavigationCancellationReason.conditionFailed | NavigationCancellationReason.conditionFailed | case conditionFailed | []
 symbol | swift.enum.case | NavigationCancellationReason.custom(_:) | NavigationCancellationReason.custom(_:) | case custom(String) | []
 symbol | swift.enum.case | NavigationCancellationReason.middleware(debugName:command:) | NavigationCancellationReason.middleware(debugName:command:) | case middleware(debugName: String?, command: NavigationCommand<R>) | []
+symbol | swift.enum.case | NavigationCancellationReason.staleAfterPrepare(command:) | NavigationCancellationReason.staleAfterPrepare(command:) | case staleAfterPrepare(command: NavigationCommand<R>) | []
 symbol | swift.enum.case | NavigationCommand.pop | NavigationCommand.pop | case pop | []
 symbol | swift.enum.case | NavigationCommand.popCount(_:) | NavigationCommand.popCount(_:) | case popCount(Int) | []
 symbol | swift.enum.case | NavigationCommand.popTo(_:) | NavigationCommand.popTo(_:) | case popTo(R) | []
@@ -308,9 +321,9 @@ symbol | swift.method | AnyNavigationMiddleware.didExecute(_:result:state:) | di
 symbol | swift.method | AnyNavigationMiddleware.willExecute(_:state:) | willExecute(_:state:) | @MainActor func willExecute(_ command: NavigationCommand<R>, state: RouteStack<R>) -> NavigationInterception<R> | []
 symbol | swift.method | AnyNavigator.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> | []
 symbol | swift.method | AnyNavigator.pop() | pop() | @discardableResult @MainActor func pop() -> NavigationResult<R> | []
-symbol | swift.method | AnyNavigator.popToRoot() | popToRoot() | @MainActor func popToRoot() | []
-symbol | swift.method | AnyNavigator.push(_:) | push(_:) | @MainActor func push(_ route: R) | []
-symbol | swift.method | AnyNavigator.replace(with:) | replace(with:) | @MainActor func replace(with routes: [R]) | []
+symbol | swift.method | AnyNavigator.popToRoot() | popToRoot() | @discardableResult @MainActor func popToRoot() -> NavigationResult<R> | []
+symbol | swift.method | AnyNavigator.push(_:) | push(_:) | @discardableResult @MainActor func push(_ route: R) -> NavigationResult<R> | []
+symbol | swift.method | AnyNavigator.replace(with:) | replace(with:) | @discardableResult @MainActor func replace(with routes: [R]) -> NavigationResult<R> | []
 symbol | swift.method | CasePath.appending(path:) | appending(path:) | func appending<AppendedValue>(path: CasePath<Value, AppendedValue>) -> CasePath<Root, AppendedValue> | []
 symbol | swift.method | CasePath.callAsFunction() | callAsFunction() | func callAsFunction() -> Root | []
 symbol | swift.method | FlowPlanApplier.apply(_:) | apply(_:) | @MainActor func apply(_ plan: FlowPlan<Self.RouteType>) -> FlowPlanApplyResult<Self.RouteType> | []
@@ -345,7 +358,10 @@ symbol | swift.property | NavigationBatchResult.requestedCommands | requestedCom
 symbol | swift.property | NavigationBatchResult.results | results | let results: [NavigationResult<R>] | []
 symbol | swift.property | NavigationBatchResult.stateAfter | stateAfter | let stateAfter: RouteStack<R> | []
 symbol | swift.property | NavigationBatchResult.stateBefore | stateBefore | let stateBefore: RouteStack<R> | []
+symbol | swift.property | NavigationResult.isEngineFailure | isEngineFailure | var isEngineFailure: Bool { get } | []
+symbol | swift.property | NavigationResult.isMiddlewareCancellation | isMiddlewareCancellation | var isMiddlewareCancellation: Bool { get } | []
 symbol | swift.property | NavigationResult.isSuccess | isSuccess | var isSuccess: Bool { get } | []
+symbol | swift.property | NavigationResult.middlewareCancellationReason | middlewareCancellationReason | var middlewareCancellationReason: String? { get } | []
 symbol | swift.property | NavigationStateReader.state | state | @MainActor var state: RouteStack<Self.RouteType> { get } | []
 symbol | swift.property | NavigationTransactionResult.executedCommands | executedCommands | let executedCommands: [NavigationCommand<R>] | []
 symbol | swift.property | NavigationTransactionResult.failureIndex | failureIndex | let failureIndex: Int? | []
@@ -385,6 +401,7 @@ symbol | swift.struct | RouteStackValidator | RouteStackValidator | struct Route
 symbol | swift.struct | StatePersistence | StatePersistence | struct StatePersistence<R> where R : Route, R : Decodable, R : Encodable | []
 symbol | swift.struct | VolumetricSize | VolumetricSize | struct VolumetricSize | []
 symbol | swift.type.method | RouteStackValidator.rooted(at:) | rooted(at:) | static func rooted(at route: R) -> RouteStackValidator<R> | []
+symbol | swift.type.property | EventBufferingPolicy.default | default | static let `default`: EventBufferingPolicy | []
 symbol | swift.type.property | RouteStackValidator.nonEmpty | nonEmpty | static var nonEmpty: RouteStackValidator<R> { get } | []
 symbol | swift.type.property | RouteStackValidator.permissive | permissive | static var permissive: RouteStackValidator<R> { get } | []
 symbol | swift.type.property | RouteStackValidator.uniqueRoutes | uniqueRoutes | static var uniqueRoutes: RouteStackValidator<R> { get } | []

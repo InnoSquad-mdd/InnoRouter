@@ -336,6 +336,10 @@ let package = Package(
                 .target(name: "InnoRouterMacros", condition: .when(platforms: [.macOS])),
                 "InnoRouterCore",
             ],
+            // README.md documents the macOS-only constraint of this
+            // target; it is human-facing only and must not be packaged
+            // as a test resource.
+            exclude: ["README.md"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
