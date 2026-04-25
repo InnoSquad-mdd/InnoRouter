@@ -36,6 +36,30 @@ public final class ModalStore<M: Route> {
     /// the underlying recorder so we don't allocate a new closure on
     /// every command execution.
     private var cachedEffectiveTraceRecorder: InternalExecutionTraceRecorder?
+    /// Cached intent dispatcher that lives for the lifetime of this store.
+    /// Built on first access by ``intentDispatcher`` so SwiftUI hosts do
+    /// not allocate a fresh closure on every render.
+    @ObservationIgnored
+    private var cachedIntentDispatcher: AnyModalIntentDispatcher<M>?
+
+    /// A type-erased dispatcher that forwards `ModalIntent` values to this
+    /// store's ``send(_:)`` entry point.
+    ///
+    /// Hosts publish this through the SwiftUI environment so descendants can
+    /// use ``EnvironmentModalIntent`` to dispatch view-layer intents without
+    /// holding a direct store reference. The dispatcher is created on first
+    /// access and reused for the lifetime of the store, so a SwiftUI host
+    /// does not allocate a fresh closure on every render.
+    public var intentDispatcher: AnyModalIntentDispatcher<M> {
+        if let cachedIntentDispatcher {
+            return cachedIntentDispatcher
+        }
+        let dispatcher = AnyModalIntentDispatcher<M> { [weak self] intent in
+            self?.send(intent)
+        }
+        cachedIntentDispatcher = dispatcher
+        return dispatcher
+    }
 
     public var middlewareHandles: [ModalMiddlewareHandle] {
         middlewareRegistry.handles
