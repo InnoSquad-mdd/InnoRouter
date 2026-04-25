@@ -64,6 +64,9 @@ echo "[principle-gates] Checking public API baselines"
 echo "[principle-gates] Checking maintainer docs consistency"
 ./scripts/check-docs-consistency.sh
 
+echo "[principle-gates] Checking Examples↔ExamplesSmoke parity"
+./scripts/check-examples-parity.sh
+
 echo "[principle-gates] Building example smoke targets"
 swift build --target InnoRouterExamplesSmoke
 swift build --target InnoRouterStandaloneExampleSmoke
