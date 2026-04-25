@@ -98,7 +98,18 @@ public struct DeepLinkParser: Sendable {
             let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
             self.scheme = components?.scheme
             self.host = components?.host
-            self.path = url.pathComponents.filter { $0 != "/" }
+            // Normalise percent-encoded segments (e.g. `hello%20world` →
+            // `hello world`, `%EC%95%88%EB%85%95` → `안녕`) so that
+            // human-readable patterns declared in `DeepLinkMapping` match
+            // their URL-encoded counterparts. `URL.pathComponents` may
+            // return raw or decoded components depending on the URL form;
+            // applying `removingPercentEncoding` defensively keeps the
+            // contract platform-stable.
+            self.path = url.pathComponents
+                .filter { $0 != "/" }
+                .map { component in
+                    component.removingPercentEncoding ?? component
+                }
 
             var parsedQueryItems: [String: [String]] = [:]
             for item in components?.queryItems ?? [] {
