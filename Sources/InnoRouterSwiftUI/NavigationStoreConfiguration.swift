@@ -70,6 +70,12 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
     /// `NavigationTestStore` subscribe to this hook internally to assert path
     /// mismatch handling.
     public let onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)?
+    /// Backpressure policy applied to each subscriber of ``NavigationStore/events``.
+    ///
+    /// Defaults to ``EventBufferingPolicy/default`` (``EventBufferingPolicy/bufferingNewest(_:)``
+    /// with a 1024-event ceiling). Opt into ``EventBufferingPolicy/unbounded`` when a
+    /// deterministic test harness needs every emitted event.
+    public let eventBufferingPolicy: EventBufferingPolicy
 
     /// Creates a navigation store configuration.
     public init(
@@ -82,7 +88,8 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)? = nil,
         onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)? = nil,
         onMiddlewareMutation: (@MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void)? = nil,
-        onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)? = nil
+        onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)? = nil,
+        eventBufferingPolicy: EventBufferingPolicy = .default
     ) {
         self.engine = engine
         self.middlewares = middlewares
@@ -94,5 +101,6 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         self.onTransactionExecuted = onTransactionExecuted
         self.onMiddlewareMutation = onMiddlewareMutation
         self.onPathMismatch = onPathMismatch
+        self.eventBufferingPolicy = eventBufferingPolicy
     }
 }

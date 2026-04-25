@@ -73,6 +73,12 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
     /// outcomes. Use this to feed analytics or diagnostics pipelines without
     /// reaching for `@testable import`.
     public let onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?
+    /// Backpressure policy applied to each subscriber of ``ModalStore/events``.
+    ///
+    /// Defaults to ``EventBufferingPolicy/default``. Opt into
+    /// ``EventBufferingPolicy/unbounded`` when a deterministic test harness
+    /// needs every emitted event.
+    public let eventBufferingPolicy: EventBufferingPolicy
 
     /// Creates a modal store configuration.
     public init(
@@ -82,7 +88,8 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
         onDismissed: (@MainActor @Sendable (ModalPresentation<M>, ModalDismissalReason) -> Void)? = nil,
         onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? = nil,
         onMiddlewareMutation: (@MainActor @Sendable (ModalMiddlewareMutationEvent<M>) -> Void)? = nil,
-        onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? = nil
+        onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? = nil,
+        eventBufferingPolicy: EventBufferingPolicy = .default
     ) {
         self.logger = logger
         self.middlewares = middlewares
@@ -91,5 +98,6 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
         self.onQueueChanged = onQueueChanged
         self.onMiddlewareMutation = onMiddlewareMutation
         self.onCommandIntercepted = onCommandIntercepted
+        self.eventBufferingPolicy = eventBufferingPolicy
     }
 }

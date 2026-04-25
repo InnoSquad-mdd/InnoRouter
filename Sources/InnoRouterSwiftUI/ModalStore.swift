@@ -57,7 +57,9 @@ public final class ModalStore<M: Route> {
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
-        let broadcaster = EventBroadcaster<ModalEvent<M>>()
+        let broadcaster = EventBroadcaster<ModalEvent<M>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
+        )
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation
         )
@@ -93,7 +95,9 @@ public final class ModalStore<M: Route> {
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
-        let broadcaster = EventBroadcaster<ModalEvent<M>>()
+        let broadcaster = EventBroadcaster<ModalEvent<M>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
+        )
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation
         )

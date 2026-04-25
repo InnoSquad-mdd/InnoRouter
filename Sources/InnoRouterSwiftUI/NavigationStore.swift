@@ -51,7 +51,9 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         initial: RouteStack<R> = .init(),
         configuration: NavigationStoreConfiguration<R> = .init()
     ) {
-        let broadcaster = EventBroadcaster<NavigationEvent<R>>()
+        let broadcaster = EventBroadcaster<NavigationEvent<R>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
+        )
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation,
             onPathMismatch: configuration.onPathMismatch
@@ -96,7 +98,9 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         nonPrefixAssertionHandler: @escaping @MainActor @Sendable ([R], [R]) -> Void,
         telemetryRecorder: NavigationStoreTelemetryRecorder<R>? = nil
     ) {
-        let broadcaster = EventBroadcaster<NavigationEvent<R>>()
+        let broadcaster = EventBroadcaster<NavigationEvent<R>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
+        )
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation,
             onPathMismatch: configuration.onPathMismatch
