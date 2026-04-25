@@ -42,21 +42,31 @@ public final class AnyBatchNavigator<R: Route>: Navigator, NavigationBatchExecut
 }
 
 public extension AnyBatchNavigator {
+    /// Pushes a route and surfaces the engine-level outcome. Mirrors
+    /// ``AnyNavigator/push(_:)`` so callers using either type-erased
+    /// wrapper see the same return contract.
     @discardableResult
     func push(_ route: R) -> NavigationResult<R> {
         execute(.push(route))
     }
 
+    /// Pops the top route. Returns `.emptyStack` when nothing could be
+    /// popped instead of silently no-op'ing.
     @discardableResult
     func pop() -> NavigationResult<R> {
         execute(.pop)
     }
 
+    /// Pops every route above the root. The engine treats this as
+    /// idempotent (`.success` even on an empty stack); the result is
+    /// surfaced for parity with ``AnyNavigator/popToRoot()``.
     @discardableResult
     func popToRoot() -> NavigationResult<R> {
         execute(.popToRoot)
     }
 
+    /// Replaces the entire stack with `routes` and reports the engine
+    /// outcome (success or any validator/middleware failure).
     @discardableResult
     func replace(with routes: [R]) -> NavigationResult<R> {
         execute(.replace(routes))
