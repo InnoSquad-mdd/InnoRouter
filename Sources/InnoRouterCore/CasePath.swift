@@ -6,25 +6,47 @@ import Foundation
 
 // MARK: - CasePath
 
-/// Enum case에 대한 KeyPath-like 접근을 제공하는 타입입니다.
+/// A KeyPath-like accessor for a single enum case, paired with its
+/// associated-value payload.
 ///
-/// `@Routable` 또는 `@CasePathable` 매크로가 자동으로 `CasePath` 인스턴스를 생성합니다.
+/// `CasePath` powers the SwiftUI typed-binding surface
+/// (`ModalStore.binding(case:style:)`, `NavigationStore.path(for:)`)
+/// and serves as the substrate for deep-link plan synthesis. Each
+/// instance bundles two closures — `embed` (value → enum) and
+/// `extract` (enum → optional value) — so the framework can both
+/// observe and rewrite specific cases without exhaustively pattern
+/// matching every other case.
 ///
-/// ## Example
+/// ## Primary producer
+///
+/// Almost every `CasePath` in a real app is generated automatically
+/// by `@Routable` or `@CasePathable`:
+///
 /// ```swift
 /// @Routable
-/// enum Route {
+/// enum AppRoute: Route {
 ///     case detail(id: String)
 /// }
 ///
-/// let casePath = Route.Cases.detail  // CasePath<Route, String>
+/// // Macro-emitted member, no manual code required.
+/// let casePath = AppRoute.Cases.detail  // CasePath<AppRoute, String>
 ///
-/// // Embed: value → enum
-/// let route = casePath.embed("123")  // Route.detail(id: "123")
-///
-/// // Extract: enum → value?
-/// casePath.extract(route)            // Optional("123")
+/// let route = casePath.embed("123")     // AppRoute.detail(id: "123")
+/// casePath.extract(route)               // Optional("123")
 /// ```
+///
+/// Constructing a `CasePath` by hand is valid but rarely necessary —
+/// reach for it only when wrapping an enum whose declaration cannot
+/// be annotated with the macros (for example, a type vended from a
+/// pre-built binary framework).
+///
+/// ## Composition
+///
+/// `appending(path:)` chains two case paths so callers can drill into
+/// nested cases (`Settings → Privacy → DataExport`) without
+/// re-extracting at every level. Both `embed` and `extract` close
+/// over `@Sendable` storage so chained paths remain safe to share
+/// across actors.
 public struct CasePath<Root, Value>: Sendable {
     
     /// Associated value를 enum case로 변환합니다.
