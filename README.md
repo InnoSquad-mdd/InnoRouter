@@ -275,6 +275,32 @@ It is intentionally:
 
 Earlier successful steps stay applied even if a later step fails.
 
+### `send(_:)` vs `execute(_:)` — picking the right entry point
+
+InnoRouter exposes navigation through four entry points layered by purpose.
+Pick the one that matches the call site, not the one that matches the data
+shape.
+
+| Layer        | Entry                              | Use when                                                                                          |
+| ------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| View intent  | `store.send(_:)`                   | Dispatching a named `NavigationIntent` from a SwiftUI view (`go`, `back`, `backToRoot`, …).       |
+| Command      | `store.execute(_:)`                | Forwarding a single `NavigationCommand` to the engine and inspecting the typed `NavigationResult`. |
+| Batch        | `store.executeBatch(_:)`           | Running multiple commands one-by-one while keeping middleware visibility and a single observer event. |
+| Transaction  | `store.executeTransaction(_:)`     | Committing all-or-nothing — preview against a shadow stack, then commit only if every step succeeds. |
+
+Rule of thumb:
+
+- Views send. Coordinators and effect boundaries execute.
+- `send` is intent-shaped (no return value to inspect); `execute*` is
+  command-shaped (returns a typed result for branching, telemetry, retries).
+- For atomic multi-step flows that must roll back on partial failure, prefer
+  `executeTransaction` over hand-rolled batches.
+
+The same layering applies to `ModalStore` and `FlowStore`:
+`send(_: ModalIntent)` / `send(_: FlowIntent)` from views, and
+`execute(_:)` / `executeBatch(_:)` / `executeTransaction(_:)` at the engine
+boundary.
+
 ## Stack routing surface
 
 `NavigationIntent` is the official SwiftUI stack-intent surface:
