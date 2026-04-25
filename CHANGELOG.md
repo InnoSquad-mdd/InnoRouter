@@ -197,10 +197,152 @@ contract.
   `FlowDeepLinkPipeline`, middleware composition, host
   migration, throttling, and `StoreObserver` usage.
 
+### Pre-release sweep — runtime stability
+
+- **`fix(effects)`**: `executeGuarded(_:, prepare:)` now
+  re-validates the (possibly rewritten) command against the
+  navigator's current state after `prepare` returns. If the state
+  drifted while the async `prepare` was awaiting, the command is
+  rejected with `.cancelled(.staleAfterPrepare(command))` instead
+  of executing against a stack it no longer matches. The same
+  validation runs in
+  `DeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:)`
+  before each plan command, so a pending link whose stack assumption
+  expired during authentication stays deferred.
+- **`feat(events)`**: `EventBufferingPolicy` (`unbounded`,
+  `bufferingNewest(_:)`, `bufferingOldest(_:)`) configures the
+  underlying `AsyncStream` for every `events: AsyncStream`
+  publisher. The default flips from unbounded to
+  `.bufferingNewest(1024)` so a slow subscriber can no longer leak
+  unbounded event memory; opt back into unbounded explicitly via
+  `eventBufferingPolicy: .unbounded` on each store's
+  configuration.
+- **`feat(macros)`**: `@Routable` and `@CasePathable` now emit a
+  hard diagnostic (`innoRouter.macros.unsupported_generic_enum`)
+  when applied to a generic enum, with a note explaining that
+  generic parameters cannot be propagated through generated
+  `CasePath` members. This replaces the previous behavior of
+  silently producing uncompilable expansions.
+
+### Pre-release sweep — API consistency
+
+- **`refactor(core)`**: `AnyNavigator.push` / `popToRoot` /
+  `replace` align with the underlying `Navigator` protocol and now
+  return `@discardableResult NavigationResult<R>`. Existing
+  `Void`-discarding call sites keep compiling unchanged; new code
+  can branch on engine outcomes through the type-erased wrapper.
+- **`fix(swiftui)`**: `AnyNavigationIntentDispatcher`,
+  `AnyModalIntentDispatcher`, and `AnyFlowIntentDispatcher` now
+  carry a `@Sendable` annotation on their `send` closures, so
+  Swift 6's strict-concurrency checks at the SwiftUI environment
+  boundary catch escapes that previously slipped through implicit
+  inheritance.
+- **`feat(core)`**: `NavigationResult` gains
+  `isMiddlewareCancellation` / `isEngineFailure` /
+  `middlewareCancellationReason` computed helpers so call sites
+  branching on engine-level vs middleware-level outcomes don't
+  have to pattern-match the full enum.
+- **`docs(readme)`**: a new "send() vs execute() — picking the
+  right entry point" table makes the four-layer execution model
+  (view intent / command / batch / transaction) explicit and
+  cross-links to the SwiftUI tutorial.
+
+### Pre-release sweep — performance & correctness
+
+- **`perf(swiftui)`**: `ModalStore.effectiveTraceRecorder` and
+  per-store intent dispatchers are computed once during init
+  rather than on every property access, eliminating per-send
+  reallocation in hot paths.
+- **`fix(deeplink)`**: `DeepLinkMatcher` now percent-decodes path
+  components before matching, so a URL like
+  `myapp://app/hello%20world` matches a `/hello world` pattern.
+  Previously these went through unchanged and missed the matcher
+  silently.
+- **`refactor(swiftui)`**: `NavigationHost` and `ModalHost`
+  storage ownership is documented; the dual-ownership pattern
+  (host `@State` + store) is intentional but was undocumented.
+
+### Pre-release sweep — feature opt-ins
+
+- **`feat(deeplink)`**: `DeepLinkMatcherDiagnosticsMode.strict`
+  promotes any matcher diagnostic (duplicate pattern, wildcard
+  shadowing, parameter shadowing) into a thrown error at matcher
+  construction time. The previous `.warning` / `.silent` modes
+  remain the defaults.
+- **`feat(testing)`**: `FlowTestStore` gains typed
+  sub-event receivers (`receiveNavigationChanged`,
+  `receiveNavigationBatch`, `receiveModalPresented`,
+  `receiveModalDismissed`, …) so tests assert on a specific case
+  with case-aware failure messages instead of opaque predicate
+  failures. The existing predicate-based `receiveNavigation(_:)` /
+  `receiveModal(_:)` overloads stay source-compatible.
+- **`feat(swiftui)`**: `ModalStore.present(_:style:)` now returns
+  `@discardableResult ModalPresentResult<M>` so callers can
+  distinguish `.shownImmediately` from `.queuedBehind` without
+  inspecting the modal queue manually.
+- **`feat(macros)`**: `@Routable` / `@CasePathable` applied to a
+  `protocol` or `actor` no longer offer the misleading
+  struct/class→enum FixIt; instead a `Note` attached to the
+  declaration keyword explains that the shape requires a manual
+  refactor to an enum.
+
+### Pre-release sweep — documentation
+
+- **`docs(core/swiftui/umbrella)`**: expanded doc comments on
+  `Route`, `CasePath`, `FlowCoordinator`, `FlowStep`,
+  `TabCoordinator`, `Tab`, and the `InnoRouter` umbrella to spell
+  out conformance contracts, platform availability, and the
+  reasons certain modules (`InnoRouterMacros`, effect modules) are
+  *not* re-exported from the umbrella.
+- **`docs(deeplink)`**: `FlowDeepLinkPipeline` doc comment now
+  documents the multi-step authentication semantics — auth scan
+  returns the **first** protected route as `.pending`, no partial
+  prefix application, full plan replayed atomically. Backed by a
+  new `FlowDeepLinkPipelineMultiStepAuthTests` suite.
+- **`docs(release)`**: README adds a "Upgrading to 3.0.0" section
+  clarifying that 3.0.0 is the first public release (no 1.x/2.x
+  migration), plus a strict 3.x SemVer commitment. RELEASING.md
+  documents pre-release tag flow (`3.1.0-rc.1` etc.), the
+  enumerated definition of a breaking change, and the toolchain
+  pin policy.
+- **`docs(readme)`**: adds a tutorial-articles index linking every
+  DocC catalog walkthrough (`Tutorial-LoginOnboarding`,
+  `Tutorial-DeepLinkReconciliation`,
+  `Tutorial-MiddlewareComposition`,
+  `Tutorial-MigratingFromNestedHosts`, `Tutorial-Throttling`,
+  `Tutorial-StoreObserver`, `Tutorial-VisionOSScenes`,
+  `Tutorial-FlowDeepLinkPipeline`, `Tutorial-StatePersistence`,
+  `Tutorial-TestingFlows`).
+
+### Pre-release sweep — infrastructure & CI
+
+- **`chore(package)`**: example targets now build through
+  `exampleTarget(name:source:)` / `soloSmokeTarget(name:source:)`
+  helpers backed by single-source-of-truth arrays. Adding a new
+  example is one append to `exampleSources` plus one
+  `exampleTarget(...)` call instead of nine sibling exclude-list
+  edits.
+- **`ci(scripts)`**: `scripts/check-examples-parity.sh` enforces
+  `Examples/` ↔ `ExamplesSmoke/` ↔ `Package.swift` parity before
+  the smoke build runs in `principle-gates.sh`. Hand-edits that
+  forget the manifest update fail fast with a per-violation
+  report.
+- **`ci`**: `principle-gates.yml` and `platforms.yml` pin
+  `xcode-version: "16.2"` instead of `latest-stable` so CI runs
+  are reproducible across the lifetime of a release. Bumping the
+  pin is now part of the release checklist.
+- **`chore(tests)`**: `Tests/InnoRouterMacrosBehaviorTests/README.md`
+  documents the macOS-only platform constraint (compiler-plugin
+  host requirement), and the inline disabled-test note in
+  `RoutableBehaviorTests.swift` lists the upstream-fix conditions
+  for re-enabling.
+
 ### Breaking changes
 
 None beyond opt-in conformances. Every change is additive to the
-public surface.
+public surface — the only signature change is
+`ModalStore.present(_:style:)` adding a non-`Void` return value
+under `@discardableResult`, which is source-compatible by design.
 
 ### Remaining for future releases
 
