@@ -9,6 +9,24 @@ public enum DeepLinkMatcherDiagnosticsMode: Sendable, Equatable {
     case disabled
     /// Emits warning diagnostics during matcher construction without failing execution.
     case debugWarnings
+    /// Promotes any structural diagnostic into a thrown error, preventing a
+    /// misconfigured matcher from being constructed at all. Use this in
+    /// release builds or release-readiness gates where shipping shadowed /
+    /// duplicated patterns would corrupt deep-link routing in production.
+    /// Pair with ``DeepLinkMatcher/init(strict:mappings:)``.
+    case strict
+}
+
+/// Error thrown by ``DeepLinkMatcher/init(strict:mappings:)`` when a
+/// structural diagnostic is encountered in `.strict` mode.
+public struct DeepLinkMatcherStrictError: Error, Sendable, Equatable {
+    /// The diagnostics that triggered the failure. Always non-empty.
+    public let diagnostics: [DeepLinkMatcherDiagnostic]
+
+    public init(diagnostics: [DeepLinkMatcherDiagnostic]) {
+        precondition(!diagnostics.isEmpty, "DeepLinkMatcherStrictError requires at least one diagnostic")
+        self.diagnostics = diagnostics
+    }
 }
 
 /// Describes a structural issue detected while building a `DeepLinkMatcher`.
@@ -319,6 +337,32 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
         Self.emitDiagnostics(self.diagnostics, configuration: configuration)
     }
 
+    /// Creates a matcher that promotes any structural diagnostic into a
+    /// thrown ``DeepLinkMatcherStrictError`` rather than emitting a warning.
+    ///
+    /// Use this in release builds or release-readiness gates where shipping
+    /// shadowed / duplicated patterns would corrupt deep-link routing in
+    /// production. The diagnostics that triggered the failure are surfaced
+    /// in the thrown error so callers can produce actionable messages.
+    public init(
+        strict: Void = (),
+        logger: Logger? = nil,
+        @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]
+    ) throws {
+        let resolvedMappings = mappings()
+        let resolvedDiagnostics = Self.makeDiagnostics(for: resolvedMappings)
+        if !resolvedDiagnostics.isEmpty {
+            // Surface the diagnostics through the optional logger before
+            // throwing so a CI run still has the structured warning trail.
+            for diagnostic in resolvedDiagnostics {
+                logger?.error("\(diagnostic.message, privacy: .public)")
+            }
+            throw DeepLinkMatcherStrictError(diagnostics: resolvedDiagnostics)
+        }
+        self.mappings = resolvedMappings
+        self.diagnostics = resolvedDiagnostics
+    }
+
     public func match(_ url: URL) -> R? {
         let parsed = DeepLinkParser.parse(url)
         for mapping in mappings {
@@ -387,12 +431,28 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
         _ diagnostics: [DeepLinkMatcherDiagnostic],
         configuration: DeepLinkMatcherConfiguration
     ) {
-        guard case .debugWarnings = configuration.diagnosticsMode else {
+        switch configuration.diagnosticsMode {
+        case .disabled:
             return
-        }
-
-        for diagnostic in diagnostics {
-            configuration.logger?.warning("\(diagnostic.message, privacy: .public)")
+        case .debugWarnings:
+            for diagnostic in diagnostics {
+                configuration.logger?.warning("\(diagnostic.message, privacy: .public)")
+            }
+        case .strict:
+            // `.strict` is meaningful only when constructed via the throwing
+            // initialiser ``DeepLinkMatcher/init(strict:logger:mappings:)``.
+            // Reaching this branch from the non-throwing init means the
+            // caller picked `.strict` without a `try`, which silently
+            // suppresses the failure they were trying to gate on. Trap to
+            // surface the misuse at the configuration site.
+            preconditionFailure(
+                """
+                DeepLinkMatcherDiagnosticsMode.strict requires the throwing initialiser \
+                `DeepLinkMatcher.init(strict:logger:mappings:)`. \
+                Picking `.strict` from a non-throwing init silently swallows \
+                diagnostics — pair `.strict` with `try` instead.
+                """
+            )
         }
     }
 }
