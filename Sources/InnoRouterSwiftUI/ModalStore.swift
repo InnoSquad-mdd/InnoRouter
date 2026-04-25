@@ -30,6 +30,12 @@ public final class ModalStore<M: Route> {
     private let broadcaster: EventBroadcaster<ModalEvent<M>>
     private let traceLogger: Logger?
     private var traceRecorder: InternalExecutionTraceRecorder?
+    /// Memoised forwarding closure that fans out trace records to both
+    /// the externally-installed recorder (if any) and the internal
+    /// `Logger`. Recomputed only when `installTraceRecorder(_:)` flips
+    /// the underlying recorder so we don't allocate a new closure on
+    /// every command execution.
+    private var cachedEffectiveTraceRecorder: InternalExecutionTraceRecorder?
 
     public var middlewareHandles: [ModalMiddlewareHandle] {
         middlewareRegistry.handles
@@ -89,6 +95,7 @@ public final class ModalStore<M: Route> {
         self.broadcaster = broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
+        updateEffectiveTraceRecorder()
     }
 
     init(
@@ -131,6 +138,7 @@ public final class ModalStore<M: Route> {
         self.broadcaster = broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
+        updateEffectiveTraceRecorder()
     }
 
     // MARK: - Public telemetry adapters
@@ -251,17 +259,23 @@ public final class ModalStore<M: Route> {
 
     func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
         self.traceRecorder = recorder
+        updateEffectiveTraceRecorder()
     }
 
-    private var effectiveTraceRecorder: InternalExecutionTraceRecorder? {
+    private func updateEffectiveTraceRecorder() {
         if traceRecorder == nil && traceLogger == nil {
-            return nil
+            cachedEffectiveTraceRecorder = nil
+            return
         }
 
-        return { [weak self] record in
+        cachedEffectiveTraceRecorder = { [weak self] record in
             self?.traceRecorder?(record)
             self?.logTraceRecord(record)
         }
+    }
+
+    private var effectiveTraceRecorder: InternalExecutionTraceRecorder? {
+        cachedEffectiveTraceRecorder
     }
 
     private func logTraceRecord(_ record: InternalExecutionTraceRecord) {
