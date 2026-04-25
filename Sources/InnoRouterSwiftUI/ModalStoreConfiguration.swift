@@ -1,3 +1,4 @@
+import Foundation
 import OSLog
 
 import InnoRouterCore
@@ -49,6 +50,57 @@ public enum ModalExecutionResult<M: Route>: Sendable, Equatable {
     case cancelled(ModalCancellationReason<M>)
     /// The command was a no-op (e.g. `.dismissCurrent` with no active modal).
     case noop
+}
+
+/// Outcome of a `ModalStore.present(_:style:)` call.
+///
+/// Mirrors `ModalExecutionResult` but specialised for the `.present`
+/// command shape — callers do not need to inspect arbitrary command
+/// payloads to know whether a presentation reached the screen
+/// immediately or was deferred behind an existing one.
+///
+/// The result is `@discardableResult`, so call sites that do not care
+/// about the queued/shown distinction continue to compile unchanged.
+public enum ModalPresentResult<M: Route>: Sendable, Equatable {
+    /// No presentation was active and the request became the current
+    /// presentation. The associated `id` is the presentation's stable
+    /// identifier — useful for later `dismiss`/`replace` correlation.
+    case shownImmediately(id: UUID)
+    /// Another presentation was already active, so the request was
+    /// appended to the queue. The presentation will surface once
+    /// `dismissCurrent` clears the active modal.
+    case queuedBehind(id: UUID)
+    /// Middleware cancelled the command before it reached the store.
+    case cancelled(ModalCancellationReason<M>)
+    /// The store treated the command as a no-op. This case is reserved
+    /// for forward compatibility — `present` itself is never a no-op
+    /// today, but exposing the case keeps the result exhaustive against
+    /// future middleware semantics.
+    case noop
+
+    /// Whether the presentation became the active modal immediately.
+    public var isShownImmediately: Bool {
+        if case .shownImmediately = self { return true }
+        return false
+    }
+
+    /// Whether the presentation was appended to the queue.
+    public var isQueuedBehind: Bool {
+        if case .queuedBehind = self { return true }
+        return false
+    }
+
+    /// The presentation's identifier when the request was admitted
+    /// (either shown immediately or queued). `nil` for cancelled / no-op
+    /// outcomes.
+    public var presentationID: UUID? {
+        switch self {
+        case .shownImmediately(let id), .queuedBehind(let id):
+            return id
+        case .cancelled, .noop:
+            return nil
+        }
+    }
 }
 
 /// Configuration for `ModalStore` observability, middleware, and logging.

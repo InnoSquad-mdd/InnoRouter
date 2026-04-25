@@ -441,9 +441,35 @@ public final class ModalStore<M: Route> {
         }
     }
 
-    public func present(_ route: M, style: ModalPresentationStyle) {
+    /// Presents a route and reports whether it became the active modal
+    /// immediately or was deferred behind an already-active one.
+    ///
+    /// The return value is `@discardableResult` — callers that ignore
+    /// queued vs shown semantics continue to compile unchanged. Callers
+    /// that branch on the outcome can pattern-match the
+    /// ``ModalPresentResult`` cases instead of inspecting
+    /// ``ModalExecutionResult`` payloads.
+    @discardableResult
+    public func present(_ route: M, style: ModalPresentationStyle) -> ModalPresentResult<M> {
         let presentation = ModalPresentation(route: route, style: style)
-        _ = execute(.present(presentation))
+        let result = execute(.present(presentation))
+        return Self.presentResult(from: result, requestedID: presentation.id)
+    }
+
+    private static func presentResult(
+        from result: ModalExecutionResult<M>,
+        requestedID: UUID
+    ) -> ModalPresentResult<M> {
+        switch result {
+        case .executed:
+            return .shownImmediately(id: requestedID)
+        case .queued(let queued):
+            return .queuedBehind(id: queued.id)
+        case .cancelled(let reason):
+            return .cancelled(reason)
+        case .noop:
+            return .noop
+        }
     }
 
     public func replaceCurrent(_ route: M, style: ModalPresentationStyle) {
