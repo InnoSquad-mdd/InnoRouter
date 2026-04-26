@@ -83,6 +83,8 @@ relationship | memberOf | FlowDeepLinkMappingBuilder.buildEither(first:) | FlowD
 relationship | memberOf | FlowDeepLinkMappingBuilder.buildEither(second:) | FlowDeepLinkMappingBuilder |  |
 relationship | memberOf | FlowDeepLinkMappingBuilder.buildExpression(_:) | FlowDeepLinkMappingBuilder |  |
 relationship | memberOf | FlowDeepLinkMappingBuilder.buildOptional(_:) | FlowDeepLinkMappingBuilder |  |
+relationship | memberOf | FlowDeepLinkMatcher.diagnostics | FlowDeepLinkMatcher |  |
+relationship | memberOf | FlowDeepLinkMatcher.init(configuration:mappings:) | FlowDeepLinkMatcher |  |
 relationship | memberOf | FlowDeepLinkMatcher.init(mappings:) | FlowDeepLinkMatcher |  |
 relationship | memberOf | FlowDeepLinkMatcher.match(_:) | FlowDeepLinkMatcher |  |
 relationship | memberOf | FlowDeepLinkPipeline.allowedHosts | FlowDeepLinkPipeline |  |
@@ -151,6 +153,8 @@ symbol | swift.init | DeepLinkPattern.MatchResult.init(parameters:isMatched:) | 
 symbol | swift.init | DeepLinkPattern.init(_:) | init(_:) | init(_ pattern: String) | []
 symbol | swift.init | DeepLinkPipeline.init(allowedSchemes:allowedHosts:resolve:authenticationPolicy:plan:) | init(allowedSchemes:allowedHosts:resolve:authenticationPolicy:plan:) | init(allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, resolve: @escaping DeepLinkPipeline<R>.Resolver, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, plan: @escaping DeepLinkPipeline<R>.Planner = { route in NavigationPlan(commands: [.push(route)]) }) | []
 symbol | swift.init | FlowDeepLinkMapping.init(_:handler:) | init(_:handler:) | init(_ pattern: String, handler: @escaping (DeepLinkParameters) -> FlowPlan<R>?) | []
+symbol | swift.init | FlowDeepLinkMatcher.init(configuration:mappings:) | init(configuration:mappings:) | init(configuration: DeepLinkMatcherConfiguration = .default, @FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) | []
+symbol | swift.init | FlowDeepLinkMatcher.init(configuration:mappings:) | init(configuration:mappings:) | init(configuration: DeepLinkMatcherConfiguration = .default, mappings: [FlowDeepLinkMapping<R>]) | []
 symbol | swift.init | FlowDeepLinkMatcher.init(mappings:) | init(mappings:) | init(@FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) | []
 symbol | swift.init | FlowDeepLinkMatcher.init(mappings:) | init(mappings:) | init(mappings: [FlowDeepLinkMapping<R>]) | []
 symbol | swift.init | FlowDeepLinkPipeline.init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:) | init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:) | init(allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, matcher: FlowDeepLinkMatcher<R>, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired) | []
@@ -192,6 +196,7 @@ symbol | swift.property | DeepLinkPipeline.authenticationPolicy | authentication
 symbol | swift.property | DeepLinkPipeline.plan | plan | var plan: DeepLinkPipeline<R>.Planner | []
 symbol | swift.property | DeepLinkPipeline.resolve | resolve | var resolve: DeepLinkPipeline<R>.Resolver | []
 symbol | swift.property | DeepLinkable.deepLinkPath | deepLinkPath | var deepLinkPath: String { get } | []
+symbol | swift.property | FlowDeepLinkMatcher.diagnostics | diagnostics | let diagnostics: [DeepLinkMatcherDiagnostic] | []
 symbol | swift.property | FlowDeepLinkPipeline.allowedHosts | allowedHosts | let allowedHosts: Set<String>? | []
 symbol | swift.property | FlowDeepLinkPipeline.allowedSchemes | allowedSchemes | let allowedSchemes: Set<String>? | []
 symbol | swift.property | FlowDeepLinkPipeline.authenticationPolicy | authenticationPolicy | let authenticationPolicy: DeepLinkAuthenticationPolicy<R> | []

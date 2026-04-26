@@ -136,6 +136,21 @@ import InnoRouterMacros      // only in files that use @Routable / @CasePathable
 other property-wrapper or view modifier come from `InnoRouter`, not
 from `InnoRouterMacros`.
 
+The SwiftSyntax-backed macro implementation remains in this package
+for 3.0.0. A package-traits or separate-macro-package split should be
+evaluated only after measuring `swift package show-traits`,
+`swift build --target InnoRouter`, and
+`swift build --target InnoRouterMacros` against the migration cost.
+
+| Product | Import when |
+|---|---|
+| `InnoRouter` | App code that needs stores, hosts, intents, coordinators, deep links, scenes, or persistence helpers. |
+| `InnoRouterMacros` | Only files that use `@Routable` or `@CasePathable`. |
+| `InnoRouterNavigationEffects` | App-boundary code that executes `NavigationCommand` values outside a SwiftUI view. |
+| `InnoRouterDeepLinkEffects` | App-boundary code that handles or resumes pending deep links. |
+| `InnoRouterEffects` | Compatibility import when both effect modules should be re-exported together. |
+| `InnoRouterTesting` | Test targets that want host-less `NavigationTestStore`, `ModalTestStore`, or `FlowTestStore`. |
+
 ## Modules
 
 - `InnoRouter`: umbrella re-export of `InnoRouterCore`, `InnoRouterSwiftUI`, and `InnoRouterDeepLink`
@@ -146,6 +161,27 @@ from `InnoRouterMacros`.
 - `InnoRouterDeepLinkEffects`: deep-link execution helpers layered on navigation effects
 - `InnoRouterEffects`: compatibility umbrella for both effect modules
 - `InnoRouterMacros`: `@Routable` and `@CasePathable`
+
+## Choosing the right surface
+
+Use the smallest surface that owns the transition authority you need:
+
+| Need | Use |
+|---|---|
+| One typed SwiftUI stack | `NavigationStore` + `NavigationHost` |
+| Split-view stack on supported platforms | `NavigationStore` + `NavigationSplitHost` |
+| Sheet / cover authority without stack resets | `ModalStore` + `ModalHost` |
+| Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
+| URL to push-only command plan | `DeepLinkMatcher` + `DeepLinkPipeline` |
+| URL to push-prefix plus modal-tail flow | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
+| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| Reducer, effect, or app-boundary execution | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Router assertions without SwiftUI hosts | `InnoRouterTesting` |
+
+`NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, effects,
+and testing are intentionally separate. The library keeps these
+authorities explicit so apps can adopt only the pieces that match
+their routing boundary.
 
 ## Documentation
 
@@ -609,7 +645,7 @@ Typical flow:
 
 ### Matcher diagnostics
 
-`DeepLinkMatcher` can report:
+`DeepLinkMatcher` and `FlowDeepLinkMatcher` can report:
 
 - duplicate patterns
 - wildcard shadowing
@@ -1003,10 +1039,10 @@ With the P3 polish cluster shipped, the P0 / P1 / P3 backlog is
 empty. **3.0.0 release candidate.** See
 [`CHANGELOG.md`](CHANGELOG.md) for the full 3.0.0 surface.
 
-- [ ] **P2-3 UIKit escape hatch** — bidirectional binding between
-      `NavigationStore` and `UINavigationController` for
-      incremental UIKit adoption. Separate product decision
-      required (SwiftUI-only positioning vs multi-surface).
+- [x] **P2-3 UIKit escape hatch** — declined for 3.0.0. InnoRouter
+      keeps a SwiftUI-only positioning stance; teams that need
+      UIKit / AppKit adapters can compose those surfaces outside
+      InnoRouter.
 - [ ] **`.debounce` NavigationCommand** — deferred from P3-4;
       needs Clock injection + deferred Task infrastructure
       outside the synchronous engine contract.

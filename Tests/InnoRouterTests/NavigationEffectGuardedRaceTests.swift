@@ -106,7 +106,7 @@ struct NavigationEffectGuardedRaceTests {
             Issue.record("expected initial .pending, got \(firstOutcome)")
             return
         }
-        #expect(pending.route == .detail(id: "7"))
+        #expect(pending.route == .home)
 
         isAuthenticated.withLock { $0 = true }
 
@@ -125,4 +125,3 @@ struct NavigationEffectGuardedRaceTests {
         #expect(store.state.path.isEmpty)
     }
 }
-

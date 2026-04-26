@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ROADMAP_PATH="$ROOT_DIR/Docs/competitive-analysis-and-roadmap.md"
+README_PATH="$ROOT_DIR/README.md"
+CHANGELOG_PATH="$ROOT_DIR/CHANGELOG.md"
 
 failures=0
 
@@ -33,6 +35,14 @@ check_absent "$ROADMAP_PATH" 'requires hand-rolling commands.' \
   "roadmap still claims multi-step deep-link rehydration needs hand-rolled commands"
 check_absent "$ROADMAP_PATH" '`FlowIntent` parallels were intentionally skipped' \
   "roadmap still claims FlowIntent ergonomic parity was skipped entirely"
+check_absent "$ROADMAP_PATH" '| P2 | UIKit escape hatch | adoption path | large | open |' \
+  "roadmap still marks the UIKit escape hatch as open"
+check_absent "$README_PATH" 'Separate product decision' \
+  "README still claims the UIKit escape hatch needs a product decision"
+check_absent "$CHANGELOG_PATH" 'awaiting product decision' \
+  "changelog still claims the UIKit escape hatch is awaiting product decision"
+check_absent "$CHANGELOG_PATH" 'remains open behind' \
+  "changelog still claims the UIKit escape hatch remains open"
 
 if [[ "$failures" -ne 0 ]]; then
   exit 1

@@ -84,6 +84,9 @@ swift build --target InnoRouterAppShellExample
 swift build --target InnoRouterMultiPlatformExample
 swift build --target InnoRouterVisionOSImmersiveExample
 
+echo "[principle-gates] Running performance smoke"
+./scripts/performance-smoke.sh
+
 echo "[principle-gates] Checking Nav* public symbols"
 if rg -n "public .*\\bNav[A-Z]" Sources; then
   echo "[principle-gates] Failed: legacy Nav* public symbols found"

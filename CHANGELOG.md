@@ -8,8 +8,8 @@ are bare semver (no leading `v`).
 
 The 3.0.0 release closes the design phase of the framework. All
 P0 / P1 / P3 backlog items are shipped; P0 / P1 / P3 surface is
-stable; only P2-3 UIKit escape hatch remains open behind a
-product-level SwiftUI-only vs cross-surface decision.
+stable. P2-3 UIKit escape hatch is declined for 3.0.0 so the
+release keeps an explicit SwiftUI-only positioning stance.
 
 ### Stability
 
@@ -344,9 +344,27 @@ public surface — the only signature change is
 `ModalStore.present(_:style:)` adding a non-`Void` return value
 under `@discardableResult`, which is source-compatible by design.
 
-### Remaining for future releases
+### Fixed
+
+- `DeepLinkPipeline` now checks authentication against every route
+  referenced by the produced `NavigationPlan`, including nested
+  sequences and fallback commands, before returning `.plan`.
+- `DeepLinkPattern` now appends repeated path parameter values
+  instead of overwriting earlier values, matching query-parameter
+  merge semantics.
+- `FlowDeepLinkMatcher` now exposes the same diagnostics surface as
+  `DeepLinkMatcher`.
+- README, roadmap, and changelog status now agree that the UIKit
+  escape hatch is declined for 3.0.0.
+
+### Deferred and closed items
 
 - `.debounce` NavigationCommand — needs Clock + Task
   infrastructure outside the synchronous engine contract.
-- UIKit escape hatch — awaiting product decision on
-  SwiftUI-only vs cross-surface positioning.
+- UIKit escape hatch — declined for 3.0.0; compose UIKit / AppKit
+  adapters outside InnoRouter if a product needs those surfaces.
+- Macro dependency split — keep `InnoRouterMacros` in this package
+  for 3.0.0; measure package traits or a separate macro package with
+  `swift package show-traits`, `swift build --target InnoRouter`, and
+  `swift build --target InnoRouterMacros` before changing package
+  topology.

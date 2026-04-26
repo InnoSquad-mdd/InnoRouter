@@ -2053,6 +2053,31 @@ struct DeepLinkTests {
         let parameters = DeepLinkParameters(valuesByName: result.parameters)
         #expect(parameters.firstValue(forName: "id") == "123")
     }
+
+    @Test("Repeated path parameters append values in declaration order")
+    func testRepeatedPathParametersAppend() {
+        let pattern = DeepLinkPattern("/compare/:id/:id")
+
+        guard let result = pattern.match("/compare/a/b") else {
+            Issue.record("Expected pattern match")
+            return
+        }
+
+        #expect(result.parameters["id"] == ["a", "b"])
+    }
+
+    @Test("Repeated path parameters append before query values")
+    func testRepeatedPathParametersAppendBeforeQueryValues() {
+        let pattern = DeepLinkPattern("/compare/:id/:id")
+        let parsed = DeepLinkParser.parse("myapp://example.com/compare/a/b?id=c&id=d")!
+
+        guard let result = pattern.match(parsed) else {
+            Issue.record("Expected pattern match")
+            return
+        }
+
+        #expect(result.parameters["id"] == ["a", "b", "c", "d"])
+    }
     
     @Test("DeepLinkPattern matches literal path")
     func testPatternLiteral() {
@@ -2267,6 +2292,123 @@ struct DeepLinkTests {
             return
         }
         #expect(plan.commands == [.push(.settings)])
+    }
+
+    @Test("DeepLinkPipeline auth scans planned replace routes")
+    func testPipelineAuthenticationScansPlannedReplaceRoutes() {
+        let commands: [NavigationCommand<TestRoute>] = [
+            .replace([.home, .settings])
+        ]
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .home },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { false }
+            ),
+            plan: { _ in NavigationPlan(commands: commands) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/public")!)
+        guard case .pending(let pending) = decision else {
+            Issue.record("Expected pending decision")
+            return
+        }
+        #expect(pending.route == .settings)
+        #expect(pending.plan.commands == commands)
+    }
+
+    @Test("DeepLinkPipeline auth scans planned pushAll routes")
+    func testPipelineAuthenticationScansPlannedPushAllRoutes() {
+        let commands: [NavigationCommand<TestRoute>] = [
+            .pushAll([.home, .settings])
+        ]
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .home },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { false }
+            ),
+            plan: { _ in NavigationPlan(commands: commands) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/public")!)
+        guard case .pending(let pending) = decision else {
+            Issue.record("Expected pending decision")
+            return
+        }
+        #expect(pending.route == .settings)
+        #expect(pending.plan.commands == commands)
+    }
+
+    @Test("DeepLinkPipeline auth scans nested and fallback command routes")
+    func testPipelineAuthenticationScansNestedAndFallbackRoutes() {
+        let commands: [NavigationCommand<TestRoute>] = [
+            .sequence([
+                .push(.home),
+                .whenCancelled(
+                    .pushAll([.detail(id: "primary")]),
+                    fallback: .popTo(.settings)
+                )
+            ])
+        ]
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .home },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { false }
+            ),
+            plan: { _ in NavigationPlan(commands: commands) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/public")!)
+        guard case .pending(let pending) = decision else {
+            Issue.record("Expected pending decision")
+            return
+        }
+        #expect(pending.route == .settings)
+        #expect(pending.plan.commands == commands)
+    }
+
+    @Test("DeepLinkPipeline auth falls back to resolved route when plan has no routes")
+    func testPipelineAuthenticationFallbackScansResolvedRoute() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .settings },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { false }
+            ),
+            plan: { _ in NavigationPlan(commands: [.pop]) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/secure")!)
+        guard case .pending(let pending) = decision else {
+            Issue.record("Expected pending decision")
+            return
+        }
+        #expect(pending.route == .settings)
+        #expect(pending.plan.commands == [.pop])
+    }
+
+    @Test("DeepLinkPipeline returns plan when protected planned route is authenticated")
+    func testPipelineAuthenticationPassesWhenAuthenticated() {
+        let commands: [NavigationCommand<TestRoute>] = [
+            .replace([.home, .settings])
+        ]
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .home },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { true }
+            ),
+            plan: { _ in NavigationPlan(commands: commands) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/public")!)
+        guard case .plan(let plan) = decision else {
+            Issue.record("Expected plan decision")
+            return
+        }
+        #expect(plan.commands == commands)
     }
 }
 
