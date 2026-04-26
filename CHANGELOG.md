@@ -71,6 +71,14 @@ hatches, test coverage, DX guides, and CI parallelisation.
   weakness audit (deep stacks, deep modal queues, async auth
   flows, scene invariants, focus-driven traversal, environment
   policy, debounce timing).
+- `TvOSFocusNavigationTests.swift` adds three focus-engine
+  collapse regressions: `popTo` from a deep focus chain,
+  `popToRoot` from a deep focus chain, and `popCount` clamping
+  past the stack depth.
+- `WatchOSCrownNavigationTests.swift` (watchOS-gated) covers
+  Digital Crown navigation cadence: dense `.push` sequence keeps
+  state.path monotonically growing, rapid `.pop` collapses one
+  step at a time, and over-scroll past root is a clamped no-op.
 - `EnvironmentMissingPolicy.assertAndLog` is a third policy
   alongside `.crash` and `.logAndDegrade`. It traps with
   `assertionFailure` in Debug while degrading to a logged no-op
