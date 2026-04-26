@@ -72,3 +72,4 @@ InnoRouter ships on every Apple platform it currently supports:
 - <doc:Guide-SequenceVsBatchVsTransaction>
 - <doc:Guide-FlowCoordinatorVsFlowStore>
 - <doc:Guide-EnvironmentMissingPolicy>
+- <doc:Guide-QueueCoalescePolicy>
