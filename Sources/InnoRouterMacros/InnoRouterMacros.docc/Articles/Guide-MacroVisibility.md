@@ -1,6 +1,6 @@
 # `@Routable` / `@CasePathable` access level inference
 
-Starting in v4.0.0 the `@Routable` and `@CasePathable` macros
+Starting in 4.0.0 the `@Routable` and `@CasePathable` macros
 infer the access level of every generated member from the
 enclosing enum. The previous behaviour emitted everything as
 `public`, which leaked CasePath surface for `internal` and

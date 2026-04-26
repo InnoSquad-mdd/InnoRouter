@@ -231,8 +231,8 @@ no longer needs reducer-level modeling.
 
 ## Reference
 
-- ``NavigationStore`` / ``NavigationHost``
-- ``ModalStore`` / ``ModalHost``
-- ``FlowStore`` / ``FlowHost`` / `FlowPlan`
-- ``InnoRouterTesting`` (`NavigationTestStore`,
+- `NavigationStore` / `NavigationHost`
+- `ModalStore` / `ModalHost`
+- `FlowStore` / `FlowHost` / `FlowPlan`
+- `InnoRouterTesting` (`NavigationTestStore`,
   `ModalTestStore`, `FlowTestStore`)

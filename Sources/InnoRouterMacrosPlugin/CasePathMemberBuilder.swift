@@ -23,7 +23,7 @@ private struct CasePathEnumCase {
 ///
 /// `@Routable` / `@CasePathable` previously emitted every member as
 /// `public`, which leaked CasePath surface for `internal` and
-/// `private` enums. From v4.0.0 the generated members match the
+/// `private` enums. From 4.0.0 the generated members match the
 /// enclosing enum's access level so a `private enum` no longer
 /// produces a public CasePath table.
 private enum InferredAccessLevel: String {

@@ -172,7 +172,7 @@ is currently unreachable.
 Because both route types are `Codable`, the same `FlowPlan` can
 be persisted to `UserDefaults` on `scenePhase: .background` and
 restored on the next cold launch via
-``FlowPlan/init(validating:)`` — the validating constructor
+`FlowPlan(validating:)` — the validating constructor
 rejects invariant violations (e.g. two modal steps) before the
 authority sees them.
 
