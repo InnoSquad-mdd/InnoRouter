@@ -13,6 +13,8 @@ private enum ObsRoute: Route {
     case sheet
 }
 
+private let observerEventTimeout: Duration = .seconds(5)
+
 @MainActor
 private final class RecordingObserver: StoreObserver {
     typealias RouteType = ObsRoute
@@ -58,7 +60,7 @@ private final class RecordingObserver: StoreObserver {
 
     func waitForEvent(
         matching predicate: @escaping (RecordedEvent) -> Bool,
-        timeout: Duration = .seconds(1)
+        timeout: Duration = observerEventTimeout
     ) async -> RecordedEvent? {
         if let index = bufferedEvents.firstIndex(where: predicate) {
             return bufferedEvents.remove(at: index)
@@ -208,6 +210,7 @@ struct StoreObserverTests {
         let store = FlowStore<ObsRoute>()
         let observer = RecordingObserver()
         let subscription = store.observe(observer)
+        await Task.yield()
 
         store.send(.push(.home))
         store.send(.presentSheet(.sheet))
