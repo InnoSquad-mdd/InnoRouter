@@ -84,6 +84,19 @@ if rg -n "@unchecked Sendable" Sources Tests; then
   exit 1
 fi
 
+echo "[lint-source-gates] Checking modal trace privacy"
+if rg -n -F 'metadata=\(metadataSummary, privacy: .public)' Sources/InnoRouterSwiftUI/ModalStore.swift \
+  || rg -n -F 'outcome=\(outcome, privacy: .public)' Sources/InnoRouterSwiftUI/ModalStore.swift; then
+  echo "[lint-source-gates] Failed: modal trace metadata/outcome must stay private"
+  exit 1
+fi
+
+echo "[lint-source-gates] Checking modal cancellation privacy"
+if rg -n -F 'cancellation=\(cancellationReason.map { String(describing: $0) } ?? "nil", privacy: .public)' Sources/InnoRouterSwiftUI/ModalStoreTelemetrySink.swift; then
+  echo "[lint-source-gates] Failed: modal command cancellation payload must stay private"
+  exit 1
+fi
+
 echo "[lint-source-gates] Checking README SwiftUI philosophy section uniqueness"
 SWIFTUI_ALIGNMENT_SECTION_COUNT="$(rg -n "^### SwiftUI Philosophy Alignment$" README.md | wc -l | tr -d ' ' || true)"
 if [[ "$SWIFTUI_ALIGNMENT_SECTION_COUNT" != "1" ]]; then

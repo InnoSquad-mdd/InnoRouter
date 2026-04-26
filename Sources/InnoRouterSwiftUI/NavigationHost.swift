@@ -57,7 +57,7 @@ public struct NavigationHost<R: Route, DestinationView: View, Root: View>: View 
 
     public var body: some View {
         NavigationStackHostContent(store: store, destination: destination, root: root)
-            .navigationIntentDispatcher(store.intentDispatcher)
+            .navigationIntentDispatcher(store.intentDispatcher, owner: store)
             .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
     }
 }
@@ -101,7 +101,7 @@ public struct NavigationSplitHost<R: Route, Sidebar: View, DestinationView: View
                 root: root
             )
         }
-        .navigationIntentDispatcher(store.intentDispatcher)
+        .navigationIntentDispatcher(store.intentDispatcher, owner: store)
         .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
     }
 }

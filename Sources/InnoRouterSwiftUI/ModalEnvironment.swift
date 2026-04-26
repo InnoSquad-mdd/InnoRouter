@@ -9,12 +9,58 @@ final class ModalEnvironmentStorage {
 
     init() {}
 
+    /// Manual dispatcher access for tests and low-level integration paths.
+    ///
+    /// The setter treats the dispatcher instance itself as the owner fallback,
+    /// so replacing it with a different dispatcher in the same storage is a
+    /// duplicate registration. Production host wiring should prefer
+    /// `modalIntentDispatcher(_:owner:)` through `ModalHost`, or call
+    /// `setIntentDispatcher(_:ownerID:routeType:)` with a stable owner when a
+    /// refresh can allocate a new dispatcher wrapper.
     subscript<M: Route>(routeType: M.Type) -> AnyModalIntentDispatcher<M>? {
         get {
-            intentDispatchers[ObjectIdentifier(routeType)] as? AnyModalIntentDispatcher<M>
+            let registration = intentDispatchers[ObjectIdentifier(routeType)]
+                as? DispatcherRegistration<AnyModalIntentDispatcher<M>>
+            return registration?.dispatcher
         }
         set {
-            intentDispatchers[ObjectIdentifier(routeType)] = newValue
+            setIntentDispatcher(
+                newValue,
+                ownerID: newValue.map(ObjectIdentifier.init),
+                routeType: routeType
+            )
+        }
+    }
+
+    /// Registers a dispatcher with an explicit routing authority.
+    ///
+    /// Use this path when the same `ModalStore` owner can re-register with a
+    /// fresh dispatcher wrapper across SwiftUI updates. Passing a stable
+    /// `ownerID` lets duplicate detection distinguish a benign refresh from a
+    /// sibling host overwrite.
+    func setIntentDispatcher<M: Route>(
+        _ dispatcher: AnyModalIntentDispatcher<M>?,
+        ownerID: ObjectIdentifier?,
+        routeType: M.Type
+    ) {
+        let key = ObjectIdentifier(routeType)
+        let existing = intentDispatchers[key]
+            as? DispatcherRegistration<AnyModalIntentDispatcher<M>>
+        let replacement = dispatcher.map {
+            DispatcherRegistration(
+                dispatcher: $0,
+                ownerID: ownerID ?? ObjectIdentifier($0)
+            )
+        }
+        reportDuplicateDispatcherIfNeeded(
+            existing: existing,
+            replacement: replacement,
+            keyDescription: "AnyModalIntentDispatcher<\(String(describing: routeType))>"
+        )
+        if let replacement {
+            intentDispatchers[key] = replacement
+        } else {
+            intentDispatchers.removeValue(forKey: key)
         }
     }
 }
@@ -25,7 +71,10 @@ extension EnvironmentValues {
 
 extension View {
     @MainActor
-    func modalIntentDispatcher<M: Route>(_ dispatcher: AnyModalIntentDispatcher<M>) -> some View {
+    func modalIntentDispatcher<M: Route>(
+        _ dispatcher: AnyModalIntentDispatcher<M>,
+        owner: AnyObject
+    ) -> some View {
         transformEnvironment(\.modalEnvironmentStorage) { storage in
             guard let storage else {
                 assertionFailure(
@@ -33,7 +82,11 @@ extension View {
                 )
                 return
             }
-            storage[M.self] = dispatcher
+            storage.setIntentDispatcher(
+                dispatcher,
+                ownerID: ObjectIdentifier(owner),
+                routeType: M.self
+            )
         }
     }
 }

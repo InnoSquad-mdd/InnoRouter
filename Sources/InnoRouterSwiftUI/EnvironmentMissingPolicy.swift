@@ -15,6 +15,12 @@ import SwiftUI
 /// `logAndDegrade` substitutes a no-op dispatcher and emits a
 /// `Logger.error` line so the missing wiring is still visible in
 /// the console without aborting the process.
+///
+/// `assertAndLog` traps in Debug builds (catching the wiring bug
+/// during development) but degrades to a logged no-op dispatcher in
+/// Release. Use this when ``crash`` feels too aggressive for
+/// production cold-starts but ``logAndDegrade`` is too quiet during
+/// development.
 public enum EnvironmentMissingPolicy: Sendable, Hashable {
     /// Trap with `preconditionFailure` when the environment is
     /// missing. Default behaviour.
@@ -24,6 +30,12 @@ public enum EnvironmentMissingPolicy: Sendable, Hashable {
     /// SwiftUI Previews, host-less snapshot tests, and similar
     /// out-of-app contexts.
     case logAndDegrade
+    /// Log an error and trap with `assertionFailure` so Debug builds
+    /// catch the missing wiring while Release builds keep rendering
+    /// against a no-op dispatcher. Useful when shipping a pre-launch
+    /// build where a stray missing host should not crash the app but
+    /// must still surface during development.
+    case assertAndLog
 }
 
 extension EnvironmentValues {
@@ -70,5 +82,9 @@ func handleMissingEnvironment(
     case .logAndDegrade:
         let resolved = message()
         environmentMissingLogger.error("\(resolved, privacy: .public)")
+    case .assertAndLog:
+        let resolved = message()
+        environmentMissingLogger.error("\(resolved, privacy: .public)")
+        assertionFailure(resolved)
     }
 }

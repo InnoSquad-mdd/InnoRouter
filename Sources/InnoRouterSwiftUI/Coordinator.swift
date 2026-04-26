@@ -95,7 +95,7 @@ public struct CoordinatorHost<C: Coordinator, Root: View>: View {
 
     public var body: some View {
         CoordinatorStackHostContent(coordinator: coordinator, root: root)
-        .navigationIntentDispatcher(coordinator.navigationIntentDispatcher)
+        .navigationIntentDispatcher(coordinator.navigationIntentDispatcher, owner: coordinator)
         .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
     }
 }
@@ -132,7 +132,7 @@ public struct CoordinatorSplitHost<C: Coordinator, Sidebar: View, Root: View>: V
         } detail: {
             CoordinatorStackHostContent(coordinator: coordinator, root: root)
         }
-        .navigationIntentDispatcher(coordinator.navigationIntentDispatcher)
+        .navigationIntentDispatcher(coordinator.navigationIntentDispatcher, owner: coordinator)
         .environment(\.navigationEnvironmentStorage, navigationEnvironmentStorage)
     }
 }

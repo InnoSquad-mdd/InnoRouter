@@ -28,13 +28,14 @@ struct FlowHostCompositionTests {
         _ = host.body
     }
 
-    @Test("FlowHost-style dispatcher forwards flow intents to store")
+    @Test("FlowStore intentDispatcher is cached and forwards flow intents")
     @MainActor
-    func flowDispatcherForwardsIntents() {
+    func flowStoreIntentDispatcherIsCachedAndForwardsIntents() {
         let store = FlowStore<FlowHostRoute>()
-        let dispatcher = AnyFlowIntentDispatcher<FlowHostRoute> { intent in
-            store.send(intent)
-        }
+        let dispatcher = store.intentDispatcher
+        let secondRead = store.intentDispatcher
+
+        #expect(dispatcher === secondRead)
 
         dispatcher.send(.push(.landing))
         dispatcher.send(.push(.child))
@@ -60,6 +61,29 @@ struct FlowHostCompositionTests {
 
         #expect(firstStore.path == [.push(.landing)])
         #expect(secondStore.path == [.push(.child)])
+    }
+
+    @Test("FlowEnvironmentStorage accepts same-store dispatcher refreshes")
+    @MainActor
+    func flowEnvironmentStorageAcceptsSameStoreDispatcherRefreshes() {
+        let store = FlowStore<FlowHostRoute>()
+        let storage = FlowEnvironmentStorage()
+        let ownerID = ObjectIdentifier(store)
+
+        storage.setIntentDispatcher(
+            AnyFlowIntentDispatcher { store.send($0) },
+            ownerID: ownerID,
+            routeType: FlowHostRoute.self
+        )
+        storage.setIntentDispatcher(
+            AnyFlowIntentDispatcher { store.send($0) },
+            ownerID: ownerID,
+            routeType: FlowHostRoute.self
+        )
+
+        storage[FlowHostRoute.self]?.send(.push(.landing))
+
+        #expect(store.path == [.push(.landing)])
     }
 
     @Test("FlowNavigating default handle forwards to flowStore.send")

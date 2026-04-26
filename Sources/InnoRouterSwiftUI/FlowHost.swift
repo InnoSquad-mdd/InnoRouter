@@ -6,9 +6,9 @@ import InnoRouterCore
 /// presentation, backed by a `FlowStore`.
 ///
 /// `FlowHost` composes the existing `NavigationHost` and `ModalHost` views
-/// around the store's inner navigation / modal stores, and injects an
-/// `AnyFlowIntentDispatcher` into the environment so descendants can dispatch
-/// `FlowIntent` values via `@EnvironmentFlowIntent`.
+/// around the store's inner navigation / modal stores, and injects the store's
+/// cached `AnyFlowIntentDispatcher` into the environment so descendants can
+/// dispatch `FlowIntent` values via `@EnvironmentFlowIntent`.
 public struct FlowHost<R: Route, Destination: View, Root: View>: View {
     @Bindable private var store: FlowStore<R>
     @State private var flowEnvironmentStorage = FlowEnvironmentStorage()
@@ -33,9 +33,8 @@ public struct FlowHost<R: Route, Destination: View, Root: View>: View {
             NavigationHost(store: flowStore.navigationStore, destination: destination, root: root)
         }
         .flowIntentDispatcher(
-            AnyFlowIntentDispatcher { intent in
-                flowStore.send(intent)
-            }
+            flowStore.intentDispatcher,
+            owner: flowStore
         )
         .environment(\.flowEnvironmentStorage, flowEnvironmentStorage)
     }

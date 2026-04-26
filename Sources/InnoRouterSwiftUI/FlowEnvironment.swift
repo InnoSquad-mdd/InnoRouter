@@ -10,10 +10,42 @@ final class FlowEnvironmentStorage {
 
     subscript<R: Route>(routeType: R.Type) -> AnyFlowIntentDispatcher<R>? {
         get {
-            intentDispatchers[ObjectIdentifier(routeType)] as? AnyFlowIntentDispatcher<R>
+            let registration = intentDispatchers[ObjectIdentifier(routeType)]
+                as? DispatcherRegistration<AnyFlowIntentDispatcher<R>>
+            return registration?.dispatcher
         }
         set {
-            intentDispatchers[ObjectIdentifier(routeType)] = newValue
+            setIntentDispatcher(
+                newValue,
+                ownerID: newValue.map(ObjectIdentifier.init),
+                routeType: routeType
+            )
+        }
+    }
+
+    func setIntentDispatcher<R: Route>(
+        _ dispatcher: AnyFlowIntentDispatcher<R>?,
+        ownerID: ObjectIdentifier?,
+        routeType: R.Type
+    ) {
+        let key = ObjectIdentifier(routeType)
+        let existing = intentDispatchers[key]
+            as? DispatcherRegistration<AnyFlowIntentDispatcher<R>>
+        let replacement = dispatcher.map {
+            DispatcherRegistration(
+                dispatcher: $0,
+                ownerID: ownerID ?? ObjectIdentifier($0)
+            )
+        }
+        reportDuplicateDispatcherIfNeeded(
+            existing: existing,
+            replacement: replacement,
+            keyDescription: "AnyFlowIntentDispatcher<\(String(describing: routeType))>"
+        )
+        if let replacement {
+            intentDispatchers[key] = replacement
+        } else {
+            intentDispatchers.removeValue(forKey: key)
         }
     }
 }
@@ -24,7 +56,10 @@ extension EnvironmentValues {
 
 extension View {
     @MainActor
-    func flowIntentDispatcher<R: Route>(_ dispatcher: AnyFlowIntentDispatcher<R>) -> some View {
+    func flowIntentDispatcher<R: Route>(
+        _ dispatcher: AnyFlowIntentDispatcher<R>,
+        owner: AnyObject
+    ) -> some View {
         transformEnvironment(\.flowEnvironmentStorage) { storage in
             guard let storage else {
                 assertionFailure(
@@ -32,7 +67,11 @@ extension View {
                 )
                 return
             }
-            storage[R.self] = dispatcher
+            storage.setIntentDispatcher(
+                dispatcher,
+                ownerID: ObjectIdentifier(owner),
+                routeType: R.self
+            )
         }
     }
 }

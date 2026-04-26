@@ -206,7 +206,7 @@ public final class ModalStore<M: Route> {
                 span=\(context.spanID, privacy: .public) \
                 parent=\(context.parentSpanID ?? "nil", privacy: .public) \
                 operation=\(operation, privacy: .public) \
-                metadata=\(metadataSummary, privacy: .public)
+                metadata=\(metadataSummary, privacy: .private)
                 """
             )
 
@@ -218,7 +218,7 @@ public final class ModalStore<M: Route> {
                 span=\(context.spanID, privacy: .public) \
                 parent=\(context.parentSpanID ?? "nil", privacy: .public) \
                 operation=\(operation, privacy: .public) \
-                outcome=\(outcome, privacy: .public)
+                outcome=\(outcome, privacy: .private)
                 """
             )
         }
@@ -329,28 +329,33 @@ public final class ModalStore<M: Route> {
         }
     }
 
-    /// Presents a route and reports whether it became the active modal
-    /// immediately or was deferred behind an already-active one.
+    /// Presents a route and reports whether it became the active modal,
+    /// was deferred behind an already-active one, or was rewritten by
+    /// middleware into a non-presentation command.
     ///
-    /// The return value is `@discardableResult` — callers that ignore
-    /// queued vs shown semantics continue to compile unchanged. Callers
-    /// that branch on the outcome can pattern-match the
-    /// ``ModalPresentResult`` cases instead of inspecting
+    /// The returned identifier reflects the effective presentation after
+    /// middleware rewrites. Callers that branch on the outcome can pattern-
+    /// match ``ModalPresentResult`` instead of inspecting arbitrary
     /// ``ModalExecutionResult`` payloads.
     @discardableResult
     public func present(_ route: M, style: ModalPresentationStyle) -> ModalPresentResult<M> {
         let presentation = ModalPresentation(route: route, style: style)
         let result = execute(.present(presentation))
-        return Self.presentResult(from: result, requestedID: presentation.id)
+        return Self.presentResult(from: result)
     }
 
     private static func presentResult(
-        from result: ModalExecutionResult<M>,
-        requestedID: UUID
+        from result: ModalExecutionResult<M>
     ) -> ModalPresentResult<M> {
         switch result {
-        case .executed:
-            return .shownImmediately(id: requestedID)
+        case .executed(let command):
+            switch command {
+            case .present(let presentation),
+                 .replaceCurrent(let presentation):
+                return .shownImmediately(id: presentation.id)
+            case .dismissCurrent, .dismissAll:
+                return .rewrittenWithoutPresentation(command: command)
+            }
         case .queued(let queued):
             return .queuedBehind(id: queued.id)
         case .cancelled(let reason):

@@ -56,7 +56,7 @@ public struct ModalHost<M: Route, Destination: View, Content: View>: View {
                 }
 #endif
         }
-            .modalIntentDispatcher(modalStore.intentDispatcher)
+            .modalIntentDispatcher(modalStore.intentDispatcher, owner: modalStore)
             .environment(\.modalEnvironmentStorage, modalEnvironmentStorage)
     }
 }

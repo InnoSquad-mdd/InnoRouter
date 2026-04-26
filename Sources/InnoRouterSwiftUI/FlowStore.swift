@@ -46,10 +46,34 @@ public final class FlowStore<R: Route> {
     private var innerNavigationEventsTask: Task<Void, Never>?
     private var innerModalEventsTask: Task<Void, Never>?
     private var traceRecorder: InternalExecutionTraceRecorder?
+    /// Cached intent dispatcher that lives for the lifetime of this store.
+    /// Built on first access by ``intentDispatcher`` so SwiftUI hosts do
+    /// not allocate a fresh closure on every render.
+    @ObservationIgnored
+    private var cachedIntentDispatcher: AnyFlowIntentDispatcher<R>?
 
     // Bookkeeping toggled while FlowStore drives its own inner stores, so
     // observer callbacks can distinguish user / system-initiated changes.
     private var isApplyingInternalMutation: Bool = false
+
+    /// A type-erased dispatcher that forwards `FlowIntent` values to this
+    /// store's ``send(_:)`` entry point.
+    ///
+    /// Hosts publish this through the SwiftUI environment so descendants can
+    /// use ``EnvironmentFlowIntent`` to dispatch view-layer intents without
+    /// holding a direct store reference. The dispatcher is created on first
+    /// access and reused for the lifetime of the store, so a SwiftUI host
+    /// does not allocate a fresh closure on every render.
+    public var intentDispatcher: AnyFlowIntentDispatcher<R> {
+        if let cachedIntentDispatcher {
+            return cachedIntentDispatcher
+        }
+        let dispatcher = AnyFlowIntentDispatcher<R> { [weak self] intent in
+            self?.send(intent)
+        }
+        cachedIntentDispatcher = dispatcher
+        return dispatcher
+    }
 
     /// A multicast `AsyncStream` that emits every observation event the
     /// flow store and its inner navigation / modal stores produce —
@@ -121,7 +145,8 @@ public final class FlowStore<R: Route> {
             onBatchExecuted: configuration.navigation.onBatchExecuted,
             onTransactionExecuted: configuration.navigation.onTransactionExecuted,
             onMiddlewareMutation: configuration.navigation.onMiddlewareMutation,
-            onPathMismatch: configuration.navigation.onPathMismatch
+            onPathMismatch: configuration.navigation.onPathMismatch,
+            eventBufferingPolicy: configuration.navigation.eventBufferingPolicy
         )
 
         let modalConfig = ModalStoreConfiguration<R>(
@@ -131,7 +156,8 @@ public final class FlowStore<R: Route> {
             onDismissed: composedModalOnDismissed,
             onQueueChanged: configuration.modal.onQueueChanged,
             onMiddlewareMutation: configuration.modal.onMiddlewareMutation,
-            onCommandIntercepted: composedModalOnCommandIntercepted
+            onCommandIntercepted: composedModalOnCommandIntercepted,
+            eventBufferingPolicy: configuration.modal.eventBufferingPolicy
         )
 
         let (pushRoutes, modalTail) = Self.decompose(validatedInitial)
