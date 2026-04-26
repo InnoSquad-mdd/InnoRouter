@@ -302,7 +302,11 @@ public final class FlowStore<R: Route> {
         syncPathFromStores(from: plan.oldPath)
 
         if let rejectionReason = plan.rejectionReason {
-            emitIntentRejected(intent, reason: rejectionReason)
+            emitIntentRejected(
+                intent,
+                reason: rejectionReason,
+                applyQueueCoalescePolicy: plan.queueCoalescePolicyEligible
+            )
             return .rejected(currentPath: path)
         }
 
@@ -318,7 +322,8 @@ public final class FlowStore<R: Route> {
         if case .cancelled(let reason) = journal.result {
             return .rejected(
                 oldPath: path,
-                reason: .middlewareRejected(debugName: Self.debugName(from: reason))
+                reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
+                queueCoalescePolicyEligible: true
             )
         }
 
@@ -352,7 +357,8 @@ public final class FlowStore<R: Route> {
         if case .cancelled(let reason) = journal.result {
             return .rejected(
                 oldPath: path,
-                reason: .middlewareRejected(debugName: Self.debugName(from: reason))
+                reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
+                queueCoalescePolicyEligible: true
             )
         }
 
@@ -393,7 +399,8 @@ public final class FlowStore<R: Route> {
         if case .cancelled(let reason) = navJournal.result {
             return .rejected(
                 oldPath: path,
-                reason: .middlewareRejected(debugName: Self.debugName(from: reason))
+                reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
+                queueCoalescePolicyEligible: true
             )
         }
 
@@ -441,7 +448,8 @@ public final class FlowStore<R: Route> {
             if case .cancelled(let reason) = journal.result {
                 return .rejected(
                     oldPath: path,
-                    reason: .middlewareRejected(debugName: Self.debugName(from: reason))
+                    reason: .middlewareRejected(debugName: Self.debugName(from: reason)),
+                    queueCoalescePolicyEligible: true
                 )
             }
             return .commit(oldPath: path, navigationJournal: journal)
@@ -485,6 +493,7 @@ public final class FlowStore<R: Route> {
             return FlowMutationPlan(
                 oldPath: path,
                 rejectionReason: .pushBlockedByModalTail,
+                queueCoalescePolicyEligible: false,
                 navigationJournal: nil,
                 modalJournals: dismissPlan.modalJournals
             )
@@ -498,6 +507,7 @@ public final class FlowStore<R: Route> {
         return FlowMutationPlan(
             oldPath: path,
             rejectionReason: innerPlan.rejectionReason,
+            queueCoalescePolicyEligible: innerPlan.queueCoalescePolicyEligible,
             navigationJournal: innerPlan.navigationJournal,
             modalJournals: dismissPlan.modalJournals + innerPlan.modalJournals
         )
@@ -546,8 +556,14 @@ public final class FlowStore<R: Route> {
         broadcaster.broadcast(.pathChanged(old: oldPath, new: path))
     }
 
-    private func emitIntentRejected(_ intent: FlowIntent<R>, reason: FlowRejectionReason) {
-        applyQueueCoalescePolicyIfNeeded(intent: intent, reason: reason)
+    private func emitIntentRejected(
+        _ intent: FlowIntent<R>,
+        reason: FlowRejectionReason,
+        applyQueueCoalescePolicy: Bool
+    ) {
+        if applyQueueCoalescePolicy {
+            applyQueueCoalescePolicyIfNeeded(intent: intent, reason: reason)
+        }
         onIntentRejected?(intent, reason)
         broadcaster.broadcast(.intentRejected(intent, reason))
     }

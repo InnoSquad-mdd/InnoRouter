@@ -28,6 +28,7 @@ private struct CasePathEnumCase {
 /// produces a public CasePath table.
 private enum InferredAccessLevel: String {
     case `public`
+    case `package`
     case `internal`
     case `fileprivate`
     case `private`
@@ -35,6 +36,7 @@ private enum InferredAccessLevel: String {
     var keyword: String {
         switch self {
         case .public: return "public"
+        case .package: return "package"
         case .internal: return "internal"
         case .fileprivate: return "fileprivate"
         case .private: return "fileprivate"
@@ -49,6 +51,7 @@ private func inferAccessLevel(from enumDecl: EnumDeclSyntax) -> InferredAccessLe
     for modifier in enumDecl.modifiers {
         switch modifier.name.tokenKind {
         case .keyword(.public): return .public
+        case .keyword(.package): return .package
         case .keyword(.internal): return .internal
         case .keyword(.fileprivate): return .fileprivate
         case .keyword(.private): return .private

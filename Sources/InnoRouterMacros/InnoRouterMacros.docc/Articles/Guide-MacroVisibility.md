@@ -20,6 +20,7 @@ enclosing enum:
 | Enum modifier | Generated members |
 |---|---|
 | `public enum Foo` | `public` |
+| `package enum Foo` | `package` |
 | `internal enum Foo` (or no modifier) | `internal` |
 | `fileprivate enum Foo` | `fileprivate` |
 | `private enum Foo` | `fileprivate` (lowest level the macro can emit while still letting same-file `is(_:)` and `subscript(case:)` callers reach the cases) |

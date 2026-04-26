@@ -145,4 +145,63 @@ struct QueueCoalescePolicyTests {
         #expect(store.modalStore.currentPresentation?.route == .sheetA)
         #expect(store.modalStore.queuedPresentations.map(\.route) == [.sheetB])
     }
+
+    @Test(".dropQueued does not engage on modal present middleware rejections")
+    func dropQueuedPolicy_skipsModalPresentMiddlewareRejections() {
+        let cancelSheetB = AnyModalMiddleware<QueueRoute>(
+            willExecute: { command, _, _ in
+                if case .present(let presentation) = command,
+                    presentation.route == .sheetB {
+                    return .cancel(.middleware(debugName: "modal-cancel", command: command))
+                }
+                return .proceed(command)
+            }
+        )
+        let store = FlowStore<QueueRoute>(
+            configuration: FlowStoreConfiguration(
+                modal: ModalStoreConfiguration(
+                    middlewares: [.init(middleware: cancelSheetB, debugName: "modal-cancel")]
+                ),
+                queueCoalescePolicy: .dropQueued
+            )
+        )
+
+        store.send(.presentSheet(.sheetA))
+        store.send(.presentSheet(.sheetB))
+
+        #expect(store.modalStore.currentPresentation?.route == .sheetA)
+        #expect(store.modalStore.queuedPresentations.isEmpty)
+    }
+
+    @Test(".custom does not engage on modal middleware rejections")
+    func customPolicy_skipsModalMiddlewareRejections() {
+        let invoked = Mutex<Int>(0)
+        let cancelDismissAll = AnyModalMiddleware<QueueRoute>(
+            willExecute: { command, _, _ in
+                if case .dismissAll = command {
+                    return .cancel(.middleware(debugName: "modal-cancel", command: command))
+                }
+                return .proceed(command)
+            }
+        )
+        let store = FlowStore<QueueRoute>(
+            configuration: FlowStoreConfiguration(
+                modal: ModalStoreConfiguration(
+                    middlewares: [.init(middleware: cancelDismissAll, debugName: "modal-cancel")]
+                ),
+                queueCoalescePolicy: .custom { _, _ in
+                    invoked.withLock { $0 += 1 }
+                    return .dropQueued
+                }
+            )
+        )
+
+        store.send(.presentSheet(.sheetA))
+        store.send(.presentSheet(.sheetB))
+        store.send(.replaceStack([.home]))
+
+        #expect(invoked.withLock { $0 } == 0)
+        #expect(store.modalStore.currentPresentation?.route == .sheetA)
+        #expect(store.modalStore.queuedPresentations.map(\.route) == [.sheetB])
+    }
 }

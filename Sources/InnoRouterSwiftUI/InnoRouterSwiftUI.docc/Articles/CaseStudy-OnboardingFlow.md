@@ -52,20 +52,29 @@ enum OnboardingRoute: Route, Codable {
     case permissionPrimer(Permission)
     case homeLocation
     case workLocation
-    case welcomeHome
-}
-
-enum OnboardingModalRoute: Route, Codable {
     case smsVerification(phoneNumber: String)
     case subscription(plan: SubscriptionPlan)
+    case welcomeHome
 }
 ```
 
-Two route types: one for the navigation prefix, one for the
-modal tail. `FlowStore` exposes `path: [RouteStep<R>]` over the
-union — push steps drive the navigation stack, modal steps
-drive the sheet. With both routes Codable, the entire flow
-state is serializable to a `FlowPlan`.
+One route type covers both push destinations and modal-only
+destinations. `FlowStore<OnboardingRoute>` exposes `path:
+[RouteStep<OnboardingRoute>]`: `.push(...)` steps drive the
+navigation stack, while `.sheet(...)` and `.cover(...)` steps
+drive modal presentation. Because the single route type is
+`Codable`, the entire flow state is serializable to a
+`FlowPlan`.
+
+```swift
+store.send(.presentSheet(.smsVerification(phoneNumber: phoneNumber)))
+
+let rehydrationPlan: FlowPlan<OnboardingRoute> = .init(steps: [
+    .push(.launch),
+    .push(.welcome),
+    .sheet(.subscription(plan: subscriptionPlan)),
+])
+```
 
 ## The driver
 
@@ -139,21 +148,21 @@ state mutates, the analytics event always carries the intended
 target route, not the post-cancellation snapshot.
 
 `EntitlementGate` reads `auth.isEligible(for: route)` for each
-push. If the user is not yet eligible (e.g. region not
-selected before the subscription pitch), the middleware
-cancels with a typed reason; the flow falls back to
-`.dropQueued` policy, dismissing any speculative modal that
-was queued behind the rejected push. `onIntentRejected` records
-a structured `.middlewareRejected(debugName: "entitlement")`
-event so the analytics layer can correlate with the same span
-ID.
+navigation prefix. If the user is not yet eligible for a
+branch, navigation middleware cancels the `.replaceStack` /
+`.reset` command with a typed reason; the flow falls back to
+`.dropQueued` policy, dismissing any speculative modal state
+that was queued behind the rejected navigation rewrite.
+`onIntentRejected` records a structured
+`.middlewareRejected(debugName: "entitlement")` event so the
+analytics layer can correlate with the same span ID.
 
 ## What `FlowPlan` earns
 
 A deep link `inno://onboarding/profile` deserializes into:
 
 ```swift
-let plan = FlowPlan(
+let plan: FlowPlan<OnboardingRoute> = .init(
     steps: [
         .push(.launch),
         .push(.welcome),
@@ -169,11 +178,11 @@ preview rejects. The user never sees a half-applied flow even
 if the entitlement gate decides one of the intermediate steps
 is currently unreachable.
 
-Because both route types are `Codable`, the same `FlowPlan` can
-be persisted to `UserDefaults` on `scenePhase: .background` and
-restored on the next cold launch via
-`FlowPlan(validating:)` — the validating constructor
-rejects invariant violations (e.g. two modal steps) before the
+Because `OnboardingRoute` is `Codable`, the same `FlowPlan` can
+be persisted to `UserDefaults` on `scenePhase: .background`
+and restored on the next cold launch via
+`FlowPlan(validating:)` — the validating constructor rejects
+invariant violations (e.g. two modal steps) before the
 authority sees them.
 
 ## What `InnoRouterTesting` earns
