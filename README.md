@@ -1071,6 +1071,13 @@ possible. Adopter signal helps prospective users gauge maturity.
 
 - _Your project here._
 
+The
+[`Examples/SampleAppExample.swift`](Examples/SampleAppExample.swift)
+file shows the full headline feature surface — deep-link pipeline
+with auth gating, FlowStore push+modal projection, and
+DebouncingNavigator search debouncing — composed into one
+self-contained authority class.
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branching, commit

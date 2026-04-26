@@ -30,6 +30,7 @@ private let exampleSources: [String] = [
     "AppShellExample.swift",
     "MultiPlatformExample.swift",
     "VisionOSImmersiveExample.swift",
+    "SampleAppExample.swift",
 ]
 
 /// Smoke files that live in their own per-file targets because
@@ -52,6 +53,7 @@ private let smokeSources: [String] = [
     "MacrosSmoke.swift",
     "ModalSmoke.swift",
     "MultiPlatformSmoke.swift",
+    "SampleAppSmoke.swift",
     "SplitCoordinatorSmoke.swift",
     "StandaloneSmoke.swift",
     "VisionOSImmersiveSmoke.swift",
@@ -261,6 +263,7 @@ let package = Package(
         exampleTarget(name: "InnoRouterAppShellExample",         source: "AppShellExample.swift"),
         exampleTarget(name: "InnoRouterMultiPlatformExample",    source: "MultiPlatformExample.swift"),
         exampleTarget(name: "InnoRouterVisionOSImmersiveExample", source: "VisionOSImmersiveExample.swift"),
+        exampleTarget(name: "InnoRouterSampleAppExample",        source: "SampleAppExample.swift"),
 
         // MARK: - Example Smoke Targets
         //
