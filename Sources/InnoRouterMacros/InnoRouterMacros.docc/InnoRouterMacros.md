@@ -55,3 +55,7 @@ route) doesn't need `import InnoRouterMacros` at all.
 ### Essentials
 
 - <doc:Routable-and-CasePathable>
+
+### Guides
+
+- <doc:Guide-MacroVisibility>
