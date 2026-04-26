@@ -6,13 +6,14 @@
 
 // MARK: - @Routable
 
-/// Route enum에 CasePath 지원과 프로토콜 conformance를 자동 생성합니다.
+/// Synthesises `CasePath` members and the `Route` protocol conformance
+/// on the attached enum.
 ///
-/// ## 생성되는 것들
-/// - `Cases` enum: 각 case에 대한 CasePath
-/// - `is(_:)` 메서드: case 체크
-/// - `subscript[case:]`: case의 associated value 추출
-/// - `Route` conformance (`Hashable`/`Sendable` 포함)
+/// ## What gets generated
+/// - a nested `Cases` enum carrying a `CasePath` for every case
+/// - an `is(_:)` method for case-membership checks
+/// - a `subscript(case:)` for typed associated-value extraction
+/// - `Route` conformance (which already requires `Hashable & Sendable`)
 ///
 /// ## Example
 /// ```swift
@@ -38,9 +39,10 @@ public macro Routable() = #externalMacro(
 
 // MARK: - @CasePathable
 
-/// Enum에 CasePath 지원을 추가합니다. @Routable의 경량 버전입니다.
-///
-/// Route 프로토콜 없이 일반 enum에도 사용 가능합니다.
+/// Adds `CasePath` accessors to a regular enum without imposing the
+/// `Route` conformance. `@CasePathable` is the lightweight counterpart
+/// of `@Routable` — reach for it when a type's cases need typed access
+/// but the type itself is not a router-owned route.
 ///
 /// ## Example
 /// ```swift

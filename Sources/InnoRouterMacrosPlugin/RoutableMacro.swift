@@ -9,10 +9,12 @@ import SwiftDiagnostics
 
 // MARK: - Routable Macro
 
-/// `@Routable` 매크로는 Route enum에 다음을 자동 생성합니다:
-/// - `Cases` enum: 각 case에 대한 CasePath
-/// - `allCases` static property (associated value 없는 경우만)
-/// - `description` computed property
+/// `@Routable` is the recommended macro for declaring a `Route` enum.
+/// Attaching it to an enum synthesises:
+/// - a nested `Cases` enum carrying a `CasePath` for every case
+/// - the `Route` protocol conformance, so the type plugs into stores,
+///   middleware, and deep-link planners without further boilerplate
+/// - case-membership helpers (`is(_:)`, `subscript(case:)`)
 ///
 /// ## Example
 /// ```swift

@@ -49,17 +49,25 @@ import Foundation
 /// across actors.
 public struct CasePath<Root, Value>: Sendable {
     
-    /// Associated value를 enum case로 변환합니다.
+    /// Wraps an associated-value payload into the matching enum case.
     public let embed: @Sendable (Value) -> Root
-    
-    /// Enum에서 associated value를 추출합니다.
+
+    /// Extracts the associated-value payload from a matching enum case,
+    /// returning `nil` when the root value is in a different case.
     public let extract: @Sendable (Root) -> Value?
-    
-    /// CasePath를 생성합니다.
+
+    /// Creates a `CasePath` from a hand-written embed/extract pair.
+    ///
+    /// Most call sites should not need this initialiser — `@Routable`
+    /// and `@CasePathable` generate the correct pair automatically. Use
+    /// it only when wrapping an enum whose declaration cannot be macro-
+    /// annotated (for example, a type vended from a binary framework).
     ///
     /// - Parameters:
-    ///   - embed: Value를 Root enum case로 변환하는 클로저
-    ///   - extract: Root에서 Value를 추출하는 클로저
+    ///   - embed: Closure that lifts a `Value` payload into the
+    ///     corresponding `Root` enum case.
+    ///   - extract: Closure that returns the case payload, or `nil`
+    ///     when `Root` is in a different case.
     public init(
         embed: @escaping @Sendable (Value) -> Root,
         extract: @escaping @Sendable (Root) -> Value?
@@ -72,14 +80,16 @@ public struct CasePath<Root, Value>: Sendable {
 // MARK: - Convenience Extensions
 
 public extension CasePath where Value == Void {
-    /// Void associated value를 위한 간편 embed
+    /// Embed shorthand for cases without an associated value.
     func callAsFunction() -> Root {
         embed(())
     }
 }
 
 public extension CasePath {
-    /// CasePath 체이닝을 위한 appending
+    /// Chains two case paths so callers can drill into nested cases
+    /// (`Settings → Privacy → DataExport`) without re-extracting at
+    /// every level.
     ///
     /// ```swift
     /// let path = Route.Cases.settings.appending(path: Settings.Cases.privacy)

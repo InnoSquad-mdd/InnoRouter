@@ -87,6 +87,17 @@ swift build --target InnoRouterVisionOSImmersiveExample
 echo "[principle-gates] Running performance smoke"
 ./scripts/performance-smoke.sh
 
+echo "[principle-gates] Checking non-ASCII letters in source comments (Hangul, etc.)"
+# Public-facing comments and docstrings must be English so the
+# library is usable outside the original team's locale. Test
+# fixtures still legitimately exercise non-ASCII payloads (see
+# `DeepLinkPercentEncodingTests`); restrict the check to Sources/
+# and the user-facing example trees.
+if rg -nP '[\p{Hangul}]' Sources Examples ExamplesSmoke; then
+  echo "[principle-gates] Failed: non-ASCII (Hangul) characters found in source comments"
+  exit 1
+fi
+
 echo "[principle-gates] Checking Nav* public symbols"
 if rg -n "public .*\\bNav[A-Z]" Sources; then
   echo "[principle-gates] Failed: legacy Nav* public symbols found"

@@ -7,7 +7,10 @@ import Foundation
 @_exported import InnoRouterDeepLink
 @_exported import InnoRouterNavigationEffects
 
-/// InnoFlow Effect에서 DeepLink를 처리하는 핸들러입니다.
+/// App-boundary helper that runs a `DeepLinkPipeline` against an
+/// incoming URL and dispatches the resulting `NavigationPlan` through
+/// a `NavigationEffectHandler`, while caching `pending(...)` outcomes
+/// so a deferred deep link can be replayed after authentication.
 @MainActor
 public final class DeepLinkEffectHandler<R: Route> {
     public enum Result: Sendable, Equatable {

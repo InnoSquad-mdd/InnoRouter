@@ -5,7 +5,10 @@
 import Foundation
 @_exported import InnoRouterCore
 
-/// InnoFlow feature가 app/coordinator boundary에서 navigation intent를 실행하도록 돕는 핸들러입니다.
+/// App-boundary helper that executes navigation intents emitted from
+/// non-SwiftUI features (InnoFlow effects, coordinator-owned async
+/// pipelines) against a navigator while keeping the call sites on the
+/// main actor.
 @MainActor
 public final class NavigationEffectHandler<R: Route> {
     private let executeCommand: @MainActor (NavigationCommand<R>) -> NavigationResult<R>
@@ -13,10 +16,12 @@ public final class NavigationEffectHandler<R: Route> {
     private let executeTransactionCommands: @MainActor ([NavigationCommand<R>]) -> NavigationTransactionResult<R>
     private let readState: @MainActor () -> RouteStack<R>
 
-    /// 마지막 실행 결과
+    /// Result of the most recent single-command execution, or `nil`
+    /// when the last call was a batch / transaction.
     public private(set) var lastResult: NavigationResult<R>?
 
-    /// 마지막 batch 실행 결과
+    /// Result of the most recent batch execution, or `nil` when the
+    /// last call was a single command or transaction.
     public private(set) var lastBatchResult: NavigationBatchResult<R>?
 
     public init<N: Navigator & NavigationBatchExecutor & NavigationTransactionExecutor>(
