@@ -39,14 +39,19 @@ if not failed:
 
 print(f"[performance-smoke] Failed: {len(failed)} sample(s) regressed past their threshold")
 for sample in failed:
+    cap = sample.get("largeMaxMilliseconds")
+    cap_text = (
+        f" / cap {cap:.2f}ms" if isinstance(cap, (int, float)) else ""
+    )
     print(
         "  - {name}: ratio {ratio:.2f} > threshold {threshold:.2f} "
-        "(small {smallMs:.2f}ms / large {largeMs:.2f}ms)".format(
+        "(small {smallMs:.2f}ms / large {largeMs:.2f}ms{cap})".format(
             name=sample.get("name", "<unknown>"),
             ratio=sample.get("ratio", float("nan")),
             threshold=sample.get("threshold", float("nan")),
             smallMs=sample.get("smallMilliseconds", float("nan")),
             largeMs=sample.get("largeMilliseconds", float("nan")),
+            cap=cap_text,
         )
     )
 sys.exit(1)

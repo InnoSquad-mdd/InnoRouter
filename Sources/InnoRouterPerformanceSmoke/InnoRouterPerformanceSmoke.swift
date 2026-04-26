@@ -14,6 +14,14 @@ private struct SmokeSample: Codable {
     let largeMilliseconds: Double
     let ratio: Double
     let threshold: Double
+    /// Generous wall-clock cap on the large-input run, in
+    /// milliseconds. Catches catastrophic absolute-time
+    /// regressions that the relative `ratio <= threshold` check
+    /// misses when both small and large slow down proportionally
+    /// (for example, an unrelated CI runner saturation event).
+    /// `nil` opts out of the absolute check for samples whose
+    /// timing varies too widely across host machines.
+    let largeMaxMilliseconds: Double?
     let passed: Bool
 }
 
@@ -170,6 +178,7 @@ private func makeSample(
     smallInput: Int,
     largeInput: Int,
     threshold: Double,
+    largeMaxMilliseconds: Double? = nil,
     measure: (Int) -> Double
 ) -> SmokeSample {
     let small = averagedMeasurement(
@@ -182,6 +191,12 @@ private func makeSample(
         measure: measure
     ) ?? 0
     let ratio = small > 0 ? large / small : .infinity
+    let absolutePassed: Bool
+    if let cap = largeMaxMilliseconds {
+        absolutePassed = large <= cap
+    } else {
+        absolutePassed = true
+    }
     return SmokeSample(
         name: name,
         smallInput: smallInput,
@@ -190,7 +205,8 @@ private func makeSample(
         largeMilliseconds: large,
         ratio: ratio,
         threshold: threshold,
-        passed: small > 0 && ratio <= threshold
+        largeMaxMilliseconds: largeMaxMilliseconds,
+        passed: small > 0 && ratio <= threshold && absolutePassed
     )
 }
 
@@ -248,6 +264,7 @@ enum InnoRouterPerformanceSmokeMain {
                 smallInput: 120,
                 largeInput: 240,
                 threshold: 3.6,
+                largeMaxMilliseconds: 200,
                 measure: measureNavigationReplace
             ),
             makeSample(
@@ -255,6 +272,7 @@ enum InnoRouterPerformanceSmokeMain {
                 smallInput: 60,
                 largeInput: 120,
                 threshold: 3.8,
+                largeMaxMilliseconds: 150,
                 measure: measureModalQueue
             ),
             makeSample(
@@ -262,6 +280,7 @@ enum InnoRouterPerformanceSmokeMain {
                 smallInput: 4,
                 largeInput: 8,
                 threshold: 2.6,
+                largeMaxMilliseconds: 50,
                 measure: measureMiddlewareChain
             ),
             makeSample(
@@ -269,6 +288,7 @@ enum InnoRouterPerformanceSmokeMain {
                 smallInput: 50,
                 largeInput: 100,
                 threshold: 3.8,
+                largeMaxMilliseconds: 100,
                 measure: measureDeepLinkPipeline
             ),
         ]
