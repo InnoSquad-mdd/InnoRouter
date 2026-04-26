@@ -1,5 +1,5 @@
 // MARK: - TvOSFocusNavigationTests.swift
-// InnoRouterTests - tvOS-focused navigation regression coverage
+// InnoRouterPlatformTests - tvOS-focused navigation regression coverage
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
 // tvOS uses a focus engine instead of a touch event stream, so a
@@ -86,14 +86,15 @@ struct TvOSFocusNavigationTests {
         #expect(store.state.path.isEmpty)
     }
 
-    @Test("popCount past the stack depth is clamped, not over-popped")
-    func popCount_pastDepth_isClamped() {
+    @Test("popCount past the stack depth preserves state and reports insufficient depth")
+    func popCount_pastDepth_preservesState() {
         let store = NavigationStore<FocusRoute>()
         _ = store.execute(.replace([.grid, .detail(1)]))
 
-        _ = store.execute(.popCount(99))
+        let result = store.execute(.popCount(99))
 
-        #expect(store.state.path.isEmpty)
+        #expect(result == .insufficientStackDepth(requested: 99, available: 2))
+        #expect(store.state.path == [.grid, .detail(1)])
     }
 }
 

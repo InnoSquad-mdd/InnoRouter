@@ -1,5 +1,5 @@
 // MARK: - WatchOSCrownNavigationTests.swift
-// InnoRouterTests - watchOS Digital Crown navigation regression coverage
+// InnoRouterPlatformTests - watchOS Digital Crown navigation regression coverage
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
 // On watchOS the Digital Crown drives both list scrolling and
@@ -7,7 +7,7 @@
 // each crown-driven push is just a `.push`, but the input cadence is
 // noticeably finer than touch-driven navigation, so the regression
 // vector is "rapid sequence stays consistent" plus "crown-driven
-// over-scroll requests don't push past the stack depth via .pop".
+// over-scroll requests leave root state unchanged via .pop".
 // The focus engine and crown gestures themselves are system-owned;
 // these tests pin the underlying NavigationStore semantics.
 
@@ -55,16 +55,20 @@ struct WatchOSCrownNavigationTests {
         }
     }
 
-    @Test("crown over-scroll past root is a clamped no-op, not a negative depth")
-    func overscrollPastRoot_isClampedNoop() {
+    @Test("crown over-scroll past root reports emptyStack and keeps path empty")
+    func overscrollPastRoot_reportsEmptyStack() {
         let store = NavigationStore<CrownRoute>()
         _ = store.execute(.push(.workouts))
 
-        for _ in 0..<5 {
-            _ = store.execute(.pop)
-        }
-
+        let firstPop = store.execute(.pop)
+        #expect(firstPop == .success)
         #expect(store.state.path.isEmpty)
+
+        for _ in 0..<4 {
+            let result = store.execute(.pop)
+            #expect(result == .emptyStack)
+            #expect(store.state.path.isEmpty)
+        }
     }
 }
 

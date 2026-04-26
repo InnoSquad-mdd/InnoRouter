@@ -320,6 +320,11 @@ let package = Package(
             dependencies: ["InnoRouter", "InnoRouterEffects", "InnoRouterSwiftUI"],
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
+        .testTarget(
+            name: "InnoRouterPlatformTests",
+            dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
+            swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
+        ),
         // InnoRouterMacrosPlugin is a CompilerPlugin built host-only
         // (macOS). Restricting this test target's dependencies to macOS
         // stops Xcode from pulling the macOS-built plugin .o into a
