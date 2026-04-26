@@ -348,13 +348,14 @@ public final class ModalStore<M: Route> {
         from result: ModalExecutionResult<M>
     ) -> ModalPresentResult<M> {
         switch result {
-        case .executed(.present(let presentation)),
-             .executed(.replaceCurrent(let presentation)):
-            return .shownImmediately(id: presentation.id)
-        case .executed(.dismissCurrent(let reason)):
-            return .rewrittenWithoutPresentation(command: .dismissCurrent(reason: reason))
-        case .executed(.dismissAll):
-            return .rewrittenWithoutPresentation(command: .dismissAll)
+        case .executed(let command):
+            switch command {
+            case .present(let presentation),
+                 .replaceCurrent(let presentation):
+                return .shownImmediately(id: presentation.id)
+            case .dismissCurrent, .dismissAll:
+                return .rewrittenWithoutPresentation(command: command)
+            }
         case .queued(let queued):
             return .queuedBehind(id: queued.id)
         case .cancelled(let reason):

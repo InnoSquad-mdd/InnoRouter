@@ -14,7 +14,6 @@ import OSLog
 // case: a different owner writing to the same `(R.Type)` slot in the
 // same storage instance.
 
-@MainActor
 let duplicateDispatcherLogger = Logger(
     subsystem: "io.innosquad.innorouter",
     category: "duplicate-dispatcher"

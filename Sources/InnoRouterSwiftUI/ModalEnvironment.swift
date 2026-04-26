@@ -9,6 +9,14 @@ final class ModalEnvironmentStorage {
 
     init() {}
 
+    /// Manual dispatcher access for tests and low-level integration paths.
+    ///
+    /// The setter treats the dispatcher instance itself as the owner fallback,
+    /// so replacing it with a different dispatcher in the same storage is a
+    /// duplicate registration. Production host wiring should prefer
+    /// `modalIntentDispatcher(_:owner:)` through `ModalHost`, or call
+    /// `setIntentDispatcher(_:ownerID:routeType:)` with a stable owner when a
+    /// refresh can allocate a new dispatcher wrapper.
     subscript<M: Route>(routeType: M.Type) -> AnyModalIntentDispatcher<M>? {
         get {
             let registration = intentDispatchers[ObjectIdentifier(routeType)]
@@ -24,6 +32,12 @@ final class ModalEnvironmentStorage {
         }
     }
 
+    /// Registers a dispatcher with an explicit routing authority.
+    ///
+    /// Use this path when the same `ModalStore` owner can re-register with a
+    /// fresh dispatcher wrapper across SwiftUI updates. Passing a stable
+    /// `ownerID` lets duplicate detection distinguish a benign refresh from a
+    /// sibling host overwrite.
     func setIntentDispatcher<M: Route>(
         _ dispatcher: AnyModalIntentDispatcher<M>?,
         ownerID: ObjectIdentifier?,

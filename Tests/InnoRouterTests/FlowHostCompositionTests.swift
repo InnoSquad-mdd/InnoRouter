@@ -28,13 +28,14 @@ struct FlowHostCompositionTests {
         _ = host.body
     }
 
-    @Test("FlowHost-style dispatcher forwards flow intents to store")
+    @Test("FlowStore intentDispatcher is cached and forwards flow intents")
     @MainActor
-    func flowDispatcherForwardsIntents() {
+    func flowStoreIntentDispatcherIsCachedAndForwardsIntents() {
         let store = FlowStore<FlowHostRoute>()
-        let dispatcher = AnyFlowIntentDispatcher<FlowHostRoute> { intent in
-            store.send(intent)
-        }
+        let dispatcher = store.intentDispatcher
+        let secondRead = store.intentDispatcher
+
+        #expect(dispatcher === secondRead)
 
         dispatcher.send(.push(.landing))
         dispatcher.send(.push(.child))

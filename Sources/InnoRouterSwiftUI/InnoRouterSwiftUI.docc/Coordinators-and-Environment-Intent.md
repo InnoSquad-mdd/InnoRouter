@@ -47,6 +47,12 @@ If two surfaces legitimately need different routing authorities,
 either give them distinct `Route` types or scope them with separate
 environment subtrees so each host gets its own storage.
 
+Low-level tests or custom integrations that write directly into an
+environment storage should either assign a dispatcher once per storage
+instance, or call the explicit owner registration helper with a stable
+store / coordinator identity. The host modifiers do this for normal
+`NavigationHost`, `ModalHost`, and `FlowHost` usage.
+
 ## Flow and tab coordinators
 
 `FlowCoordinator` and `TabCoordinator` complement `NavigationStore`; they do not replace it.

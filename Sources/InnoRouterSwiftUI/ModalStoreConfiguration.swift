@@ -63,9 +63,11 @@ public enum ModalExecutionResult<M: Route>: Sendable, Equatable {
 /// The result is `@discardableResult`, so call sites that do not care
 /// about the queued/shown distinction continue to compile unchanged.
 public enum ModalPresentResult<M: Route>: Sendable, Equatable {
-    /// No presentation was active and the request became the current
-    /// presentation. The associated `id` is the presentation's stable
-    /// identifier — useful for later `dismiss`/`replace` correlation.
+    /// The request produced the current presentation immediately.
+    /// This covers both the no-active-presentation path and middleware
+    /// rewrites that execute `.replaceCurrent`; `ModalStore.presentResult(from:)`
+    /// maps both to `ModalPresentResult.shownImmediately`. The associated `id`
+    /// is the effective current presentation's stable identifier.
     case shownImmediately(id: UUID)
     /// Another presentation was already active, so the request was
     /// appended to the queue. The presentation will surface once

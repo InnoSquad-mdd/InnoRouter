@@ -93,6 +93,9 @@ hatches, test coverage, DX guides, and CI parallelisation.
   distinguishes middleware rewrites that execute a non-presentation
   command (such as `.dismissCurrent` or `.dismissAll`) from a true
   store `.noop`, preserving `.noop` as "no state changed".
+- `FlowStore.intentDispatcher` matches the cached dispatcher surface
+  on `NavigationStore` and `ModalStore`, so `FlowHost` no longer
+  allocates a fresh `AnyFlowIntentDispatcher` on every body evaluation.
 - `Tests/InnoRouterTests/FlowPlanValidationTests.swift` covers
   the validating initializer, the static validator, and Codable
   decode rejections (multi-modal payloads, modal-not-at-tail
@@ -144,7 +147,8 @@ hatches, test coverage, DX guides, and CI parallelisation.
   `duplicate-dispatcher` category in Release. The
   "Coordinators and environment intent" article documents the
   rule and the workaround (distinct route types or scoped
-  environment subtrees).
+  environment subtrees). Direct storage writes should be single
+  registrations, or use the explicit owner registration helper.
 
 ### Fixed
 
