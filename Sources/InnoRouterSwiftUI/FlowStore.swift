@@ -578,88 +578,9 @@ public final class FlowStore<R: Route> {
         return .commit(journals)
     }
 
-    private static func validatedInitial(_ steps: [RouteStep<R>]) -> [RouteStep<R>] {
-        isValidPath(steps) ? steps : []
-    }
-
-    private static func isValidPath(_ steps: [RouteStep<R>]) -> Bool {
-        let modalIndices = steps.enumerated().filter { $0.element.isModal }.map(\.offset)
-        if modalIndices.isEmpty { return true }
-        if modalIndices.count > 1 { return false }
-        return modalIndices.first == steps.count - 1
-    }
-
-    private static func decompose(
-        _ steps: [RouteStep<R>]
-    ) -> (pushRoutes: [R], modalTail: RouteStep<R>?) {
-        guard let last = steps.last, last.isModal else {
-            return (steps.map(\.route), nil)
-        }
-        return (steps.dropLast().map(\.route), last)
-    }
-
-    private static func presentation(for step: RouteStep<R>) -> ModalPresentation<R> {
-        guard let style = step.modalStyle else {
-            preconditionFailure("Cannot build ModalPresentation from non-modal step \(step)")
-        }
-        return ModalPresentation(route: step.route, style: style)
-    }
-
-    private static func matchesPresentationSemantics(
-        _ lhs: ModalPresentation<R>?,
-        _ rhs: ModalPresentation<R>?
-    ) -> Bool {
-        switch (lhs, rhs) {
-        case (nil, nil):
-            return true
-        case (.some(let lhs), .some(let rhs)):
-            return lhs.route == rhs.route && lhs.style == rhs.style
-        default:
-            return false
-        }
-    }
-
-    nonisolated private static func step(for presentation: ModalPresentation<R>) -> RouteStep<R> {
-        switch presentation.style {
-        case .sheet:
-            return .sheet(presentation.route)
-        case .fullScreenCover:
-            return .cover(presentation.route)
-        }
-    }
-
-    private static func debugName(from reason: NavigationCancellationReason<R>) -> String? {
-        switch reason {
-        case .middleware(let debugName, _): return debugName
-        case .conditionFailed: return nil
-        case .custom: return nil
-        case .staleAfterPrepare: return nil
-        }
-    }
-
-    private static func debugName(from reason: ModalCancellationReason<R>) -> String? {
-        switch reason {
-        case .middleware(let debugName, _): return debugName
-        case .conditionFailed: return nil
-        case .custom: return nil
-        }
-    }
-
-    private static func debugName(from result: NavigationResult<R>) -> String? {
-        guard case .cancelled(let reason) = result else { return nil }
-        return debugName(from: reason)
-    }
-
-    private static func traceOutcome(
-        for result: FlowPlanApplyResult<R>
-    ) -> String {
-        switch result {
-        case .applied:
-            return "applied"
-        case .rejected:
-            return "rejected"
-        }
-    }
+    // Path validation, decomposition, and trace helpers live in
+    // `FlowStore+PathHelpers.swift` so this file stays focused on
+    // the `Observable` projection + intent dispatch surface.
 
     private struct FlowProjection {
         let pushRoutes: [R]
