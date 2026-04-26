@@ -1047,6 +1047,24 @@ empty. **3.0.0 release candidate.** See
       needs Clock injection + deferred Task infrastructure
       outside the synchronous engine contract.
 
+## Adopters
+
+InnoRouter is at the start of its public adoption curve. If you
+ship InnoRouter in production, please open a PR that appends your
+project to the list below — a generic descriptor
+(`a finance app at $company`) is fine if a public name is not yet
+possible. Adopter signal helps prospective users gauge maturity.
+
+- _Your project here._
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branching, commit
+conventions, public-API change rules, and macro test requirements.
+Security findings follow the private process in
+[`SECURITY.md`](SECURITY.md). Participation is expected to follow
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+
 ## License
 
 MIT
