@@ -23,13 +23,21 @@ Release-candidate and beta channels use the
 - `3.1.0-rc.1` (release candidate)
 - `3.2.0-beta.2` (beta)
 
-Pre-release tags do **not** match the GA regex above. They run on
-the same `release.yml` workflow only when the workflow is dispatched
-manually with the `prerelease=true` input — they never trigger on
-`push` of the tag itself. A pre-release tag publishes a GitHub
-Release marked as pre-release and a DocC subtree under
-`/InnoRouter/<tag>/`, but does **not** update `/latest/`. Only a
-bare-semver GA tag advances `/latest/`.
+Pre-release tags do **not** match the GA regex above. Publish them
+from the same `release.yml` workflow by first creating and pushing
+the tag, then manually dispatching the workflow with
+`tag=<pre-release-tag>` and `prerelease=true`:
+
+```bash
+git tag 3.1.0-rc.1
+git push origin 3.1.0-rc.1
+```
+
+A pre-release tag push may start the workflow because the tag glob is
+broad, but validation rejects it before publishing. The manual
+pre-release path publishes a GitHub Release marked as pre-release and
+a DocC subtree under `/InnoRouter/<tag>/`, but does **not** update
+`/latest/`. Only a bare-semver GA tag advances `/latest/`.
 
 ## SemVer commitment
 
@@ -104,11 +112,14 @@ Run these before tagging:
 ```bash
 swift test
 ./scripts/principle-gates.sh
+./scripts/principle-gates.sh --platforms=all
 ./scripts/build-docc-site.sh --version preview
 ```
 
 If you regenerate `Baselines/PublicAPI`, do it with the same Swift 6.2 toolchain
 used in CI. The symbol-graph baseline gate is intentionally toolchain-sensitive.
+If local platform coverage is not available, confirm the GitHub
+`platforms` workflow is green for the release commit before tagging.
 
 ## CI and CD responsibilities
 
@@ -129,11 +140,13 @@ used in CI. The symbol-graph baseline gate is intentionally toolchain-sensitive.
 
 `release.yml`
 
-- runs on semver tag pushes
+- runs on bare-semver tag pushes for GA releases
+- supports manual `workflow_dispatch` with `tag` and `prerelease=true`
+  for `rc` / `beta` pre-releases
 - rebuilds and revalidates the package
 - builds versioned DocC output
 - merges new docs with existing released docs
-- updates `/latest/`
+- updates `/latest/` only for GA releases
 - deploys GitHub Pages
 - publishes a GitHub Release named `InnoRouter <version>`
 
@@ -155,6 +168,8 @@ Migration guides are intentionally not part of this release process.
 - `Examples/` still match current human-facing API usage.
 - `ExamplesSmoke/` still compile and cover the same surface.
 - All `.docc` catalogs build locally.
+- GitHub `platforms` workflow is green for the release commit, or
+  local `./scripts/principle-gates.sh --platforms=all` has passed.
 - `NavigationStore`, `ModalStore`, deep-link, effect, and macro docs reflect current symbols.
 - Release notes links point to the current README, RELEASING guide, and DocC portal.
 - `xcode-version` in `principle-gates.yml` and `platforms.yml` is

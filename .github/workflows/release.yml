@@ -4,9 +4,20 @@ on:
   push:
     tags:
       - "*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, for example 3.1.0-rc.1"
+        required: true
+        type: string
+      prerelease:
+        description: "Publish as a GitHub pre-release without updating /latest/"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -17,12 +28,15 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      update_latest: ${{ steps.version.outputs.update_latest }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
       - name: Setup Swift 6.2
         uses: swift-actions/setup-swift@v2
@@ -39,12 +53,38 @@ jobs:
         id: version
         shell: bash
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Release tags must use bare semantic versioning (for example 1.0.0)." >&2
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.tag }}"
+            PRERELEASE="${{ inputs.prerelease }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            PRERELEASE="false"
+          fi
+
+          GA_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
+          PRERELEASE_REGEX='^[0-9]+\.[0-9]+\.[0-9]+-(rc|beta)\.[0-9]+$'
+
+          if [[ "$PRERELEASE" == "true" ]]; then
+            if [[ "${GITHUB_EVENT_NAME}" != "workflow_dispatch" ]]; then
+              echo "Pre-release publishing is only allowed through workflow_dispatch." >&2
+              exit 1
+            fi
+            if [[ ! "$TAG" =~ $PRERELEASE_REGEX ]]; then
+              echo "Pre-release tags must use <major>.<minor>.<patch>-(rc|beta).<n> (for example 3.1.0-rc.1)." >&2
+              exit 1
+            fi
+          elif [[ ! "$TAG" =~ $GA_REGEX ]]; then
+            echo "GA release tags must use bare semantic versioning (for example 1.0.0)." >&2
             exit 1
           fi
+
           echo "version=$TAG" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          if [[ "$PRERELEASE" == "true" ]]; then
+            echo "update_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "update_latest=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Checkout Existing gh-pages Site
         uses: actions/checkout@v4
@@ -60,10 +100,15 @@ jobs:
       - name: Build Versioned DocC Site
         shell: bash
         run: |
+          latest_args=()
+          if [[ "${{ steps.version.outputs.update_latest }}" != "true" ]]; then
+            latest_args+=(--skip-latest)
+          fi
+
           if [[ -d ".build/gh-pages-cache" && -f ".build/gh-pages-cache/index.html" ]]; then
-            ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}" --existing-site-dir .build/gh-pages-cache
+            ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}" --existing-site-dir .build/gh-pages-cache "${latest_args[@]}"
           else
-            ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}"
+            ./scripts/build-docc-site.sh --version "${{ steps.version.outputs.version }}" "${latest_args[@]}"
           fi
 
       - name: Package Release Site Artifact
@@ -116,11 +161,12 @@ jobs:
         with:
           tag_name: ${{ needs.build.outputs.version }}
           name: InnoRouter ${{ needs.build.outputs.version }}
+          prerelease: ${{ needs.build.outputs.prerelease == 'true' }}
           generate_release_notes: true
           body: |
             Documentation
-            - Latest: https://innosquadcorp.github.io/InnoRouter/latest/
             - Release: https://innosquadcorp.github.io/InnoRouter/${{ needs.build.outputs.version }}/
+            - Latest stable: https://innosquadcorp.github.io/InnoRouter/latest/
 
             Repository references
             - README: https://github.com/InnoSquadCorp/InnoRouter/blob/${{ needs.build.outputs.version }}/README.md

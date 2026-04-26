@@ -9,8 +9,10 @@ import SwiftDiagnostics
 
 // MARK: - CasePathable Macro
 
-/// `@CasePathable` 매크로는 enum의 각 case에 대해 KeyPath-like 접근을 제공합니다.
-/// @Routable의 경량 버전으로, Route 프로토콜 없이 사용 가능합니다.
+/// `@CasePathable` synthesises a KeyPath-like accessor for each case of
+/// the attached enum. It is the `Route`-protocol-free counterpart of
+/// `@Routable` — use it whenever an enum's cases need typed access but
+/// the type itself is not a router-owned route.
 ///
 /// ## Example
 /// ```swift

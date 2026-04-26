@@ -22,6 +22,12 @@ enum UIEvent {
     case swiped(dx: Int, dy: Int)
 }
 
+@CasePathable
+enum EscapedKeywordEvent {
+    case `default`
+    case `switch`(id: String)
+}
+
 // MARK: - @Suite
 
 @Suite("CasePathableBehaviorTests")
@@ -55,6 +61,18 @@ struct CasePathableBehaviorTests {
         let extracted = path.extract(embedded)
         #expect(extracted?.0 == 3)
         #expect(extracted?.1 == -4)
+    }
+
+    @Test("escaped keyword cases roundtrip through CasePath")
+    func embedExtract_roundtrip_escapedKeywordCases() {
+        let defaultEmbedded = EscapedKeywordEvent.Cases.`default`.embed(())
+        let defaultExtracted: Void? = EscapedKeywordEvent.Cases.`default`.extract(defaultEmbedded)
+        #expect(defaultExtracted != nil)
+
+        let switchPath = EscapedKeywordEvent.Cases.`switch`
+        let switchEmbedded = switchPath.embed("settings")
+        #expect(switchPath.extract(switchEmbedded) == "settings")
+        #expect(switchPath.extract(.`default`) == nil)
     }
 
     // MARK: - is(_:)

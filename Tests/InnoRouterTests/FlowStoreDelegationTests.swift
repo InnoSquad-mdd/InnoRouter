@@ -13,7 +13,18 @@ private enum FlowDelegationRoute: Route {
     case detail
     case share
     case paywall
+    case profile(id: String)
 }
+
+private let flowDelegationProfileCase = CasePath<FlowDelegationRoute, String>(
+    embed: FlowDelegationRoute.profile(id:),
+    extract: {
+        if case .profile(let id) = $0 {
+            return id
+        }
+        return nil
+    }
+)
 
 @Suite("FlowStore Delegation Tests")
 struct FlowStoreDelegationTests {
@@ -50,6 +61,44 @@ struct FlowStoreDelegationTests {
 
         #expect(store.modalStore.currentPresentation?.style == .fullScreenCover)
         #expect(store.path == [.cover(.paywall)])
+    }
+
+    @Test("direct modal replacement updates flow path")
+    @MainActor
+    func directModalReplacementUpdatesFlowPath() {
+        let changes = Mutex<[([RouteStep<FlowDelegationRoute>], [RouteStep<FlowDelegationRoute>])]>([])
+        let store = FlowStore<FlowDelegationRoute>(
+            configuration: .init(
+                onPathChanged: { oldPath, newPath in
+                    changes.withLock { $0.append((oldPath, newPath)) }
+                }
+            )
+        )
+
+        store.send(.presentSheet(.share))
+        store.modalStore.replaceCurrent(.paywall, style: .fullScreenCover)
+
+        #expect(store.modalStore.currentPresentation?.route == .paywall)
+        #expect(store.modalStore.currentPresentation?.style == .fullScreenCover)
+        #expect(store.path == [.cover(.paywall)])
+
+        let capturedChanges = changes.withLock { $0 }
+        #expect(capturedChanges.map { $0.1 } == [[.sheet(.share)], [.cover(.paywall)]])
+        #expect(capturedChanges.last?.0 == [.sheet(.share)])
+    }
+
+    @Test("modal binding replacement updates associated route in flow path")
+    @MainActor
+    func modalBindingReplacementUpdatesFlowPath() {
+        let store = FlowStore<FlowDelegationRoute>()
+        store.send(.presentSheet(.profile(id: "1")))
+
+        store.modalStore.binding(case: flowDelegationProfileCase, style: .sheet).wrappedValue = "2"
+
+        #expect(store.modalStore.currentPresentation?.route == .profile(id: "2"))
+        #expect(store.modalStore.currentPresentation?.style == .sheet)
+        #expect(store.modalStore.queuedPresentations.isEmpty)
+        #expect(store.path == [.sheet(.profile(id: "2"))])
     }
 
     @Test("modal middleware rewrite updates flow path to committed presentation style")

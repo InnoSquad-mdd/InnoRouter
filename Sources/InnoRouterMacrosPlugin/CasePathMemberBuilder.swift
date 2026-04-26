@@ -14,6 +14,7 @@ private struct CasePathAssociatedValueParameter {
 
 private struct CasePathEnumCase {
     let name: String
+    let emittedName: String
     let parameters: [CasePathAssociatedValueParameter]
 }
 
@@ -82,6 +83,7 @@ private func extractCasePathEnumCases(
         .map { enumCase in
             CasePathEnumCase(
                 name: enumCase.name.text,
+                emittedName: escapedIdentifier(enumCase.name),
                 parameters: enumCase.parameterClause?.parameters.enumerated().map { index, param in
                     CasePathAssociatedValueParameter(
                         type: param.type.trimmedDescription,
@@ -99,9 +101,9 @@ private func buildCasePathMember(
 ) -> String {
     if enumCase.parameters.isEmpty {
         return """
-                public static let \(enumCase.name) = CasePath<\(enumName), Void>(
-                    embed: { _ in .\(enumCase.name) },
-                    extract: { if case .\(enumCase.name) = $0 { return () }; return nil }
+                public static let \(enumCase.emittedName) = CasePath<\(enumName), Void>(
+                    embed: { _ in .\(enumCase.emittedName) },
+                    extract: { if case .\(enumCase.emittedName) = $0 { return () }; return nil }
                 )
         """
     }
@@ -137,11 +139,19 @@ private func buildCasePathMember(
     }.joined(separator: ", ")
 
     return """
-            public static let \(enumCase.name) = CasePath<\(enumName), \(tupleType)>(
-                embed: { value in .\(enumCase.name)(\(embedArgs)) },
-                extract: { if case .\(enumCase.name)(\(extractBindings)) = $0 { return \(returnValue) }; return nil }
+            public static let \(enumCase.emittedName) = CasePath<\(enumName), \(tupleType)>(
+                embed: { value in .\(enumCase.emittedName)(\(embedArgs)) },
+                extract: { if case .\(enumCase.emittedName)(\(extractBindings)) = $0 { return \(returnValue) }; return nil }
             )
     """
+}
+
+private func escapedIdentifier(_ token: TokenSyntax) -> String {
+    let spelling = token.trimmedDescription
+    if spelling.hasPrefix("`"), spelling.hasSuffix("`") {
+        return spelling
+    }
+    return token.text
 }
 
 private func bindingName(

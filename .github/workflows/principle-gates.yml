@@ -12,6 +12,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Source-level lint gates run independently of the heavy
+  # swift-test / DocC pipeline so they fail fast on grep-detectable
+  # regressions (Hangul, legacy symbols, doc drift) without paying
+  # the full build cost. Same script the parent `principle-gates.sh`
+  # delegates to; running it in its own job lets the two slices
+  # parallelize on PRs.
+  lint:
+    runs-on: macos-15
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ripgrep
+        run: brew install ripgrep
+
+      - name: Run source-level lint gates
+        run: ./scripts/lint-source-gates.sh
+
+  changelog-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The check needs both BASE_REF and HEAD reachable so it
+          # can diff the touched paths.
+          fetch-depth: 0
+
+      - name: Verify CHANGELOG matches public-API baseline change
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: ./scripts/check-changelog-sync.sh
+
   gates:
     runs-on: macos-15
     timeout-minutes: 30

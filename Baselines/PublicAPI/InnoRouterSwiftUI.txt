@@ -26,8 +26,15 @@ relationship | memberOf | CoordinatorHost.body | CoordinatorHost |  |
 relationship | memberOf | CoordinatorHost.init(coordinator:root:) | CoordinatorHost |  |
 relationship | memberOf | CoordinatorSplitHost.body | CoordinatorSplitHost |  |
 relationship | memberOf | CoordinatorSplitHost.init(coordinator:sidebar:root:) | CoordinatorSplitHost |  |
+relationship | memberOf | DebouncingNavigator.cancelPending() | DebouncingNavigator |  |
+relationship | memberOf | DebouncingNavigator.debouncedExecute(_:) | DebouncingNavigator |  |
+relationship | memberOf | DebouncingNavigator.init(wrapping:interval:) | DebouncingNavigator |  |
+relationship | memberOf | DebouncingNavigator.init(wrapping:interval:clock:) | DebouncingNavigator |  |
+relationship | memberOf | DebouncingNavigator.inner | DebouncingNavigator |  |
 relationship | memberOf | EnvironmentFlowIntent.init(_:) | EnvironmentFlowIntent |  |
 relationship | memberOf | EnvironmentFlowIntent.wrappedValue | EnvironmentFlowIntent |  |
+relationship | memberOf | EnvironmentMissingPolicy.crash | EnvironmentMissingPolicy |  |
+relationship | memberOf | EnvironmentMissingPolicy.logAndDegrade | EnvironmentMissingPolicy |  |
 relationship | memberOf | EnvironmentModalIntent.init(_:) | EnvironmentModalIntent |  |
 relationship | memberOf | EnvironmentModalIntent.wrappedValue | EnvironmentModalIntent |  |
 relationship | memberOf | EnvironmentNavigationIntent.init(_:) | EnvironmentNavigationIntent |  |
@@ -352,12 +359,14 @@ symbol | swift.class | AnyFlowIntentDispatcher | AnyFlowIntentDispatcher | @Main
 symbol | swift.class | AnyModalIntentDispatcher | AnyModalIntentDispatcher | @MainActor final class AnyModalIntentDispatcher<M> where M : Route | []
 symbol | swift.class | AnyNavigationIntentDispatcher | AnyNavigationIntentDispatcher | @MainActor final class AnyNavigationIntentDispatcher<R> where R : Route | []
 symbol | swift.class | ChildCoordinatorTaskTracker | ChildCoordinatorTaskTracker | @MainActor final class ChildCoordinatorTaskTracker | []
+symbol | swift.class | DebouncingNavigator | DebouncingNavigator | @MainActor final class DebouncingNavigator<N, C> where N : NavigationCommandExecutor, C : Clock, C.Duration == Duration | []
 symbol | swift.class | FlowStore | FlowStore | @MainActor final class FlowStore<R> where R : Route | []
 symbol | swift.class | ModalStore | ModalStore | @MainActor final class ModalStore<M> where M : Route | []
 symbol | swift.class | NavigationStore | NavigationStore | @MainActor final class NavigationStore<R> where R : Route | []
 symbol | swift.class | SceneStore | SceneStore | @MainActor final class SceneStore<R> where R : Route | []
 symbol | swift.class | StoreObserverSubscription | StoreObserverSubscription | @MainActor final class StoreObserverSubscription | []
 symbol | swift.class | ThrottleNavigationMiddleware | ThrottleNavigationMiddleware | @MainActor final class ThrottleNavigationMiddleware<R, C> where R : Route, C : Clock, C.Duration == Duration | []
+symbol | swift.enum | EnvironmentMissingPolicy | EnvironmentMissingPolicy | enum EnvironmentMissingPolicy | []
 symbol | swift.enum | FlowEvent | FlowEvent | enum FlowEvent<R> where R : Route | []
 symbol | swift.enum | FlowIntent | FlowIntent | enum FlowIntent<R> where R : Route | []
 symbol | swift.enum | MiddlewareMutationEvent.Action | MiddlewareMutationEvent.Action | enum Action | []
@@ -376,6 +385,8 @@ symbol | swift.enum | SceneDeclaration.Kind | SceneDeclaration.Kind | enum Kind 
 symbol | swift.enum | SceneEvent | SceneEvent | enum SceneEvent<R> where R : Route | []
 symbol | swift.enum | SceneIntent | SceneIntent | enum SceneIntent<R> where R : Route | []
 symbol | swift.enum | SceneRejectionReason | SceneRejectionReason | enum SceneRejectionReason | []
+symbol | swift.enum.case | EnvironmentMissingPolicy.crash | EnvironmentMissingPolicy.crash | case crash | []
+symbol | swift.enum.case | EnvironmentMissingPolicy.logAndDegrade | EnvironmentMissingPolicy.logAndDegrade | case logAndDegrade | []
 symbol | swift.enum.case | FlowEvent.intentRejected(_:_:) | FlowEvent.intentRejected(_:_:) | case intentRejected(FlowIntent<R>, FlowRejectionReason) | []
 symbol | swift.enum.case | FlowEvent.modal(_:) | FlowEvent.modal(_:) | case modal(ModalEvent<R>) | []
 symbol | swift.enum.case | FlowEvent.navigation(_:) | FlowEvent.navigation(_:) | case navigation(NavigationEvent<R>) | []
@@ -472,6 +483,8 @@ symbol | swift.init | AnyNavigationIntentDispatcher.init(send:) | init(send:) | 
 symbol | swift.init | ChildCoordinatorTaskTracker.init() | init() | @MainActor init() | []
 symbol | swift.init | CoordinatorHost.init(coordinator:root:) | init(coordinator:root:) | @MainActor init(coordinator: C, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | CoordinatorSplitHost.init(coordinator:sidebar:root:) | init(coordinator:sidebar:root:) | @MainActor init(coordinator: C, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder root: @escaping () -> Root) | []
+symbol | swift.init | DebouncingNavigator.init(wrapping:interval:) | init(wrapping:interval:) | @MainActor convenience init(wrapping inner: N, interval: Duration) | []
+symbol | swift.init | DebouncingNavigator.init(wrapping:interval:clock:) | init(wrapping:interval:clock:) | @MainActor init(wrapping inner: N, interval: Duration, clock: C) | []
 symbol | swift.init | EnvironmentFlowIntent.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
 symbol | swift.init | EnvironmentModalIntent.init(_:) | init(_:) | @MainActor init(_ routeType: M.Type) | []
 symbol | swift.init | EnvironmentNavigationIntent.init(_:) | init(_:) | @MainActor init(_ routeType: R.Type) | []
@@ -519,6 +532,8 @@ symbol | swift.method | Coordinator.destination(for:) | destination(for:) | @Vie
 symbol | swift.method | Coordinator.handle(_:) | handle(_:) | @MainActor func handle(_ intent: NavigationIntent<Self.RouteType>) | []
 symbol | swift.method | Coordinator.push(child:) | push(child:) | @discardableResult @MainActor func push<Child>(child: Child) -> Task<Child.Result?, Never> where Child : ChildCoordinator | []
 symbol | swift.method | Coordinator.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<Self.RouteType>) | []
+symbol | swift.method | DebouncingNavigator.cancelPending() | cancelPending() | @MainActor func cancelPending() | []
+symbol | swift.method | DebouncingNavigator.debouncedExecute(_:) | debouncedExecute(_:) | @discardableResult @MainActor func debouncedExecute(_ command: NavigationCommand<N.RouteType>) async -> NavigationResult<N.RouteType>? | []
 symbol | swift.method | FlowCoordinator.canProceed(from:) | canProceed(from:) | @MainActor func canProceed(from step: Self.Step) -> Bool | []
 symbol | swift.method | FlowCoordinator.complete(with:) | complete(with:) | @MainActor func complete(with result: Self.Result) | []
 symbol | swift.method | FlowCoordinator.jump(to:) | jump(to:) | @MainActor func jump(to step: Self.Step) | []
@@ -579,6 +594,7 @@ symbol | swift.method | TabCoordinator.setBadge(_:for:) | setBadge(_:for:) | @Ma
 symbol | swift.method | TabCoordinator.switchTab(to:) | switchTab(to:) | @MainActor func switchTab(to tab: Self.TabType) | []
 symbol | swift.method | ThrottleNavigationMiddleware.didExecute(_:result:state:) | didExecute(_:result:state:) | @MainActor func didExecute(_ command: NavigationCommand<R>, result: NavigationResult<R>, state: RouteStack<R>) -> NavigationResult<R> | []
 symbol | swift.method | ThrottleNavigationMiddleware.willExecute(_:state:) | willExecute(_:state:) | @MainActor func willExecute(_ command: NavigationCommand<R>, state: RouteStack<R>) -> NavigationInterception<R> | []
+symbol | swift.method | View.innoRouterEnvironmentMissingPolicy(_:) | innoRouterEnvironmentMissingPolicy(_:) | @MainActor func innoRouterEnvironmentMissingPolicy(_ policy: EnvironmentMissingPolicy) -> some View | []
 symbol | swift.method | View.innoRouterOrnament(_:content:) | innoRouterOrnament(_:content:) | @ViewBuilder @MainActor func innoRouterOrnament<OrnamentContent>(_ anchor: OrnamentAnchor, @ViewBuilder content: () -> OrnamentContent) -> some View where OrnamentContent : View | []
 symbol | swift.method | View.innoRouterSceneAnchor(_:scenes:attachedTo:) | innoRouterSceneAnchor(_:scenes:attachedTo:) | @MainActor func innoRouterSceneAnchor<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) -> some View where R : Route | []
 symbol | swift.method | View.innoRouterSceneAnchor(_:scenes:attachedTo:instanceID:) | innoRouterSceneAnchor(_:scenes:attachedTo:instanceID:) | @MainActor func innoRouterSceneAnchor<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) -> some View where R : Route | []
@@ -591,9 +607,11 @@ symbol | swift.property | ChildCoordinatorTaskTracker.activeCount | activeCount 
 symbol | swift.property | Coordinator.store | store | @MainActor var store: NavigationStore<Self.RouteType> { get } | []
 symbol | swift.property | CoordinatorHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | CoordinatorSplitHost.body | body | @MainActor var body: some View { get } | []
+symbol | swift.property | DebouncingNavigator.inner | inner | @MainActor let inner: N | []
 symbol | swift.property | EnvironmentFlowIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: AnyFlowIntentDispatcher<R> { get } | []
 symbol | swift.property | EnvironmentModalIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: AnyModalIntentDispatcher<M> { get } | []
 symbol | swift.property | EnvironmentNavigationIntent.wrappedValue | wrappedValue | @MainActor var wrappedValue: AnyNavigationIntentDispatcher<R> { get } | []
+symbol | swift.property | EnvironmentValues.innoRouterEnvironmentMissingPolicy | innoRouterEnvironmentMissingPolicy | var innoRouterEnvironmentMissingPolicy: EnvironmentMissingPolicy { get set } | []
 symbol | swift.property | FlowCoordinator.completedSteps | completedSteps | @MainActor var completedSteps: Set<Self.Step> { get set } | []
 symbol | swift.property | FlowCoordinator.currentStep | currentStep | @MainActor var currentStep: Self.Step { get set } | []
 symbol | swift.property | FlowCoordinator.isAtEnd | isAtEnd | @MainActor var isAtEnd: Bool { get } | []

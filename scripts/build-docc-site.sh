@@ -5,13 +5,14 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT_DIR="$ROOT_DIR/.build/docc-site"
 EXISTING_SITE_DIR=""
 VERSION=""
+SKIP_LATEST="false"
 REPO_OWNER="InnoSquadCorp"
 REPO_NAME="InnoRouter"
 REPO_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}"
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/build-docc-site.sh --version <version> [--output-dir <dir>] [--existing-site-dir <dir>]
+Usage: ./scripts/build-docc-site.sh --version <version> [--output-dir <dir>] [--existing-site-dir <dir>] [--skip-latest]
 
 Builds a static DocC site for all public InnoRouter modules.
 
@@ -19,6 +20,7 @@ Options:
   --version <version>           Required. Preview or semantic version label.
   --output-dir <dir>            Optional. Defaults to .build/docc-site
   --existing-site-dir <dir>     Optional. Existing site contents to merge before writing new docs.
+  --skip-latest                 Optional. Build only the versioned subtree and leave /latest/ untouched.
 EOF
 }
 
@@ -35,6 +37,10 @@ while [[ $# -gt 0 ]]; do
     --existing-site-dir)
       EXISTING_SITE_DIR="${2:-}"
       shift 2
+      ;;
+    --skip-latest)
+      SKIP_LATEST="true"
+      shift
       ;;
     -h|--help)
       usage
@@ -200,8 +206,12 @@ if [[ -n "$EXISTING_SITE_DIR" && -d "$EXISTING_SITE_DIR" ]]; then
   rsync -a --exclude '.git' "$EXISTING_SITE_DIR"/ "$OUTPUT_DIR"/
 fi
 
-rm -rf "${OUTPUT_DIR:?}/${VERSION:?}" "${OUTPUT_DIR:?}/latest"
-mkdir -p "${OUTPUT_DIR:?}/${VERSION:?}" "${OUTPUT_DIR:?}/latest"
+rm -rf "${OUTPUT_DIR:?}/${VERSION:?}"
+mkdir -p "${OUTPUT_DIR:?}/${VERSION:?}"
+if [[ "$SKIP_LATEST" != "true" ]]; then
+  rm -rf "${OUTPUT_DIR:?}/latest"
+  mkdir -p "${OUTPUT_DIR:?}/latest"
+fi
 
 echo "[build-docc-site] Generating symbol graphs"
 swift build >/dev/null
@@ -380,6 +390,8 @@ EOF
 render_root_portal() {
   local page_path="$1"
   local version_links=""
+  local primary_docs_link=""
+  local latest_section=""
   local discovered_versions=()
 
   while IFS= read -r version_dir; do
@@ -389,6 +401,20 @@ render_root_portal() {
   for version_dir in "${discovered_versions[@]}"; do
     version_links+="<li><a href=\"./${version_dir}/\">${version_dir}</a></li>"
   done
+
+  if [[ -d "$OUTPUT_DIR/latest" ]]; then
+    primary_docs_link='<a class="button primary" href="./latest/">Open latest docs</a>'
+    latest_section='
+    <section>
+      <h2>Latest</h2>
+      <p>The <code>latest</code> alias always points at the most recent released documentation set.</p>
+      <div class="cta-row">
+        <a class="button" href="./latest/">Browse latest</a>
+      </div>
+    </section>'
+  else
+    primary_docs_link="<a class=\"button primary\" href=\"./${VERSION}/\">Open ${VERSION} docs</a>"
+  fi
 
   cat >"$page_path" <<EOF
 <!DOCTYPE html>
@@ -420,18 +446,12 @@ render_root_portal() {
       <h1>InnoRouter Documentation</h1>
       <p>Detailed guides and API reference for the current latest-stable InnoRouter surface. The repository README stays focused on overview and quick start, while this DocC site holds the module-level reference set.</p>
       <div class="cta-row">
-        <a class="button primary" href="./latest/">Open latest docs</a>
+        ${primary_docs_link}
         <a class="button" href="$REPO_URL">GitHub repository</a>
         <a class="button" href="$REPO_URL/blob/main/README.md">README</a>
       </div>
     </div>
-    <section>
-      <h2>Latest</h2>
-      <p>The <code>latest</code> alias always points at the most recent released documentation set.</p>
-      <div class="cta-row">
-        <a class="button" href="./latest/">Browse latest</a>
-      </div>
-    </section>
+    ${latest_section}
     <section>
       <h2>Released versions</h2>
       <ul>
@@ -473,19 +493,23 @@ for module in "${DOCC_MODULES[@]}"; do
     "$temp_root/current-module-symbols/$target"
   render_module_entry_redirect "$OUTPUT_DIR/$VERSION/$slug" "$target"
 
-  build_module_archive \
-    "$target" \
-    "$catalog" \
-    "$OUTPUT_DIR/latest/$slug" \
-    "$bundle_id" \
-    "$display_name" \
-    "/${REPO_NAME}/latest/${slug}" \
-    "$temp_root/current-module-symbols/$target"
-  render_module_entry_redirect "$OUTPUT_DIR/latest/$slug" "$target"
+  if [[ "$SKIP_LATEST" != "true" ]]; then
+    build_module_archive \
+      "$target" \
+      "$catalog" \
+      "$OUTPUT_DIR/latest/$slug" \
+      "$bundle_id" \
+      "$display_name" \
+      "/${REPO_NAME}/latest/${slug}" \
+      "$temp_root/current-module-symbols/$target"
+    render_module_entry_redirect "$OUTPUT_DIR/latest/$slug" "$target"
+  fi
 done
 
 render_version_portal "$OUTPUT_DIR/$VERSION" "InnoRouter ${VERSION}"
-render_version_portal "$OUTPUT_DIR/latest" "InnoRouter latest"
+if [[ "$SKIP_LATEST" != "true" ]]; then
+  render_version_portal "$OUTPUT_DIR/latest" "InnoRouter latest"
+fi
 render_root_portal "$OUTPUT_DIR/index.html"
 touch "$OUTPUT_DIR/.nojekyll"
 

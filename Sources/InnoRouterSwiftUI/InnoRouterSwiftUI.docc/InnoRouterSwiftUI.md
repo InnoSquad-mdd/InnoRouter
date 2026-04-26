@@ -66,3 +66,8 @@ InnoRouter ships on every Apple platform it currently supports:
 - <doc:Tutorial-Throttling>
 - <doc:Tutorial-StoreObserver>
 - <doc:Tutorial-VisionOSScenes>
+
+### Guides
+
+- <doc:Guide-SequenceVsBatchVsTransaction>
+- <doc:Guide-FlowCoordinatorVsFlowStore>

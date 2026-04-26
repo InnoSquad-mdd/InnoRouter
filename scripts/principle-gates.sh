@@ -87,78 +87,8 @@ swift build --target InnoRouterVisionOSImmersiveExample
 echo "[principle-gates] Running performance smoke"
 ./scripts/performance-smoke.sh
 
-echo "[principle-gates] Checking Nav* public symbols"
-if rg -n "public .*\\bNav[A-Z]" Sources; then
-  echo "[principle-gates] Failed: legacy Nav* public symbols found"
-  exit 1
-fi
-
-echo "[principle-gates] Checking deprecated/availability shims"
-if rg -n "deprecated|@available\\(" Sources --glob '*.swift' --glob '!Sources/InnoRouterSwiftUI/NavigationStore.swift'; then
-  echo "[principle-gates] Failed: deprecated or availability shim found"
-  exit 1
-fi
-
-echo "[principle-gates] Checking legacy SwiftUI navigator surface"
-if rg -n "@EnvironmentNavigator|public func navigator\\(" Sources Examples ExamplesSmoke README.md; then
-  echo "[principle-gates] Failed: legacy navigator API found"
-  exit 1
-fi
-
-echo "[principle-gates] Checking AnyCoordinator removal"
-if rg -n "AnyCoordinator" Sources Examples ExamplesSmoke README.md; then
-  echo "[principle-gates] Failed: AnyCoordinator symbol found"
-  exit 1
-fi
-
-echo "[principle-gates] Checking optional intent dispatch usage"
-if rg -n "navigationIntent\\?\\.send" Sources Examples ExamplesSmoke README.md RELEASING.md CLAUDE.md Docs --glob '*.swift' --glob '*.md'; then
-  echo "[principle-gates] Failed: optional intent dispatch usage found"
-  exit 1
-fi
-
-echo "[principle-gates] Checking deep-link intent removal from SwiftUI surface"
-if rg -n "\\.deepLink\\(|case \\.deepLink" Sources/InnoRouterSwiftUI Sources/InnoRouterUmbrella Examples ExamplesSmoke README.md Tests/InnoRouterTests; then
-  echo "[principle-gates] Failed: deep-link intent surface found"
-  exit 1
-fi
-
-echo "[principle-gates] Checking deep-link fallback removal"
-if rg -n "about:blank|schemeNotAllowed\\(actualScheme: nil\\)" Sources/InnoRouterEffects Sources/InnoRouterDeepLinkEffects Sources/InnoRouterNavigationEffects; then
-  echo "[principle-gates] Failed: legacy fallback found"
-  exit 1
-fi
-
-echo "[principle-gates] Checking @unchecked Sendable removal"
-if rg -n "@unchecked Sendable" Sources Tests; then
-  echo "[principle-gates] Failed: @unchecked Sendable usage found"
-  exit 1
-fi
-
-echo "[principle-gates] Checking README SwiftUI philosophy section uniqueness"
-SWIFTUI_ALIGNMENT_SECTION_COUNT="$(rg -n "^### SwiftUI Philosophy Alignment$" README.md | wc -l | tr -d ' ' || true)"
-if [[ "$SWIFTUI_ALIGNMENT_SECTION_COUNT" != "1" ]]; then
-  echo "[principle-gates] Failed: expected 1 SwiftUI Philosophy Alignment section, got $SWIFTUI_ALIGNMENT_SECTION_COUNT"
-  exit 1
-fi
-
-echo "[principle-gates] Checking documentation for semver tag formatting"
-if rg -n '\bvX\.Y\.Z\b|\bv[0-9]+\.[0-9]+\.[0-9]+\b' README.md RELEASING.md CLAUDE.md Docs Sources --glob '*.md'; then
-  echo "[principle-gates] Failed: documentation still references v-prefixed release tags"
-  exit 1
-fi
-
-echo "[principle-gates] Checking documentation for renamed path mismatch policy symbols"
-if rg -n 'NonPrefixPathRewritePolicy|NonPrefixPathRewriteResolution|nonPrefixPathRewritePolicy' README.md RELEASING.md CLAUDE.md Docs Sources --glob '*.md'; then
-  echo "[principle-gates] Failed: documentation still references legacy path mismatch symbols"
-  exit 1
-fi
-
-echo "[principle-gates] Checking documentation for legacy effect module names"
-if rg -n 'Sources/InnoRouterEffects/NavigationEffectHandler.swift|Sources/InnoRouterEffects/DeepLinkEffectHandler.swift' README.md RELEASING.md CLAUDE.md Docs Sources --glob '*.md'; then
-  echo "[principle-gates] Failed: documentation still references legacy effect implementation paths"
-  exit 1
-fi
+echo "[principle-gates] Running source-level lint gates"
+./scripts/lint-source-gates.sh
 
 echo "[principle-gates] Checking fail-fast probe (missing NavigationEnvironmentStorage)"
 PROBE_OUTPUT_FILE="$(mktemp)"

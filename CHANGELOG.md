@@ -4,6 +4,120 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## 3.1.0 (unreleased)
+
+3.1.0 is an additive minor that consolidates the v3.x quality
+improvement backlog: macro-generation correctness for
+keyword-escaped cases, FlowStore projection sync after direct
+modal replacements, release-workflow support for rc/beta
+pre-releases, an evidence record of macro dependency cost, and a
+P0–P3 quality-improvement sweep covering build hygiene, public
+messaging, internal-API cleanup, host-less rendering escape
+hatches, test coverage, DX guides, and CI parallelisation.
+
+### Added
+
+- `release.yml` accepts `workflow_dispatch` with `tag` and
+  `prerelease` inputs so `<version>-(rc|beta).<n>` tags can be
+  published as GitHub pre-releases. The pre-release path skips the
+  `latest/` DocC subtree through a new `build-docc-site.sh
+  --skip-latest` flag.
+- `Docs/macro-dependency-cost.md` records `swift package
+  show-traits` output and `swift build` measurements for
+  `InnoRouter` and `InnoRouterMacros` so future macro-package
+  decisions have a baseline to compare against.
+- `EnvironmentMissingPolicy` (`.crash` / `.logAndDegrade`) and the
+  `View.innoRouterEnvironmentMissingPolicy(_:)` modifier let
+  SwiftUI Previews and snapshot test harnesses keep rendering when
+  the matching `NavigationHost` / `CoordinatorHost` / `ModalHost` /
+  `FlowHost` is out of scope, instead of trapping with
+  `preconditionFailure`.
+- `DebouncingNavigator<N: NavigationCommandExecutor, C: Clock>`
+  closes the long-deferred `.debounce` roadmap item with a wrapping
+  navigator: `debouncedExecute(_:)` schedules the latest command
+  after a quiet window and cancels superseded ones. Generic over
+  `Clock` for deterministic test injection.
+- `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, plus a
+  README `Adopters` section establish the OSS metadata adopters
+  scan first when evaluating an unfamiliar library.
+- `Examples/SampleAppExample.swift` composes the headline feature
+  surface (deep-link auth gating, FlowStore push+modal projection,
+  DebouncingNavigator) into one self-contained authority class.
+  Matching smoke at `ExamplesSmoke/SampleAppSmoke.swift`.
+- DocC tutorial articles
+  `Guide-SequenceVsBatchVsTransaction` and
+  `Guide-FlowCoordinatorVsFlowStore` document the decision
+  matrices the symbol-level docs assumed.
+- `scripts/lint-source-gates.sh` extracts the grep-based source
+  lints from `principle-gates.sh` so they can run standalone or in
+  parallel CI jobs.
+- `scripts/check-changelog-sync.sh` enforces that any
+  `Baselines/PublicAPI/*.txt` change is paired with a CHANGELOG
+  entry in the same diff. Wired into a dedicated
+  `changelog-sync` job in `principle-gates.yml`.
+- `principle-gates.yml` gains a parallel `lint` job running the
+  source-level gates in five minutes, independent of the heavier
+  swift test / DocC pipeline.
+- `.github/dependabot.yml` opens swift-package and
+  github-actions update PRs weekly so swift-syntax bumps surface
+  explicitly rather than as silent transitive bumps.
+- `Tests/InnoRouterTests/RouteStackStressTests.swift`,
+  `ModalStoreQueueStressTests.swift`,
+  `FlowDeepLinkAsyncAuthTests.swift`,
+  `SceneStorePropertyBasedTests.swift` (visionOS-gated),
+  `TvOSFocusNavigationTests.swift` (tvOS-gated),
+  `EnvironmentMissingPolicyTests.swift`, and
+  `DebouncingNavigatorTests.swift` close gaps in the test-suite
+  weakness audit (deep stacks, deep modal queues, async auth
+  flows, scene invariants, focus-driven traversal, environment
+  policy, debounce timing).
+
+### Changed
+
+- `swift-syntax` is now pinned `.upToNextMinor(from: "602.0.0")`.
+  A 603.x bump arrives as an explicit dependency-update PR
+  (paired with the new dependabot config) rather than a silent
+  transitive jump.
+- All `swiftSettings` entries treat warnings as errors. Verified
+  clean against the Swift 6.3 host build.
+- The macro plugin and CasePath core types ship with English
+  docstrings throughout. A new `lint-source-gates` rule rejects
+  Hangul characters in `Sources/`, `Examples/`, and
+  `ExamplesSmoke/` going forward.
+- `NavigationMiddleware` and
+  `NavigationMiddlewareDiscardCleanup` declare their associated
+  type as primary, replacing the previous `@_spi`-boxed `Any`
+  cast in `AnyNavigationMiddleware.init<M>` with a constrained
+  existential. The `AnyNavigationMiddlewareDiscardCleanupBox` SPI
+  protocol and `discardExecutionBoxed` are removed.
+- `NavigationStore`, `ModalStore`, and `FlowStore` split their
+  static telemetry / path-helper helpers into sibling
+  `+TelemetryAdapters.swift` / `+PathHelpers.swift` extensions so
+  the primary class definitions stay focused on the `Observable`
+  storage and execution surface. Public-API baseline diff = 0
+  for the splits.
+- `RouteStack.path` carries a DEBUG-only `didSet` invariant hook
+  (`assertPathIsConsistent(oldValue:)`) so future module-internal
+  invariants can attach without touching the public surface.
+- `InnoRouterPerformanceSmoke` accepts an optional
+  `largeMaxMilliseconds` cap per sample, catching catastrophic
+  absolute-time regressions the relative ratio gate would miss.
+- `principle-gates.sh` delegates source-lint gates to
+  `lint-source-gates.sh`. Behaviour is unchanged; the
+  encapsulation lets the sub-script run independently in CI.
+
+### Fixed
+
+- `@Routable` and `@CasePathable` now preserve backtick-escaped
+  Swift keyword cases (for example a `default` or `switch` case
+  wrapped in backticks) in the generated `CasePath` members. The
+  previous expansion emitted unescaped identifiers and failed to
+  compile.
+- `FlowStore.path` now resyncs when the inner `ModalStore` swaps
+  its current presentation through `replaceCurrent(_:style:)`
+  (including via typed `binding(case:style:)`). Observers used to
+  lag one frame behind a direct modal replacement.
+
 ## 3.0.0 (unreleased)
 
 The 3.0.0 release closes the design phase of the framework. All

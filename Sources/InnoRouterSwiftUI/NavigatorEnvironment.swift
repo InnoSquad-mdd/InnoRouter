@@ -70,6 +70,7 @@ public final class AnyNavigationIntentDispatcher<R: Route>: NavigationIntentDisp
 @propertyWrapper
 public struct EnvironmentNavigationIntent<R: Route>: DynamicProperty {
     @Environment(\.navigationEnvironmentStorage) private var navigationEnvironmentStorage
+    @Environment(\.innoRouterEnvironmentMissingPolicy) private var environmentMissingPolicy
     private let routeType: R.Type
 
     public init(_ routeType: R.Type) {
@@ -77,18 +78,20 @@ public struct EnvironmentNavigationIntent<R: Route>: DynamicProperty {
     }
 
     public var wrappedValue: AnyNavigationIntentDispatcher<R> {
-        guard let navigationEnvironmentStorage else {
-            preconditionFailure(
+        if let dispatcher = navigationEnvironmentStorage?[R.self] {
+            return dispatcher
+        }
+        if navigationEnvironmentStorage == nil {
+            handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "NavigationEnvironmentStorage is missing for \(String(describing: routeType)). " +
                 "Attach this view inside NavigationHost or CoordinatorHost."
-            )
-        }
-        guard let dispatcher = navigationEnvironmentStorage[R.self] else {
-            preconditionFailure(
+            }
+        } else {
+            handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "AnyNavigationIntentDispatcher is missing for \(String(describing: routeType)). " +
                 "Ensure the matching NavigationHost or CoordinatorHost is in the environment hierarchy."
-            )
+            }
         }
-        return dispatcher
+        return AnyNavigationIntentDispatcher<R> { _ in /* no-op placeholder */ }
     }
 }
