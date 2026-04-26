@@ -82,6 +82,7 @@ public final class FlowStore<R: Route> {
         let userNavOnChange = configuration.navigation.onChange
         let userModalOnPresented = configuration.modal.onPresented
         let userModalOnDismissed = configuration.modal.onDismissed
+        let userModalOnCommandIntercepted = configuration.modal.onCommandIntercepted
 
         let composedNavOnChange: @MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void = { old, new in
             userNavOnChange?(old, new)
@@ -94,6 +95,11 @@ public final class FlowStore<R: Route> {
         let composedModalOnDismissed: @MainActor @Sendable (ModalPresentation<R>, ModalDismissalReason) -> Void = { presentation, reason in
             userModalOnDismissed?(presentation, reason)
             link.owner?.handleModalStoreDismissal(presentation: presentation, reason: reason)
+        }
+        let composedModalOnCommandIntercepted: @MainActor @Sendable (ModalCommand<R>, ModalExecutionResult<R>) -> Void = { command, result in
+            userModalOnCommandIntercepted?(command, result)
+            guard case .executed(.replaceCurrent) = result else { return }
+            link.owner?.handleModalStoreReplacement()
         }
 
         let navConfig = NavigationStoreConfiguration<R>(
@@ -116,7 +122,7 @@ public final class FlowStore<R: Route> {
             onDismissed: composedModalOnDismissed,
             onQueueChanged: configuration.modal.onQueueChanged,
             onMiddlewareMutation: configuration.modal.onMiddlewareMutation,
-            onCommandIntercepted: configuration.modal.onCommandIntercepted
+            onCommandIntercepted: composedModalOnCommandIntercepted
         )
 
         let (pushRoutes, modalTail) = Self.decompose(validatedInitial)
@@ -486,6 +492,11 @@ public final class FlowStore<R: Route> {
     }
 
     private func handleModalStorePresentation(_ presentation: ModalPresentation<R>) {
+        guard !isApplyingInternalMutation else { return }
+        syncPathFromStores(from: path)
+    }
+
+    private func handleModalStoreReplacement() {
         guard !isApplyingInternalMutation else { return }
         syncPathFromStores(from: path)
     }
