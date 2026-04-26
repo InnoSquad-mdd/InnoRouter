@@ -13,13 +13,14 @@ import InnoRouterCore
 /// the surrounding feature:
 ///
 /// - ``preserve``: keep `ModalStore.queuedPresentations` exactly as
-///   they were before the cancelled command. This was the default in
-///   the v3.x line and is appropriate when a queued sheet should
-///   outlive a cancelled navigation prefix.
+///   they were before the cancelled command. This is the default and
+///   matches the v3.x observable behaviour — appropriate when a
+///   queued sheet should outlive a cancelled navigation prefix.
 /// - ``dropQueued``: dismiss every entry from the queue and the active
 ///   modal (effectively `modalStore.dismissAll`) so a cancelled
-///   navigation prefix does not leave a stale modal carry-over. This
-///   is the new default in 4.0.0.
+///   navigation prefix does not leave a stale modal carry-over.
+///   Opt-in: useful for `replaceStack` flows where the cancelled
+///   reset should drop modal state alongside the navigation prefix.
 /// - ``custom(_:)``: hand control to a `@MainActor` closure that
 ///   inspects the cancelled intent + rejection reason and decides
 ///   what to do with the queue.

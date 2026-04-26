@@ -31,11 +31,12 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
     /// Policy applied to ``ModalStore/queuedPresentations`` when a
     /// `NavigationStore` middleware cancels a flow-level command.
     ///
-    /// Defaults to ``QueueCoalescePolicy/dropQueued`` — a cancelled
-    /// navigation prefix dismisses any modal that was waiting behind
-    /// it, on the assumption that the modal was conceptually part of
-    /// the same intent. Opt back into the pre-4.0 behaviour with
-    /// ``QueueCoalescePolicy/preserve``.
+    /// Defaults to ``QueueCoalescePolicy/preserve`` so the pre-4.0
+    /// observable behaviour is unchanged. Opt into
+    /// ``QueueCoalescePolicy/dropQueued`` if a cancelled navigation
+    /// prefix should also dismiss any modal that was waiting behind
+    /// it, or supply a ``QueueCoalescePolicy/custom(_:)`` closure
+    /// to decide per intent + rejection reason.
     public var queueCoalescePolicy: QueueCoalescePolicy<R>
 
     /// Creates a flow store configuration.
@@ -45,7 +46,7 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
         onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil,
         onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil,
         eventBufferingPolicy: EventBufferingPolicy = .default,
-        queueCoalescePolicy: QueueCoalescePolicy<R> = .dropQueued
+        queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve
     ) {
         self.navigation = navigation
         self.modal = modal
