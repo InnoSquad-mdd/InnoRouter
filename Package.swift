@@ -164,7 +164,7 @@ let package = Package(
         // preventing a silent jump to the next major line. Dependabot
         // opens those updates explicitly so macro fixtures and
         // public-API baselines can move alongside the bump.
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", .upToNextMinor(from: "602.0.0")),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", .upToNextMinor(from: "603.0.1")),
     ],
     targets: [
         // MARK: - Core Runtime Target
