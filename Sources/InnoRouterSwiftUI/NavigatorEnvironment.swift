@@ -14,7 +14,14 @@ final class NavigationEnvironmentStorage {
             return intentDispatchers[ObjectIdentifier(routeType)] as? AnyNavigationIntentDispatcher<R>
         }
         set {
-            intentDispatchers[ObjectIdentifier(routeType)] = newValue
+            let key = ObjectIdentifier(routeType)
+            let existing = intentDispatchers[key] as? AnyNavigationIntentDispatcher<R>
+            reportDuplicateDispatcherIfNeeded(
+                existing: existing,
+                replacement: newValue,
+                keyDescription: "AnyNavigationIntentDispatcher<\(String(describing: routeType))>"
+            )
+            intentDispatchers[key] = newValue
         }
     }
 }

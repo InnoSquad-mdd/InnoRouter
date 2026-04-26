@@ -14,7 +14,14 @@ final class ModalEnvironmentStorage {
             intentDispatchers[ObjectIdentifier(routeType)] as? AnyModalIntentDispatcher<M>
         }
         set {
-            intentDispatchers[ObjectIdentifier(routeType)] = newValue
+            let key = ObjectIdentifier(routeType)
+            let existing = intentDispatchers[key] as? AnyModalIntentDispatcher<M>
+            reportDuplicateDispatcherIfNeeded(
+                existing: existing,
+                replacement: newValue,
+                keyDescription: "AnyModalIntentDispatcher<\(String(describing: routeType))>"
+            )
+            intentDispatchers[key] = newValue
         }
     }
 }

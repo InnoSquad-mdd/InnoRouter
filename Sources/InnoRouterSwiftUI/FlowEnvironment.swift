@@ -13,7 +13,14 @@ final class FlowEnvironmentStorage {
             intentDispatchers[ObjectIdentifier(routeType)] as? AnyFlowIntentDispatcher<R>
         }
         set {
-            intentDispatchers[ObjectIdentifier(routeType)] = newValue
+            let key = ObjectIdentifier(routeType)
+            let existing = intentDispatchers[key] as? AnyFlowIntentDispatcher<R>
+            reportDuplicateDispatcherIfNeeded(
+                existing: existing,
+                replacement: newValue,
+                keyDescription: "AnyFlowIntentDispatcher<\(String(describing: routeType))>"
+            )
+            intentDispatchers[key] = newValue
         }
     }
 }
