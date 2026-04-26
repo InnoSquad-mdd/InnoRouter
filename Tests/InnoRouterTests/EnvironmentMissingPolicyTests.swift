@@ -86,6 +86,39 @@ struct EnvironmentMissingPolicyTests {
 
         #expect(observed == .logAndDegrade)
     }
+
+    // MARK: - .assertAndLog modifier roundtrip
+    //
+    // `.assertAndLog` traps via `assertionFailure` in Debug builds, so
+    // the dispatcher access path cannot be exercised here without
+    // aborting the test process. Coverage is limited to the
+    // environment-key plumbing; the trap behaviour is already covered
+    // by `Sources/NavigationEnvironmentFailFastProbe`, which fails the
+    // gate when the missing-host crash path stops trapping.
+
+    @Test(".innoRouterEnvironmentMissingPolicy(.assertAndLog) writes the environment key")
+    func viewModifier_writesAssertAndLogPolicy() throws {
+        var observed: EnvironmentMissingPolicy?
+
+        _ = try render(
+            PolicyReadingProbe { policy in
+                observed = policy
+            }
+            .innoRouterEnvironmentMissingPolicy(.assertAndLog)
+        )
+
+        #expect(observed == .assertAndLog)
+    }
+
+    @Test("EnvironmentMissingPolicy enumerates crash, logAndDegrade, assertAndLog")
+    func policy_caseSet_isStable() {
+        let cases: Set<EnvironmentMissingPolicy> = [
+            .crash,
+            .logAndDegrade,
+            .assertAndLog,
+        ]
+        #expect(cases.count == 3)
+    }
 }
 
 // MARK: - Probes
