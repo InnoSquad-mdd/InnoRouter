@@ -383,7 +383,7 @@ symbol | swift.protocol | FlowPlanApplier | FlowPlanApplier | @MainActor protoco
 symbol | swift.protocol | ModalMiddleware | ModalMiddleware | @MainActor protocol ModalMiddleware | []
 symbol | swift.protocol | NavigationBatchExecutor | NavigationBatchExecutor | @MainActor protocol NavigationBatchExecutor : AnyObject | []
 symbol | swift.protocol | NavigationCommandExecutor | NavigationCommandExecutor | @MainActor protocol NavigationCommandExecutor : AnyObject | []
-symbol | swift.protocol | NavigationMiddleware | NavigationMiddleware | @MainActor protocol NavigationMiddleware | []
+symbol | swift.protocol | NavigationMiddleware | NavigationMiddleware | @MainActor protocol NavigationMiddleware<RouteType> | []
 symbol | swift.protocol | NavigationStateReader | NavigationStateReader | @MainActor protocol NavigationStateReader : AnyObject | []
 symbol | swift.protocol | NavigationTransactionExecutor | NavigationTransactionExecutor | @MainActor protocol NavigationTransactionExecutor : AnyObject | []
 symbol | swift.protocol | Route | Route | protocol Route : Hashable, Sendable | []

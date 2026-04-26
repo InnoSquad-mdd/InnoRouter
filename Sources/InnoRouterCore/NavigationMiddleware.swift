@@ -1,5 +1,5 @@
 @MainActor
-public protocol NavigationMiddleware {
+public protocol NavigationMiddleware<RouteType> {
     associatedtype RouteType: Route
 
     func willExecute(_ command: NavigationCommand<RouteType>, state: RouteStack<RouteType>) -> NavigationInterception<RouteType>
@@ -12,17 +12,7 @@ public protocol NavigationMiddleware {
 
 @_spi(NavigationStoreInternals)
 @MainActor
-public protocol AnyNavigationMiddlewareDiscardCleanupBox {
-    func discardExecutionBoxed(
-        command: Any,
-        result: Any,
-        state: Any
-    )
-}
-
-@_spi(NavigationStoreInternals)
-@MainActor
-public protocol NavigationMiddlewareDiscardCleanup: AnyNavigationMiddlewareDiscardCleanupBox {
+public protocol NavigationMiddlewareDiscardCleanup<RouteType> {
     associatedtype RouteType: Route
 
     func discardExecution(
@@ -30,20 +20,6 @@ public protocol NavigationMiddlewareDiscardCleanup: AnyNavigationMiddlewareDisca
         result: NavigationResult<RouteType>,
         state: RouteStack<RouteType>
     )
-}
-
-@_spi(NavigationStoreInternals)
-public extension NavigationMiddlewareDiscardCleanup {
-    func discardExecutionBoxed(
-        command: Any,
-        result: Any,
-        state: Any
-    ) {
-        guard let command = command as? NavigationCommand<RouteType>,
-              let result = result as? NavigationResult<RouteType>,
-              let state = state as? RouteStack<RouteType> else { return }
-        discardExecution(command, result: result, state: state)
-    }
 }
 
 @MainActor
@@ -57,13 +33,14 @@ public struct AnyNavigationMiddleware<R: Route>: NavigationMiddleware, Sendable 
     public init<M: NavigationMiddleware>(_ middleware: M) where M.RouteType == R {
         self._willExecute = { command, state in middleware.willExecute(command, state: state) }
         self._didExecute = { command, result, state in middleware.didExecute(command, result: result, state: state) }
-        if let cleanupMiddleware = middleware as? any AnyNavigationMiddlewareDiscardCleanupBox {
+        // Constrained existential lookup (Swift 5.7+ primary
+        // associated types) replaces the previous `Any`-boxed
+        // protocol — the cleanup middleware now arrives with its
+        // `RouteType` already pinned to `R`, so the cast cannot
+        // silently bind to an unrelated route type.
+        if let cleanupMiddleware = middleware as? any NavigationMiddlewareDiscardCleanup<R> {
             self._discardExecution = { command, result, state in
-                cleanupMiddleware.discardExecutionBoxed(
-                    command: command,
-                    result: result,
-                    state: state
-                )
+                cleanupMiddleware.discardExecution(command, result: result, state: state)
             }
         } else {
             self._discardExecution = { _, _, _ in }
