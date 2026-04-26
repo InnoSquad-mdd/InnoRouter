@@ -9,6 +9,24 @@ public enum DeepLinkMatcherDiagnosticsMode: Sendable, Equatable {
     case disabled
     /// Emits warning diagnostics during matcher construction without failing execution.
     case debugWarnings
+    /// Promotes any structural diagnostic into a thrown error, preventing a
+    /// misconfigured matcher from being constructed at all. Use this in
+    /// release builds or release-readiness gates where shipping shadowed /
+    /// duplicated patterns would corrupt deep-link routing in production.
+    /// Pair with ``DeepLinkMatcher/init(strict:mappings:)``.
+    case strict
+}
+
+/// Error thrown by ``DeepLinkMatcher/init(strict:mappings:)`` when a
+/// structural diagnostic is encountered in `.strict` mode.
+public struct DeepLinkMatcherStrictError: Error, Sendable, Equatable {
+    /// The diagnostics that triggered the failure. Always non-empty.
+    public let diagnostics: [DeepLinkMatcherDiagnostic]
+
+    public init(diagnostics: [DeepLinkMatcherDiagnostic]) {
+        precondition(!diagnostics.isEmpty, "DeepLinkMatcherStrictError requires at least one diagnostic")
+        self.diagnostics = diagnostics
+    }
 }
 
 /// Describes a structural issue detected while building a `DeepLinkMatcher`.
@@ -98,7 +116,18 @@ public struct DeepLinkParser: Sendable {
             let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
             self.scheme = components?.scheme
             self.host = components?.host
-            self.path = url.pathComponents.filter { $0 != "/" }
+            // Normalise percent-encoded segments (e.g. `hello%20world` →
+            // `hello world`, `%EC%95%88%EB%85%95` → `안녕`) so that
+            // human-readable patterns declared in `DeepLinkMapping` match
+            // their URL-encoded counterparts. `URL.pathComponents` may
+            // return raw or decoded components depending on the URL form;
+            // applying `removingPercentEncoding` defensively keeps the
+            // contract platform-stable.
+            self.path = url.pathComponents
+                .filter { $0 != "/" }
+                .map { component in
+                    component.removingPercentEncoding ?? component
+                }
 
             var parsedQueryItems: [String: [String]] = [:]
             for item in components?.queryItems ?? [] {
@@ -199,7 +228,7 @@ public struct DeepLinkPattern: Sendable {
 
             case .parameter(let name):
                 guard index < pathParts.count else { return nil }
-                parameters[name] = [pathParts[index]]
+                parameters[name, default: []].append(pathParts[index])
 
             case .wildcard:
                 return MatchResult(parameters: parameters)
@@ -288,6 +317,55 @@ public struct DeepLinkPattern: Sendable {
         }
         return true
     }
+
+    static func makeDiagnostics(
+        for patterns: [DeepLinkPattern]
+    ) -> [DeepLinkMatcherDiagnostic] {
+        var diagnostics: [DeepLinkMatcherDiagnostic] = []
+
+        for earlierIndex in patterns.indices {
+            let earlier = patterns[earlierIndex]
+            for laterIndex in patterns.indices where laterIndex > earlierIndex {
+                let later = patterns[laterIndex]
+
+                if earlier.normalizedPattern == later.normalizedPattern {
+                    diagnostics.append(
+                        .duplicatePattern(
+                            pattern: later.normalizedPattern,
+                            firstIndex: earlierIndex,
+                            duplicateIndex: laterIndex
+                        )
+                    )
+                    continue
+                }
+
+                switch earlier.shadows(later) {
+                case .wildcard?:
+                    diagnostics.append(
+                        .wildcardShadowing(
+                            pattern: earlier.normalizedPattern,
+                            index: earlierIndex,
+                            shadowedPattern: later.normalizedPattern,
+                            shadowedIndex: laterIndex
+                        )
+                    )
+                case .parameter?:
+                    diagnostics.append(
+                        .parameterShadowing(
+                            pattern: earlier.normalizedPattern,
+                            index: earlierIndex,
+                            shadowedPattern: later.normalizedPattern,
+                            shadowedIndex: laterIndex
+                        )
+                    )
+                case nil:
+                    break
+                }
+            }
+        }
+
+        return diagnostics
+    }
 }
 
 public struct DeepLinkMatcher<R: Route>: Sendable {
@@ -304,8 +382,38 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
     ) {
         let resolvedMappings = mappings()
         self.mappings = resolvedMappings
-        self.diagnostics = Self.makeDiagnostics(for: resolvedMappings)
-        Self.emitDiagnostics(self.diagnostics, configuration: configuration)
+        self.diagnostics = DeepLinkPattern.makeDiagnostics(
+            for: resolvedMappings.map(\.pattern)
+        )
+        DeepLinkMatcherDiagnostic.emit(self.diagnostics, configuration: configuration)
+    }
+
+    /// Creates a matcher that promotes any structural diagnostic into a
+    /// thrown ``DeepLinkMatcherStrictError`` rather than emitting a warning.
+    ///
+    /// Use this in release builds or release-readiness gates where shipping
+    /// shadowed / duplicated patterns would corrupt deep-link routing in
+    /// production. The diagnostics that triggered the failure are surfaced
+    /// in the thrown error so callers can produce actionable messages.
+    public init(
+        strict: Void = (),
+        logger: Logger? = nil,
+        @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]
+    ) throws {
+        let resolvedMappings = mappings()
+        let resolvedDiagnostics = DeepLinkPattern.makeDiagnostics(
+            for: resolvedMappings.map(\.pattern)
+        )
+        if !resolvedDiagnostics.isEmpty {
+            // Surface the diagnostics through the optional logger before
+            // throwing so a CI run still has the structured warning trail.
+            for diagnostic in resolvedDiagnostics {
+                logger?.error("\(diagnostic.message, privacy: .public)")
+            }
+            throw DeepLinkMatcherStrictError(diagnostics: resolvedDiagnostics)
+        }
+        self.mappings = resolvedMappings
+        self.diagnostics = resolvedDiagnostics
     }
 
     public func match(_ url: URL) -> R? {
@@ -321,68 +429,6 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
     public func match(_ urlString: String) -> R? {
         guard let url = URL(string: urlString) else { return nil }
         return match(url)
-    }
-
-    private static func makeDiagnostics(
-        for mappings: [DeepLinkMapping<R>]
-    ) -> [DeepLinkMatcherDiagnostic] {
-        var diagnostics: [DeepLinkMatcherDiagnostic] = []
-
-        for earlierIndex in mappings.indices {
-            let earlier = mappings[earlierIndex]
-            for laterIndex in mappings.indices where laterIndex > earlierIndex {
-                let later = mappings[laterIndex]
-
-                if earlier.pattern.normalizedPattern == later.pattern.normalizedPattern {
-                    diagnostics.append(
-                        .duplicatePattern(
-                            pattern: later.pattern.normalizedPattern,
-                            firstIndex: earlierIndex,
-                            duplicateIndex: laterIndex
-                        )
-                    )
-                    continue
-                }
-
-                switch earlier.pattern.shadows(later.pattern) {
-                case .wildcard?:
-                    diagnostics.append(
-                        .wildcardShadowing(
-                            pattern: earlier.pattern.normalizedPattern,
-                            index: earlierIndex,
-                            shadowedPattern: later.pattern.normalizedPattern,
-                            shadowedIndex: laterIndex
-                        )
-                    )
-                case .parameter?:
-                    diagnostics.append(
-                        .parameterShadowing(
-                            pattern: earlier.pattern.normalizedPattern,
-                            index: earlierIndex,
-                            shadowedPattern: later.pattern.normalizedPattern,
-                            shadowedIndex: laterIndex
-                        )
-                    )
-                case nil:
-                    break
-                }
-            }
-        }
-
-        return diagnostics
-    }
-
-    private static func emitDiagnostics(
-        _ diagnostics: [DeepLinkMatcherDiagnostic],
-        configuration: DeepLinkMatcherConfiguration
-    ) {
-        guard case .debugWarnings = configuration.diagnosticsMode else {
-            return
-        }
-
-        for diagnostic in diagnostics {
-            configuration.logger?.warning("\(diagnostic.message, privacy: .public)")
-        }
     }
 }
 
@@ -408,6 +454,35 @@ public extension DeepLinkMatcherDiagnostic {
     enum Kind: Sendable, Equatable {
         case wildcard
         case parameter
+    }
+}
+
+extension DeepLinkMatcherDiagnostic {
+    static func emit(
+        _ diagnostics: [DeepLinkMatcherDiagnostic],
+        configuration: DeepLinkMatcherConfiguration
+    ) {
+        switch configuration.diagnosticsMode {
+        case .disabled:
+            return
+        case .debugWarnings:
+            for diagnostic in diagnostics {
+                configuration.logger?.warning("\(diagnostic.message, privacy: .public)")
+            }
+        case .strict:
+            // `.strict` is meaningful only when constructed via a throwing
+            // strict matcher initializer. Reaching this branch from a
+            // non-throwing init means the caller picked `.strict` without a
+            // `try`, which silently suppresses the failure they were trying to
+            // gate on. Trap to surface the misuse at the configuration site.
+            preconditionFailure(
+                """
+                DeepLinkMatcherDiagnosticsMode.strict requires a throwing strict \
+                matcher initializer. Picking `.strict` from a non-throwing init \
+                silently swallows diagnostics — pair `.strict` with `try` instead.
+                """
+            )
+        }
     }
 }
 

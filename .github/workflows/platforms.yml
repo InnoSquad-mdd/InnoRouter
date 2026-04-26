@@ -39,12 +39,19 @@ jobs:
 
       # This workflow is compile-only. The authoritative correctness gate
       # remains the `gates` workflow; these jobs exist to catch
-      # per-platform SwiftUI / availability regressions with the latest
-      # stable Xcode toolchain available on the runner image.
-      - name: Select latest stable Xcode
+      # per-platform SwiftUI / availability regressions on a fixed
+      # Xcode toolchain.
+      #
+      # Xcode is pinned (rather than `latest-stable`) so the platform
+      # matrix stays reproducible across the lifetime of a release.
+      # Swift 6.2 is the floor declared in Package.swift; the pinned
+      # Xcode below satisfies that. Bump this pin from RELEASING.md's
+      # checklist when cutting a new release — see the "Toolchain pin"
+      # section there for the policy.
+      - name: Select pinned Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: "26.3"
 
       - name: Show toolchain
         run: |

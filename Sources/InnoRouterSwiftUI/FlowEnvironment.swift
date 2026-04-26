@@ -43,13 +43,20 @@ public protocol FlowIntentDispatching: AnyObject {
     func send(_ intent: FlowIntent<RouteType>)
 }
 
+/// Type-erased dispatcher used to publish ``FlowIntent`` values through the
+/// SwiftUI environment.
+///
+/// The dispatcher is `@MainActor`-isolated. ``FlowIntent`` itself is
+/// `Sendable` because `Route` conforms to `Sendable`; the closure stored here
+/// is annotated `@Sendable` so the dispatcher can be safely captured from
+/// detached tasks before the eventual hop back to the main actor.
 @MainActor
 public final class AnyFlowIntentDispatcher<R: Route>: FlowIntentDispatching {
     public typealias RouteType = R
 
-    private let sendIntent: @MainActor (FlowIntent<R>) -> Void
+    private let sendIntent: @MainActor @Sendable (FlowIntent<R>) -> Void
 
-    public init(send: @escaping @MainActor (FlowIntent<R>) -> Void) {
+    public init(send: @escaping @MainActor @Sendable (FlowIntent<R>) -> Void) {
         self.sendIntent = send
     }
 

@@ -102,6 +102,13 @@ public final class DeepLinkEffectHandler<R: Route> {
             return .pending(capturedPendingDeepLink)
         }
 
+        // Re-validate the captured plan against the current stack. If the stack was
+        // mutated while `authorize` was suspended (e.g. a concurrent `popToRoot`),
+        // keep the pending deep link rather than replaying a stale plan.
+        guard navigationHandler.canExecuteSequentially(capturedPendingDeepLink.plan.commands) else {
+            return .pending(capturedPendingDeepLink)
+        }
+
         return resumePendingDeepLink()
     }
 

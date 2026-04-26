@@ -3,6 +3,15 @@ import SwiftUI
 import InnoRouterCore
 
 /// Hosts modal presentation surfaces backed by a `ModalStore`.
+///
+/// Ownership split:
+///
+/// - The `ModalStore` is owned by the caller and outlives this host.
+/// - ``ModalStore/intentDispatcher`` is cached on the store, so the host
+///   reads it instead of allocating a fresh dispatcher per render.
+/// - The route-type lookup table (``ModalEnvironmentStorage``) is
+///   `@State` because it scopes to the host's view-tree subtree, not to
+///   the store's lifetime.
 public struct ModalHost<M: Route, Destination: View, Content: View>: View {
     @Bindable private var store: ModalStore<M>
     @State private var modalEnvironmentStorage = ModalEnvironmentStorage()
@@ -47,11 +56,7 @@ public struct ModalHost<M: Route, Destination: View, Content: View>: View {
                 }
 #endif
         }
-            .modalIntentDispatcher(
-                AnyModalIntentDispatcher { intent in
-                    modalStore.send(intent)
-                }
-            )
+            .modalIntentDispatcher(modalStore.intentDispatcher)
             .environment(\.modalEnvironmentStorage, modalEnvironmentStorage)
     }
 }

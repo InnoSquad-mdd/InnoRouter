@@ -1,10 +1,54 @@
 import Observation
 import SwiftUI
 
+/// Marker protocol for the discrete steps of a `FlowCoordinator`-driven
+/// flow.
+///
+/// Adopters are typically value-typed enums whose case order tracks
+/// step progression. The required `index` property exists so the
+/// coordinator can advance / rewind in O(1) without depending on
+/// `CaseIterable`'s declaration order.
 public protocol FlowStep: Hashable, CaseIterable, Sendable {
+    /// Zero-based ordinal of the step within the flow. Steps with
+    /// adjacent indices are siblings in the progression order; gaps
+    /// allow non-linear flows where some steps are skipped.
     var index: Int { get }
 }
 
+/// A presentation-layer protocol for ordered, multi-step flows
+/// (onboarding, sign-up, KYC checklists, etc.).
+///
+/// `FlowCoordinator` complements `FlowStore` rather than replacing it:
+/// `FlowStore` owns the typed navigation/modal stacks behind a flow,
+/// while `FlowCoordinator` focuses on the *step* progression — what's
+/// the next step, what's already complete, when does the flow finish.
+///
+/// ## Platform availability
+///
+/// This protocol and its `FlowCoordinatorView` companion are available
+/// on every InnoRouter-supported platform. The view relies on plain
+/// `VStack` + `ProgressView` (without `NavigationSplitView`), so it
+/// does not require the watchOS fallback that ``NavigationSplitHost``
+/// needs.
+///
+/// ## Conforming
+///
+/// Conformers are reference types that drive their own `currentStep`
+/// state; the protocol is `@MainActor`-isolated because SwiftUI
+/// rendering runs on the main actor.
+///
+/// ```swift
+/// @Observable @MainActor
+/// final class SignUpCoordinator: FlowCoordinator {
+///     enum Step: Int, FlowStep { case email, password, profile
+///         var index: Int { rawValue }
+///     }
+///     var currentStep: Step = .email
+///     var completedSteps: Set<Step> = []
+///     var onComplete: ((Profile) -> Void)?
+///     func complete(with profile: Profile) { onComplete?(profile) }
+/// }
+/// ```
 @MainActor
 public protocol FlowCoordinator: AnyObject, Observable {
     associatedtype Step: FlowStep

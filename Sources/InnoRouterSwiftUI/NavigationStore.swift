@@ -23,6 +23,30 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private let traceLogger: Logger?
     private var traceRecorder: InternalExecutionTraceRecorder?
     private var cachedEffectiveTraceRecorder: InternalExecutionTraceRecorder?
+    /// Cached intent dispatcher that lives for the lifetime of this store.
+    /// Built on first access by ``intentDispatcher`` so SwiftUI hosts do
+    /// not allocate a fresh closure on every render.
+    @ObservationIgnored
+    private var cachedIntentDispatcher: AnyNavigationIntentDispatcher<R>?
+
+    /// A type-erased dispatcher that forwards `NavigationIntent` values to
+    /// this store's ``send(_:)`` entry point.
+    ///
+    /// Hosts publish this through the SwiftUI environment so descendants can
+    /// use ``EnvironmentNavigationIntent`` to dispatch view-layer intents
+    /// without holding a direct store reference. The dispatcher is created
+    /// on first access and reused for the lifetime of the store, so a
+    /// SwiftUI host does not allocate a fresh closure on every render.
+    public var intentDispatcher: AnyNavigationIntentDispatcher<R> {
+        if let cachedIntentDispatcher {
+            return cachedIntentDispatcher
+        }
+        let dispatcher = AnyNavigationIntentDispatcher<R> { [weak self] intent in
+            self?.send(intent)
+        }
+        cachedIntentDispatcher = dispatcher
+        return dispatcher
+    }
 
     public var middlewareHandles: [NavigationMiddlewareHandle] {
         middlewareRegistry.handles
@@ -51,7 +75,9 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         initial: RouteStack<R> = .init(),
         configuration: NavigationStoreConfiguration<R> = .init()
     ) {
-        let broadcaster = EventBroadcaster<NavigationEvent<R>>()
+        let broadcaster = EventBroadcaster<NavigationEvent<R>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
+        )
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation,
             onPathMismatch: configuration.onPathMismatch
@@ -96,7 +122,9 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         nonPrefixAssertionHandler: @escaping @MainActor @Sendable ([R], [R]) -> Void,
         telemetryRecorder: NavigationStoreTelemetryRecorder<R>? = nil
     ) {
-        let broadcaster = EventBroadcaster<NavigationEvent<R>>()
+        let broadcaster = EventBroadcaster<NavigationEvent<R>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
+        )
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation,
             onPathMismatch: configuration.onPathMismatch

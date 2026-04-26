@@ -13,6 +13,11 @@ public extension DeepLinkable {
 
 public struct PendingDeepLink<R: Route>: Sendable, Equatable {
     public let url: URL
+    /// The route that triggered authentication deferral.
+    ///
+    /// For the default `.push(route)` planner this is the resolved
+    /// route. For custom planners it can be a protected route found
+    /// inside the produced `NavigationPlan`.
     public let route: R
     public let plan: NavigationPlan<R>
 
@@ -104,12 +109,42 @@ public struct DeepLinkPipeline<R: Route>: Sendable {
             break
 
         case .required(let shouldRequireAuthentication, let isAuthenticated):
-            if shouldRequireAuthentication(route), !isAuthenticated() {
-                return .pending(PendingDeepLink(url: url, route: route, plan: navigationPlan))
+            let candidateRoutes = navigationPlan.authenticationCandidateRoutes(
+                fallback: route
+            )
+            if let gatedRoute = candidateRoutes.first(where: shouldRequireAuthentication),
+               !isAuthenticated() {
+                return .pending(PendingDeepLink(url: url, route: gatedRoute, plan: navigationPlan))
             }
         }
 
         return .plan(navigationPlan)
+    }
+}
+
+private extension NavigationPlan {
+    func authenticationCandidateRoutes(fallback route: R) -> [R] {
+        let plannedRoutes = commands.flatMap(\.authenticationCandidateRoutes)
+        return plannedRoutes.isEmpty ? [route] : plannedRoutes
+    }
+}
+
+private extension NavigationCommand {
+    var authenticationCandidateRoutes: [R] {
+        switch self {
+        case .push(let route):
+            return [route]
+        case .pushAll(let routes), .replace(let routes):
+            return routes
+        case .popTo(let route):
+            return [route]
+        case .sequence(let commands):
+            return commands.flatMap(\.authenticationCandidateRoutes)
+        case .whenCancelled(let primary, fallback: let fallback):
+            return primary.authenticationCandidateRoutes + fallback.authenticationCandidateRoutes
+        case .pop, .popCount, .popToRoot:
+            return []
+        }
     }
 }
 

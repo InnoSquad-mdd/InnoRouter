@@ -28,15 +28,24 @@ import Foundation
 @MainActor
 package final class EventBroadcaster<Event: Sendable> {
     private var continuations: [UUID: AsyncStream<Event>.Continuation] = [:]
+    private let bufferingPolicy: EventBufferingPolicy
 
-    package init() {}
+    package init(bufferingPolicy: EventBufferingPolicy = .default) {
+        self.bufferingPolicy = bufferingPolicy
+    }
 
     /// Returns a fresh `AsyncStream` that will receive every subsequent
     /// `broadcast(_:)` call until the consumer cancels its iterator or
     /// the broadcaster is deallocated.
+    ///
+    /// The subscriber's continuation uses the broadcaster's configured
+    /// ``EventBufferingPolicy`` so a stalled consumer cannot retain events
+    /// without bound.
     package func stream() -> AsyncStream<Event> {
         let id = UUID()
-        let (stream, continuation) = AsyncStream<Event>.makeStream()
+        let (stream, continuation) = AsyncStream<Event>.makeStream(
+            bufferingPolicy: bufferingPolicy.asStreamPolicy()
+        )
         continuations[id] = continuation
         continuation.onTermination = { @Sendable [weak self] _ in
             Task { @MainActor in

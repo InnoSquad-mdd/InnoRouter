@@ -17,11 +17,16 @@ enum MacroDiagnostic: DiagnosticMessage {
     /// Declaration is an enum but has no cases — expansion produces
     /// nothing useful; surfaced as a warning, not an error.
     case emptyEnum(macroName: String)
+    /// Declaration is a generic enum. The generated `CasePath<Self, T>`
+    /// members cannot propagate the parent's generic parameters into a
+    /// nested `enum Cases`, so expansion is rejected as an error.
+    case unsupportedGenericEnum(macroName: String)
 
     var severity: DiagnosticSeverity {
         switch self {
         case .requiresEnum: return .error
         case .emptyEnum: return .warning
+        case .unsupportedGenericEnum: return .error
         }
     }
 
@@ -31,6 +36,8 @@ enum MacroDiagnostic: DiagnosticMessage {
             return "@\(name) can only be applied to enum declarations"
         case .emptyEnum(let name):
             return "@\(name) applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro"
+        case .unsupportedGenericEnum(let name):
+            return "@\(name) does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum."
         }
     }
 
@@ -40,6 +47,8 @@ enum MacroDiagnostic: DiagnosticMessage {
             return MessageID(domain: "InnoRouterMacros", id: "requiresEnum")
         case .emptyEnum:
             return MessageID(domain: "InnoRouterMacros", id: "emptyEnum")
+        case .unsupportedGenericEnum:
+            return MessageID(domain: "InnoRouterMacros", id: "unsupportedGenericEnum")
         }
     }
 }
@@ -61,9 +70,30 @@ struct ReplaceKeywordWithEnumFixIt: FixItMessage {
     }
 }
 
+/// Note attached to ``MacroDiagnostic/requiresEnum`` when the
+/// misapplied declaration is a `protocol` or `actor`. These shapes
+/// differ from `enum` enough that a one-keyword FixIt would silently
+/// erase important semantics (witness tables, isolation), so the
+/// macro emits a refactor hint instead of an automated rewrite.
+struct RequiresEnumManualRefactorNote: NoteMessage {
+    let originalKeyword: String
+
+    var message: String {
+        "Refactor manually — declaration shape differs from enum (`\(originalKeyword)` cannot be safely auto-replaced)."
+    }
+
+    var fixItID: MessageID {
+        MessageID(domain: "InnoRouterMacros", id: "requiresEnumManualRefactor")
+    }
+
+    var noteID: MessageID { fixItID }
+}
+
 /// Emits the "must be applied to an enum" diagnostic and attaches a
 /// keyword-replacement FixIt when the misapplied declaration is a
-/// `struct` or `class`.
+/// `struct` or `class`. For `protocol` / `actor` declarations the
+/// diagnostic carries a manual-refactor note instead, because those
+/// shapes cannot be safely auto-rewritten as enums.
 func emitRequiresEnumDiagnostic(
     macroName: String,
     node: AttributeSyntax,
@@ -71,10 +101,12 @@ func emitRequiresEnumDiagnostic(
     context: some MacroExpansionContext
 ) {
     let fixIts = makeRequiresEnumFixIts(for: declaration)
+    let notes = makeRequiresEnumNotes(for: declaration, attachedTo: node)
     context.diagnose(
         Diagnostic(
             node: node,
             message: MacroDiagnostic.requiresEnum(macroName: macroName),
+            notes: notes,
             fixIts: fixIts
         )
     )
@@ -94,6 +126,25 @@ func emitEmptyEnumDiagnostic(
     )
 }
 
+/// Emits the "generic enums are not supported" diagnostic. The diagnostic is
+/// pinned to the enum's generic parameter clause when available so the
+/// compiler error highlights the offending `<...>` rather than the macro
+/// attribute itself.
+func emitUnsupportedGenericEnumDiagnostic(
+    macroName: String,
+    node: AttributeSyntax,
+    enumDecl: EnumDeclSyntax,
+    context: some MacroExpansionContext
+) {
+    let anchor: SyntaxProtocol = enumDecl.genericParameterClause ?? Syntax(node)
+    context.diagnose(
+        Diagnostic(
+            node: anchor,
+            message: MacroDiagnostic.unsupportedGenericEnum(macroName: macroName)
+        )
+    )
+}
+
 private func makeRequiresEnumFixIts(
     for declaration: some DeclGroupSyntax
 ) -> [FixIt] {
@@ -107,6 +158,25 @@ private func makeRequiresEnumFixIts(
         return [keywordReplacementFixIt(
             original: classDecl.classKeyword,
             originalKeyword: "class"
+        )]
+    }
+    return []
+}
+
+private func makeRequiresEnumNotes(
+    for declaration: some DeclGroupSyntax,
+    attachedTo node: AttributeSyntax
+) -> [Note] {
+    if let protocolDecl = declaration.as(ProtocolDeclSyntax.self) {
+        return [Note(
+            node: Syntax(protocolDecl.protocolKeyword),
+            message: RequiresEnumManualRefactorNote(originalKeyword: "protocol")
+        )]
+    }
+    if let actorDecl = declaration.as(ActorDeclSyntax.self) {
+        return [Note(
+            node: Syntax(actorDecl.actorKeyword),
+            message: RequiresEnumManualRefactorNote(originalKeyword: "actor")
         )]
     }
     return []

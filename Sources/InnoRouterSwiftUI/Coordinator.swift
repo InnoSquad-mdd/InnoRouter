@@ -1,6 +1,12 @@
 import InnoRouterCore
 import SwiftUI
 
+/// View-layer intent dispatched to ``NavigationStore/send(_:)``.
+///
+/// Conformance to `Sendable` is **unconditional** because every ``Route`` is
+/// required to be `Sendable`. Callers can therefore freely move
+/// `NavigationIntent` values across actor boundaries without
+/// additional `where R: Sendable` constraints.
 public enum NavigationIntent<R: Route>: Sendable, Equatable {
     case go(R)
     case goMany([R])

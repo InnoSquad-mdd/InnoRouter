@@ -4,7 +4,7 @@
   @PageKind(article)
 }
 
-`DeepLinkMatcher` is the URL-pattern front door for deep-link routing.
+`DeepLinkMatcher` and `FlowDeepLinkMatcher` are the URL-pattern front doors for deep-link routing.
 
 ## Pattern model
 
@@ -34,4 +34,6 @@ That means:
 - wildcard shadowing
 - parameter-heavy patterns that subsume more specific later patterns
 
-Diagnostics are intended to catch ambiguous authoring early without changing the matcher’s runtime semantics.
+Diagnostics are available on both push-only and flow matchers. They
+are intended to catch ambiguous authoring early without changing the
+matcher’s runtime semantics.

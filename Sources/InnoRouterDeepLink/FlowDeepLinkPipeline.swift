@@ -58,6 +58,33 @@ public enum FlowDeepLinkDecision<R: Route>: Sendable, Equatable {
 /// 2. Walk the matcher for a `FlowPlan`.
 /// 3. Run the authentication policy against every route in the plan.
 /// 4. Return `.flowPlan(plan)` or `.pending(...)` as appropriate.
+///
+/// ## Multi-step authentication semantics
+///
+/// When `authenticationPolicy == .required(...)` and the matched plan
+/// contains *multiple* steps, the pipeline scans the plan in plan-step
+/// order and returns the **first** route flagged as protected by
+/// `shouldRequireAuthentication` as the
+/// ``FlowPendingDeepLink/gatedRoute``.
+///
+/// `.pending` is **all-or-nothing**: when any step in a plan is gated,
+/// the pipeline does not commit the unprotected prefix. The full plan
+/// is queued in ``FlowPendingDeepLink/plan`` and replayed atomically
+/// once authentication succeeds. This means that a plan such as
+/// `[push(.home), push(.profile)]` with only `.profile` gated will:
+///
+/// - return `.pending(gatedRoute: .profile, plan: <full plan>)`,
+/// - leave the navigation/modal stacks untouched (no `.home` push),
+/// - re-validate the same protected route on replay (`.profile`),
+///   so a stale gate that resolves between defer and replay still
+///   blocks the appropriate step.
+///
+/// Callers that want partial application (commit unprotected prefix
+/// immediately, defer only the gated suffix) must split the plan
+/// upstream — the pipeline intentionally does not infer where it is
+/// safe to break a multi-step plan, because user-visible side effects
+/// often depend on the plan's atomicity (analytics, telemetry, screen
+/// transitions).
 public struct FlowDeepLinkPipeline<R: Route>: Sendable {
     public let allowedSchemes: Set<String>?
     public let allowedHosts: Set<String>?

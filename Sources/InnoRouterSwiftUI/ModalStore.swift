@@ -4,6 +4,12 @@ import SwiftUI
 
 @_spi(InternalTrace) import InnoRouterCore
 
+/// View-layer intent dispatched to ``ModalStore/send(_:)``.
+///
+/// Conformance to `Sendable` is **unconditional** because every ``Route`` is
+/// required to be `Sendable`. Callers can therefore freely move `ModalIntent`
+/// values across actor boundaries without additional `where M: Sendable`
+/// constraints.
 public enum ModalIntent<M: Route>: Sendable, Equatable {
     case present(M, style: ModalPresentationStyle)
     case dismiss
@@ -24,6 +30,36 @@ public final class ModalStore<M: Route> {
     private let broadcaster: EventBroadcaster<ModalEvent<M>>
     private let traceLogger: Logger?
     private var traceRecorder: InternalExecutionTraceRecorder?
+    /// Memoised forwarding closure that fans out trace records to both
+    /// the externally-installed recorder (if any) and the internal
+    /// `Logger`. Recomputed only when `installTraceRecorder(_:)` flips
+    /// the underlying recorder so we don't allocate a new closure on
+    /// every command execution.
+    private var cachedEffectiveTraceRecorder: InternalExecutionTraceRecorder?
+    /// Cached intent dispatcher that lives for the lifetime of this store.
+    /// Built on first access by ``intentDispatcher`` so SwiftUI hosts do
+    /// not allocate a fresh closure on every render.
+    @ObservationIgnored
+    private var cachedIntentDispatcher: AnyModalIntentDispatcher<M>?
+
+    /// A type-erased dispatcher that forwards `ModalIntent` values to this
+    /// store's ``send(_:)`` entry point.
+    ///
+    /// Hosts publish this through the SwiftUI environment so descendants can
+    /// use ``EnvironmentModalIntent`` to dispatch view-layer intents without
+    /// holding a direct store reference. The dispatcher is created on first
+    /// access and reused for the lifetime of the store, so a SwiftUI host
+    /// does not allocate a fresh closure on every render.
+    public var intentDispatcher: AnyModalIntentDispatcher<M> {
+        if let cachedIntentDispatcher {
+            return cachedIntentDispatcher
+        }
+        let dispatcher = AnyModalIntentDispatcher<M> { [weak self] intent in
+            self?.send(intent)
+        }
+        cachedIntentDispatcher = dispatcher
+        return dispatcher
+    }
 
     public var middlewareHandles: [ModalMiddlewareHandle] {
         middlewareRegistry.handles
@@ -57,7 +93,9 @@ public final class ModalStore<M: Route> {
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
-        let broadcaster = EventBroadcaster<ModalEvent<M>>()
+        let broadcaster = EventBroadcaster<ModalEvent<M>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
+        )
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation
         )
@@ -81,6 +119,7 @@ public final class ModalStore<M: Route> {
         self.broadcaster = broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
+        updateEffectiveTraceRecorder()
     }
 
     init(
@@ -93,7 +132,9 @@ public final class ModalStore<M: Route> {
             currentPresentation: currentPresentation,
             queuedPresentations: queuedPresentations
         )
-        let broadcaster = EventBroadcaster<ModalEvent<M>>()
+        let broadcaster = EventBroadcaster<ModalEvent<M>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
+        )
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation
         )
@@ -121,6 +162,7 @@ public final class ModalStore<M: Route> {
         self.broadcaster = broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
+        updateEffectiveTraceRecorder()
     }
 
     // MARK: - Public telemetry adapters
@@ -241,17 +283,23 @@ public final class ModalStore<M: Route> {
 
     func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
         self.traceRecorder = recorder
+        updateEffectiveTraceRecorder()
     }
 
-    private var effectiveTraceRecorder: InternalExecutionTraceRecorder? {
+    private func updateEffectiveTraceRecorder() {
         if traceRecorder == nil && traceLogger == nil {
-            return nil
+            cachedEffectiveTraceRecorder = nil
+            return
         }
 
-        return { [weak self] record in
+        cachedEffectiveTraceRecorder = { [weak self] record in
             self?.traceRecorder?(record)
             self?.logTraceRecord(record)
         }
+    }
+
+    private var effectiveTraceRecorder: InternalExecutionTraceRecorder? {
+        cachedEffectiveTraceRecorder
     }
 
     private func logTraceRecord(_ record: InternalExecutionTraceRecord) {
@@ -393,9 +441,35 @@ public final class ModalStore<M: Route> {
         }
     }
 
-    public func present(_ route: M, style: ModalPresentationStyle) {
+    /// Presents a route and reports whether it became the active modal
+    /// immediately or was deferred behind an already-active one.
+    ///
+    /// The return value is `@discardableResult` — callers that ignore
+    /// queued vs shown semantics continue to compile unchanged. Callers
+    /// that branch on the outcome can pattern-match the
+    /// ``ModalPresentResult`` cases instead of inspecting
+    /// ``ModalExecutionResult`` payloads.
+    @discardableResult
+    public func present(_ route: M, style: ModalPresentationStyle) -> ModalPresentResult<M> {
         let presentation = ModalPresentation(route: route, style: style)
-        _ = execute(.present(presentation))
+        let result = execute(.present(presentation))
+        return Self.presentResult(from: result, requestedID: presentation.id)
+    }
+
+    private static func presentResult(
+        from result: ModalExecutionResult<M>,
+        requestedID: UUID
+    ) -> ModalPresentResult<M> {
+        switch result {
+        case .executed:
+            return .shownImmediately(id: requestedID)
+        case .queued(let queued):
+            return .queuedBehind(id: queued.id)
+        case .cancelled(let reason):
+            return .cancelled(reason)
+        case .noop:
+            return .noop
+        }
     }
 
     public func replaceCurrent(_ route: M, style: ModalPresentationStyle) {

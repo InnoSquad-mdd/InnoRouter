@@ -44,13 +44,20 @@ public protocol NavigationIntentDispatching: AnyObject {
     func send(_ intent: NavigationIntent<RouteType>)
 }
 
+/// Type-erased dispatcher used to publish ``NavigationIntent`` values through
+/// the SwiftUI environment.
+///
+/// The dispatcher is `@MainActor`-isolated. ``NavigationIntent`` itself is
+/// `Sendable` because `Route` conforms to `Sendable`; the closure stored here
+/// is annotated `@Sendable` so the dispatcher can be safely captured from
+/// detached tasks before the eventual hop back to the main actor.
 @MainActor
 public final class AnyNavigationIntentDispatcher<R: Route>: NavigationIntentDispatching {
     public typealias RouteType = R
 
-    private let sendIntent: @MainActor (NavigationIntent<R>) -> Void
+    private let sendIntent: @MainActor @Sendable (NavigationIntent<R>) -> Void
 
-    public init(send: @escaping @MainActor (NavigationIntent<R>) -> Void) {
+    public init(send: @escaping @MainActor @Sendable (NavigationIntent<R>) -> Void) {
         self.sendIntent = send
     }
 

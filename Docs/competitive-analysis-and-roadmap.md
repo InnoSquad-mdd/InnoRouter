@@ -328,11 +328,12 @@ Shape (landed):
 - Unblocks P0-3: `FlowDeepLinkPipeline` can now carry a
   `FlowPlan<R>` across URL / `Codable` boundaries.
 
-#### P2-3 UIKit escape hatch
+#### P2-3 UIKit escape hatch — **Declined for 3.0.0**
 
-A minimal UIKit module that bidirectionally binds `NavigationStore` to
-`UINavigationController`, to ease incremental adoption in existing UIKit
-apps. Benchmark: swift-navigation's multi-surface modules.
+InnoRouter keeps a SwiftUI-only positioning stance for 3.0.0. A
+minimal UIKit module would broaden the public surface and dilute the
+store / flow / scene story at release time. Teams that need UIKit /
+AppKit adapters can compose those surfaces outside InnoRouter.
 
 #### P2-4 DocC walkthroughs — **Shipped**
 
@@ -447,7 +448,7 @@ Shape (landed):
 | P1 | ModalStore middleware | symmetry | small | **shipped (#12)** |
 | P2 | Unified telemetry stream (`store.events: AsyncStream`) | analytics unification | small | **shipped** |
 | P2 | `Codable` (`RouteStack` / `RouteStep` / `FlowPlan`) + `StatePersistence` | real-app requirement | medium | **shipped** |
-| P2 | UIKit escape hatch | adoption path | large | open |
+| P2 | UIKit escape hatch | adoption path | large | declined for 3.0.0 |
 | P2 | DocC walkthroughs (5 tutorial articles) | learning curve | small–medium | **shipped** |
 | P3 | Parent Task cancellation (`parentDidCancel`) | coordinator UX polish | small | **shipped** |
 | P3 | FlowIntent named-intent parity (`.replaceStack`/`.backOrPush`/`.pushUniqueRoot`) | ergonomics parity | small | **shipped** |
@@ -472,7 +473,7 @@ per-platform CI), the
 P0 / P1 / P3 backlog is **empty** and SwiftUI-only is the final
 positioning stance. **3.0.0 release candidate.**
 
-Only two tracked items remain:
+Two deferred items remain, plus one closed positioning decision:
 
 - **P2-3 UIKit escape hatch** — declined. SwiftUI-only positioning
   is now explicit in the roadmap and in the README platform-support
@@ -482,6 +483,12 @@ Only two tracked items remain:
 - **`.debounce` NavigationCommand** — deferred from P3-4; still
   wants a Clock-injection + deferred-Task design pass. Blocks
   nothing.
+- **Macro dependency cost spike** — keep `InnoRouterMacros` in this
+  package for 3.0.0. Before introducing package traits or a separate
+  macro package, compare `swift package show-traits`,
+  `swift build --target InnoRouter`, and
+  `swift build --target InnoRouterMacros` against the migration cost
+  for existing `import InnoRouterMacros` users.
 
 Primary investment direction from here: **tag 3.0.0, ship the
 release notes, refresh public examples, and shift to

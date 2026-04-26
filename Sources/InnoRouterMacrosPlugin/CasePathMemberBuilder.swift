@@ -33,6 +33,16 @@ func buildCasePathMembers(
         return []
     }
 
+    if enumDecl.genericParameterClause != nil {
+        emitUnsupportedGenericEnumDiagnostic(
+            macroName: macroName,
+            node: node,
+            enumDecl: enumDecl,
+            context: context
+        )
+        return []
+    }
+
     let cases = extractCasePathEnumCases(from: enumDecl)
     guard !cases.isEmpty else {
         emitEmptyEnumDiagnostic(macroName: macroName, node: node, context: context)

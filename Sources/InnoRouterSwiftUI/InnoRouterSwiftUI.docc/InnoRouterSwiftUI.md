@@ -21,6 +21,20 @@ This module owns:
 
 The guiding rule is simple: views emit intent, stores own transition authority, and hosts bridge system UI state back into those authorities.
 
+## Choosing a surface
+
+Pick the narrowest authority that matches the app boundary:
+
+| Need | Use |
+|---|---|
+| One typed SwiftUI stack | `NavigationStore` + `NavigationHost` |
+| Split-view stack on supported platforms | `NavigationStore` + `NavigationSplitHost` |
+| Sheet / cover authority | `ModalStore` + `ModalHost` |
+| Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
+| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| Reducer, effect, or app-boundary execution | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Host-less router assertions | `InnoRouterTesting` |
+
 ## Platform support
 
 InnoRouter ships on every Apple platform it currently supports:

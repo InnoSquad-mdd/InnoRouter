@@ -63,6 +63,62 @@ dependencies: [
 ]
 ```
 
+## Upgrading to 3.0.0
+
+**3.0.0 is the first public release of InnoRouter.** There is no
+public 1.x or 2.x lineage to migrate from — `3.0.0` is the baseline.
+The leading-digit `3` reflects internal milestone history, not a
+breaking change against any previously shipped public package.
+
+### SemVer commitment for the 3.x line
+
+Within `3.x.y` releases, InnoRouter follows
+[Semantic Versioning](https://semver.org/) strictly:
+
+- **`3.x.y` → `3.x.(y+1)`** patch releases: bug fixes only. No
+  public-API signature changes. No observable behavior changes other
+  than fixing the documented bug.
+- **`3.x.y` → `3.(x+1).0`** minor releases: additive only. New types,
+  new methods, new cases, new configuration options. Existing
+  signatures keep their shape and existing call sites keep compiling
+  unmodified.
+- **`3.x.y` → `4.0.0`** major releases: anything that breaks source
+  compatibility, removes a public symbol, narrows a generic
+  constraint, or changes documented runtime behavior in a way that
+  can surprise existing call sites.
+
+Pre-release tags use the `3.1.0-rc.1` / `3.2.0-beta.2` form. The
+release workflow's `^[0-9]+\.[0-9]+\.[0-9]+$` regex only accepts
+final tags; pre-release tags ship through a separate manual flow
+documented in [`RELEASING.md`](RELEASING.md).
+
+### What counts as a breaking change
+
+For the purposes of the 3.x SemVer commitment, a *breaking change*
+means any of:
+
+- Removing or renaming a public symbol (type, method, property,
+  associated type, case).
+- Changing a public method signature in a way that fails to compile
+  for an existing call site (adding a non-defaulted parameter,
+  tightening a generic constraint, swapping return type).
+- Changing the documented behavior of a public API such that an
+  existing correct caller produces a different observable outcome
+  (e.g., flipping a default `NavigationPathMismatchPolicy`).
+- Raising the minimum supported Swift toolchain or platform floor.
+
+Conversely, the following are *not* breaking and may land in any
+minor release:
+
+- Adding new cases to a non-`@frozen` public enum.
+- Adding new defaulted parameters to a public method.
+- Tightening internal-only types.
+- Performance improvements that preserve semantics.
+- Doc-only changes.
+
+The full pre-release sweep that landed in 3.0.0 is summarized in
+[`CHANGELOG.md`](CHANGELOG.md).
+
 ### Imports
 
 The umbrella target `InnoRouter` re-exports everything except the
@@ -80,6 +136,21 @@ import InnoRouterMacros      // only in files that use @Routable / @CasePathable
 other property-wrapper or view modifier come from `InnoRouter`, not
 from `InnoRouterMacros`.
 
+The SwiftSyntax-backed macro implementation remains in this package
+for 3.0.0. A package-traits or separate-macro-package split should be
+evaluated only after measuring `swift package show-traits`,
+`swift build --target InnoRouter`, and
+`swift build --target InnoRouterMacros` against the migration cost.
+
+| Product | Import when |
+|---|---|
+| `InnoRouter` | App code that needs stores, hosts, intents, coordinators, deep links, scenes, or persistence helpers. |
+| `InnoRouterMacros` | Only files that use `@Routable` or `@CasePathable`. |
+| `InnoRouterNavigationEffects` | App-boundary code that executes `NavigationCommand` values outside a SwiftUI view. |
+| `InnoRouterDeepLinkEffects` | App-boundary code that handles or resumes pending deep links. |
+| `InnoRouterEffects` | Compatibility import when both effect modules should be re-exported together. |
+| `InnoRouterTesting` | Test targets that want host-less `NavigationTestStore`, `ModalTestStore`, or `FlowTestStore`. |
+
 ## Modules
 
 - `InnoRouter`: umbrella re-export of `InnoRouterCore`, `InnoRouterSwiftUI`, and `InnoRouterDeepLink`
@@ -91,6 +162,27 @@ from `InnoRouterMacros`.
 - `InnoRouterEffects`: compatibility umbrella for both effect modules
 - `InnoRouterMacros`: `@Routable` and `@CasePathable`
 
+## Choosing the right surface
+
+Use the smallest surface that owns the transition authority you need:
+
+| Need | Use |
+|---|---|
+| One typed SwiftUI stack | `NavigationStore` + `NavigationHost` |
+| Split-view stack on supported platforms | `NavigationStore` + `NavigationSplitHost` |
+| Sheet / cover authority without stack resets | `ModalStore` + `ModalHost` |
+| Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
+| URL to push-only command plan | `DeepLinkMatcher` + `DeepLinkPipeline` |
+| URL to push-prefix plus modal-tail flow | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
+| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| Reducer, effect, or app-boundary execution | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Router assertions without SwiftUI hosts | `InnoRouterTesting` |
+
+`NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, effects,
+and testing are intentionally separate. The library keeps these
+authorities explicit so apps can adopt only the pieces that match
+their routing boundary.
+
 ## Documentation
 
 - Latest DocC portal: [InnoRouter latest docs](https://innosquadcorp.github.io/InnoRouter/latest/)
@@ -100,6 +192,26 @@ from `InnoRouterMacros`.
 
 `README.md` is the repository entry point.  
 DocC is the detailed module-level reference set.
+
+### Tutorial articles
+
+Step-by-step walkthroughs for the most common adoption paths. Each
+article lives inside the relevant DocC catalog so the rendered DocC
+site, the GitHub source view, and an offline `swift package
+generate-documentation` build all show the same content.
+
+| Article | Catalog | Covers |
+| --- | --- | --- |
+| [Tutorial-LoginOnboarding](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-LoginOnboarding.md) | `InnoRouterSwiftUI` | Building a login → onboarding → home flow with `FlowStore` and `ChildCoordinator` |
+| [Tutorial-DeepLinkReconciliation](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-DeepLinkReconciliation.md) | `InnoRouterSwiftUI` | Reconciling cold-start vs warm deep links, including pending replay |
+| [Tutorial-MiddlewareComposition](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MiddlewareComposition.md) | `InnoRouterSwiftUI` | Composing typed middleware, intercepting commands, observing churn |
+| [Tutorial-MigratingFromNestedHosts](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-MigratingFromNestedHosts.md) | `InnoRouterSwiftUI` | Replacing nested `NavigationHost` + `ModalHost` stacks with `FlowHost` |
+| [Tutorial-Throttling](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-Throttling.md) | `InnoRouterSwiftUI` | Using `ThrottleNavigationMiddleware` with deterministic test clocks |
+| [Tutorial-StoreObserver](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-StoreObserver.md) | `InnoRouterSwiftUI` | Adopting `StoreObserver` over the unified `events` stream |
+| [Tutorial-VisionOSScenes](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Tutorial-VisionOSScenes.md) | `InnoRouterSwiftUI` | Driving visionOS windows, volumetric scenes, and immersive spaces from `SceneStore` |
+| [Tutorial-FlowDeepLinkPipeline](Sources/InnoRouterDeepLink/InnoRouterDeepLink.docc/Articles/Tutorial-FlowDeepLinkPipeline.md) | `InnoRouterDeepLink` | Building composite push + modal deep links through `FlowDeepLinkPipeline` |
+| [Tutorial-StatePersistence](Sources/InnoRouterCore/InnoRouterCore.docc/Tutorial-StatePersistence.md) | `InnoRouterCore` | Persisting `FlowPlan` / `RouteStack` across launches with `StatePersistence` |
+| [Tutorial-TestingFlows](Sources/InnoRouterTesting/InnoRouterTesting.docc/Articles/Tutorial-TestingFlows.md) | `InnoRouterTesting` | Host-less Swift Testing assertions via `FlowTestStore` |
 
 ## How it works
 
@@ -274,6 +386,32 @@ It is intentionally:
 - typed through `NavigationResult.multiple`
 
 Earlier successful steps stay applied even if a later step fails.
+
+### `send(_:)` vs `execute(_:)` — picking the right entry point
+
+InnoRouter exposes navigation through four entry points layered by purpose.
+Pick the one that matches the call site, not the one that matches the data
+shape.
+
+| Layer        | Entry                              | Use when                                                                                          |
+| ------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| View intent  | `store.send(_:)`                   | Dispatching a named `NavigationIntent` from a SwiftUI view (`go`, `back`, `backToRoot`, …).       |
+| Command      | `store.execute(_:)`                | Forwarding a single `NavigationCommand` to the engine and inspecting the typed `NavigationResult`. |
+| Batch        | `store.executeBatch(_:)`           | Running multiple commands one-by-one while keeping middleware visibility and a single observer event. |
+| Transaction  | `store.executeTransaction(_:)`     | Committing all-or-nothing — preview against a shadow stack, then commit only if every step succeeds. |
+
+Rule of thumb:
+
+- Views send. Coordinators and effect boundaries execute.
+- `send` is intent-shaped (no return value to inspect); `execute*` is
+  command-shaped (returns a typed result for branching, telemetry, retries).
+- For atomic multi-step flows that must roll back on partial failure, prefer
+  `executeTransaction` over hand-rolled batches.
+
+The same layering applies to `ModalStore` and `FlowStore`:
+`send(_: ModalIntent)` / `send(_: FlowIntent)` from views, and
+`execute(_:)` / `executeBatch(_:)` / `executeTransaction(_:)` at the engine
+boundary.
 
 ## Stack routing surface
 
@@ -507,7 +645,7 @@ Typical flow:
 
 ### Matcher diagnostics
 
-`DeepLinkMatcher` can report:
+`DeepLinkMatcher` and `FlowDeepLinkMatcher` can report:
 
 - duplicate patterns
 - wildcard shadowing
@@ -901,10 +1039,10 @@ With the P3 polish cluster shipped, the P0 / P1 / P3 backlog is
 empty. **3.0.0 release candidate.** See
 [`CHANGELOG.md`](CHANGELOG.md) for the full 3.0.0 surface.
 
-- [ ] **P2-3 UIKit escape hatch** — bidirectional binding between
-      `NavigationStore` and `UINavigationController` for
-      incremental UIKit adoption. Separate product decision
-      required (SwiftUI-only positioning vs multi-surface).
+- [x] **P2-3 UIKit escape hatch** — declined for 3.0.0. InnoRouter
+      keeps a SwiftUI-only positioning stance; teams that need
+      UIKit / AppKit adapters can compose those surfaces outside
+      InnoRouter.
 - [ ] **`.debounce` NavigationCommand** — deferred from P3-4;
       needs Clock injection + deferred Task infrastructure
       outside the synchronous engine contract.

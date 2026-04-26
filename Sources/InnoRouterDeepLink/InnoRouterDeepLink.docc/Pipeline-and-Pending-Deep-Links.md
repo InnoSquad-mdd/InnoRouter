@@ -22,7 +22,7 @@ When authentication is required but not currently satisfied, the pipeline return
 
 This is deliberate:
 
-- the route is preserved
+- the route that triggered authentication deferral is preserved
 - the navigation plan is preserved
 - replay responsibility remains explicit at the app boundary
 
@@ -31,3 +31,8 @@ That keeps auth transitions and navigation transitions separate instead of blend
 ## Planning
 
 The planner converts a route into the exact command list that should run after acceptance. This makes deep-link execution deterministic and testable.
+
+Authentication checks the routes referenced by the produced
+`NavigationPlan`, including nested sequences and fallback commands.
+If a custom planner returns no route-bearing commands, the pipeline
+falls back to the originally resolved route.

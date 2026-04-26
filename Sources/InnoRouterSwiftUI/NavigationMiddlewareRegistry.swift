@@ -190,6 +190,8 @@ final class NavigationMiddlewareRegistry<R: Route> {
             return .conditionFailed
         case .custom(let message):
             return .custom(message)
+        case .staleAfterPrepare(let command):
+            return .staleAfterPrepare(command: command)
         }
     }
 }

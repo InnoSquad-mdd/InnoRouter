@@ -139,7 +139,9 @@ public final class FlowStore<R: Route> {
         self.onPathChanged = configuration.onPathChanged
         self.onIntentRejected = configuration.onIntentRejected
         self.link = link
-        let broadcaster = EventBroadcaster<FlowEvent<R>>()
+        let broadcaster = EventBroadcaster<FlowEvent<R>>(
+            bufferingPolicy: configuration.eventBufferingPolicy
+        )
         self.broadcaster = broadcaster
         self.traceRecorder = nil
         self.link.owner = self
@@ -620,6 +622,7 @@ public final class FlowStore<R: Route> {
         case .middleware(let debugName, _): return debugName
         case .conditionFailed: return nil
         case .custom: return nil
+        case .staleAfterPrepare: return nil
         }
     }
 

@@ -12,6 +12,7 @@ private enum MatcherRoute: Route {
     case detail(id: String)
     case comments(id: String)
     case privacyPolicy
+    case compare(ids: [String])
 }
 
 /// Pattern matching keys off the URL's **path** (not the
@@ -108,5 +109,77 @@ struct FlowDeepLinkMatcherTests {
             FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
         ])
         #expect(matcher.match("myapp://app/home") == FlowPlan(steps: [.push(.home)]))
+    }
+
+    @Test("Repeated path parameters use DeepLinkPattern append semantics")
+    func repeatedPathParametersAppend() {
+        let matcher = FlowDeepLinkMatcher<MatcherRoute> {
+            FlowDeepLinkMapping("/compare/:id/:id") { params in
+                FlowPlan(steps: [.push(.compare(ids: params.values(forName: "id")))])
+            }
+        }
+
+        #expect(
+            matcher.match("myapp://app/compare/a/b?id=c&id=d")
+            == FlowPlan(steps: [.push(.compare(ids: ["a", "b", "c", "d"]))])
+        )
+    }
+
+    @Test("FlowDeepLinkMatcher surfaces duplicate pattern diagnostics")
+    func duplicatePatternDiagnostics() {
+        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
+            FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .duplicatePattern(pattern: "/home", firstIndex: 0, duplicateIndex: 1)
+            ]
+        )
+    }
+
+    @Test("FlowDeepLinkMatcher surfaces wildcard shadowing diagnostics")
+    func wildcardShadowingDiagnostics() {
+        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            FlowDeepLinkMapping("/api/*") { _ in FlowPlan(steps: [.push(.home)]) }
+            FlowDeepLinkMapping("/api/users") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .wildcardShadowing(
+                    pattern: "/api/*",
+                    index: 0,
+                    shadowedPattern: "/api/users",
+                    shadowedIndex: 1
+                )
+            ]
+        )
+    }
+
+    @Test("FlowDeepLinkMatcher surfaces parameter shadowing diagnostics")
+    func parameterShadowingDiagnostics() {
+        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            FlowDeepLinkMapping("/products/:id") { _ in FlowPlan(steps: [.push(.detail(id: "generic"))]) }
+            FlowDeepLinkMapping("/products/featured") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .parameterShadowing(
+                    pattern: "/products/:param",
+                    index: 0,
+                    shadowedPattern: "/products/featured",
+                    shadowedIndex: 1
+                )
+            ]
+        )
     }
 }

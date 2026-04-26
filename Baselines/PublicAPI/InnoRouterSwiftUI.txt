@@ -69,7 +69,8 @@ relationship | memberOf | FlowStore.navigationStore | FlowStore |  |
 relationship | memberOf | FlowStore.observe(_:) | FlowStore |  |
 relationship | memberOf | FlowStore.path | FlowStore |  |
 relationship | memberOf | FlowStore.send(_:) | FlowStore |  |
-relationship | memberOf | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:) | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.eventBufferingPolicy | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:eventBufferingPolicy:) | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.modal | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.navigation | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.onIntentRejected | FlowStoreConfiguration |  |
@@ -116,6 +117,13 @@ relationship | memberOf | ModalMiddlewareMutationEvent.metadata | ModalMiddlewar
 relationship | memberOf | ModalMiddlewareRegistration.debugName | ModalMiddlewareRegistration |  |
 relationship | memberOf | ModalMiddlewareRegistration.init(middleware:debugName:) | ModalMiddlewareRegistration |  |
 relationship | memberOf | ModalMiddlewareRegistration.middleware | ModalMiddlewareRegistration |  |
+relationship | memberOf | ModalPresentResult.cancelled(_:) | ModalPresentResult |  |
+relationship | memberOf | ModalPresentResult.isQueuedBehind | ModalPresentResult |  |
+relationship | memberOf | ModalPresentResult.isShownImmediately | ModalPresentResult |  |
+relationship | memberOf | ModalPresentResult.noop | ModalPresentResult |  |
+relationship | memberOf | ModalPresentResult.presentationID | ModalPresentResult |  |
+relationship | memberOf | ModalPresentResult.queuedBehind(id:) | ModalPresentResult |  |
+relationship | memberOf | ModalPresentResult.shownImmediately(id:) | ModalPresentResult |  |
 relationship | memberOf | ModalStore.addMiddleware(_:debugName:) | ModalStore |  |
 relationship | memberOf | ModalStore.binding(case:style:) | ModalStore |  |
 relationship | memberOf | ModalStore.currentPresentation | ModalStore |  |
@@ -125,6 +133,7 @@ relationship | memberOf | ModalStore.events | ModalStore |  |
 relationship | memberOf | ModalStore.execute(_:) | ModalStore |  |
 relationship | memberOf | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | ModalStore |  |
 relationship | memberOf | ModalStore.insertMiddleware(_:at:debugName:) | ModalStore |  |
+relationship | memberOf | ModalStore.intentDispatcher | ModalStore |  |
 relationship | memberOf | ModalStore.middlewareHandles | ModalStore |  |
 relationship | memberOf | ModalStore.middlewareMetadata | ModalStore |  |
 relationship | memberOf | ModalStore.moveMiddleware(_:to:) | ModalStore |  |
@@ -135,7 +144,8 @@ relationship | memberOf | ModalStore.removeMiddleware(_:) | ModalStore |  |
 relationship | memberOf | ModalStore.replaceCurrent(_:style:) | ModalStore |  |
 relationship | memberOf | ModalStore.replaceMiddleware(_:with:debugName:) | ModalStore |  |
 relationship | memberOf | ModalStore.send(_:) | ModalStore |  |
-relationship | memberOf | ModalStoreConfiguration.init(logger:middlewares:onPresented:onDismissed:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:) | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.eventBufferingPolicy | ModalStoreConfiguration |  |
+relationship | memberOf | ModalStoreConfiguration.init(logger:middlewares:onPresented:onDismissed:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:eventBufferingPolicy:) | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.logger | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.middlewares | ModalStoreConfiguration |  |
 relationship | memberOf | ModalStoreConfiguration.onCommandIntercepted | ModalStoreConfiguration |  |
@@ -201,6 +211,7 @@ relationship | memberOf | NavigationStore.executeTransaction(_:) | NavigationSto
 relationship | memberOf | NavigationStore.init(initial:configuration:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.init(initialPath:configuration:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.insertMiddleware(_:at:debugName:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.intentDispatcher | NavigationStore |  |
 relationship | memberOf | NavigationStore.middlewareHandles | NavigationStore |  |
 relationship | memberOf | NavigationStore.middlewareMetadata | NavigationStore |  |
 relationship | memberOf | NavigationStore.moveMiddleware(_:to:) | NavigationStore |  |
@@ -211,7 +222,8 @@ relationship | memberOf | NavigationStore.replaceMiddleware(_:with:debugName:) |
 relationship | memberOf | NavigationStore.send(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.state | NavigationStore |  |
 relationship | memberOf | NavigationStoreConfiguration.engine | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:) | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.eventBufferingPolicy | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:) | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.logger | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.middlewares | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.onBatchExecuted | NavigationStoreConfiguration |  |
@@ -353,6 +365,7 @@ symbol | swift.enum | ModalEvent | ModalEvent | enum ModalEvent<M> where M : Rou
 symbol | swift.enum | ModalExecutionResult | ModalExecutionResult | enum ModalExecutionResult<M> where M : Route | []
 symbol | swift.enum | ModalIntent | ModalIntent | enum ModalIntent<M> where M : Route | []
 symbol | swift.enum | ModalMiddlewareMutationEvent.Action | ModalMiddlewareMutationEvent.Action | enum Action | []
+symbol | swift.enum | ModalPresentResult | ModalPresentResult | enum ModalPresentResult<M> where M : Route | []
 symbol | swift.enum | NavigationEvent | NavigationEvent | enum NavigationEvent<R> where R : Route | []
 symbol | swift.enum | NavigationIntent | NavigationIntent | enum NavigationIntent<R> where R : Route | []
 symbol | swift.enum | NavigationPathMismatchEvent.Policy | NavigationPathMismatchEvent.Policy | enum Policy | []
@@ -400,6 +413,10 @@ symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.inserted | ModalM
 symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.moved | ModalMiddlewareMutationEvent.Action.moved | case moved | []
 symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.removed | ModalMiddlewareMutationEvent.Action.removed | case removed | []
 symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.replaced | ModalMiddlewareMutationEvent.Action.replaced | case replaced | []
+symbol | swift.enum.case | ModalPresentResult.cancelled(_:) | ModalPresentResult.cancelled(_:) | case cancelled(ModalCancellationReason<M>) | []
+symbol | swift.enum.case | ModalPresentResult.noop | ModalPresentResult.noop | case noop | []
+symbol | swift.enum.case | ModalPresentResult.queuedBehind(id:) | ModalPresentResult.queuedBehind(id:) | case queuedBehind(id: UUID) | []
+symbol | swift.enum.case | ModalPresentResult.shownImmediately(id:) | ModalPresentResult.shownImmediately(id:) | case shownImmediately(id: UUID) | []
 symbol | swift.enum.case | NavigationEvent.batchExecuted(_:) | NavigationEvent.batchExecuted(_:) | case batchExecuted(NavigationBatchResult<R>) | []
 symbol | swift.enum.case | NavigationEvent.changed(from:to:) | NavigationEvent.changed(from:to:) | case changed(from: RouteStack<R>, to: RouteStack<R>) | []
 symbol | swift.enum.case | NavigationEvent.middlewareMutation(_:) | NavigationEvent.middlewareMutation(_:) | case middlewareMutation(MiddlewareMutationEvent<R>) | []
@@ -461,7 +478,7 @@ symbol | swift.init | EnvironmentNavigationIntent.init(_:) | init(_:) | @MainAct
 symbol | swift.init | FlowCoordinatorView.init(coordinator:showProgress:content:) | init(coordinator:showProgress:content:) | @MainActor init(coordinator: C, showProgress: Bool = true, @ViewBuilder content: @escaping (C.Step) -> Content) | []
 symbol | swift.init | FlowHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder destination: @escaping (R) -> Destination, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init()) | []
-symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:) | init(navigation:modal:onPathChanged:onIntentRejected:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil, onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil) | []
+symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:eventBufferingPolicy:) | init(navigation:modal:onPathChanged:onIntentRejected:eventBufferingPolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil, onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default) | []
 symbol | swift.init | MiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: MiddlewareMutationEvent<R>.Action, metadata: NavigationMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalHost.init(store:destination:content:) | init(store:destination:content:) | @MainActor init(store: ModalStore<M>, @ViewBuilder destination: @escaping (M) -> Destination, @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | ModalMiddlewareHandle.init() | init() | init() | []
@@ -469,7 +486,7 @@ symbol | swift.init | ModalMiddlewareMetadata.init(handle:debugName:) | init(han
 symbol | swift.init | ModalMiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: ModalMiddlewareMutationEvent<M>.Action, metadata: ModalMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyModalMiddleware<M>, debugName: String? = nil) | []
 symbol | swift.init | ModalStore.init(currentPresentation:queuedPresentations:configuration:) | init(currentPresentation:queuedPresentations:configuration:) | @MainActor init(currentPresentation: ModalPresentation<M>? = nil, queuedPresentations: [ModalPresentation<M>] = [], configuration: ModalStoreConfiguration<M> = .init()) | []
-symbol | swift.init | ModalStoreConfiguration.init(logger:middlewares:onPresented:onDismissed:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:) | init(logger:middlewares:onPresented:onDismissed:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:) | init(logger: Logger? = nil, middlewares: [ModalMiddlewareRegistration<M>] = [], onPresented: (@MainActor (ModalPresentation<M>) -> Void)? = nil, onDismissed: (@MainActor (ModalPresentation<M>, ModalDismissalReason) -> Void)? = nil, onQueueChanged: (@MainActor ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? = nil, onMiddlewareMutation: (@MainActor (ModalMiddlewareMutationEvent<M>) -> Void)? = nil, onCommandIntercepted: (@MainActor (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? = nil) | []
+symbol | swift.init | ModalStoreConfiguration.init(logger:middlewares:onPresented:onDismissed:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:eventBufferingPolicy:) | init(logger:middlewares:onPresented:onDismissed:onQueueChanged:onMiddlewareMutation:onCommandIntercepted:eventBufferingPolicy:) | init(logger: Logger? = nil, middlewares: [ModalMiddlewareRegistration<M>] = [], onPresented: (@MainActor (ModalPresentation<M>) -> Void)? = nil, onDismissed: (@MainActor (ModalPresentation<M>, ModalDismissalReason) -> Void)? = nil, onQueueChanged: (@MainActor ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? = nil, onMiddlewareMutation: (@MainActor (ModalMiddlewareMutationEvent<M>) -> Void)? = nil, onCommandIntercepted: (@MainActor (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default) | []
 symbol | swift.init | NavigationHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationMiddlewareHandle.init() | init() | init() | []
 symbol | swift.init | NavigationMiddlewareMetadata.init(handle:debugName:) | init(handle:debugName:) | init(handle: NavigationMiddlewareHandle, debugName: String? = nil) | []
@@ -478,7 +495,7 @@ symbol | swift.init | NavigationPathMismatchEvent.init(policy:resolution:oldPath
 symbol | swift.init | NavigationSplitHost.init(store:sidebar:destination:root:) | init(store:sidebar:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init()) | []
 symbol | swift.init | NavigationStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init()) throws | []
-symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:) | init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:) | init(engine: NavigationEngine<R> = .init(), middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? = nil, onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? = nil, onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? = nil, onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? = nil, onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? = nil) | []
+symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:) | init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:) | init(engine: NavigationEngine<R> = .init(), middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? = nil, onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? = nil, onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? = nil, onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? = nil, onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default) | []
 symbol | swift.init | SceneAnchor.init(store:scenes:attachedTo:) | init(store:scenes:attachedTo:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) | []
 symbol | swift.init | SceneAnchor.init(store:scenes:attachedTo:instanceID:) | init(store:scenes:attachedTo:instanceID:) | @MainActor init(store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) | []
 symbol | swift.init | SceneDeclaration.init(route:id:kind:) | init(route:id:kind:) | init(route: R, id: String, kind: SceneDeclaration<R>.Kind) | []
@@ -522,7 +539,7 @@ symbol | swift.method | ModalStore.execute(_:) | execute(_:) | @discardableResul
 symbol | swift.method | ModalStore.insertMiddleware(_:at:debugName:) | insertMiddleware(_:at:debugName:) | @discardableResult @MainActor func insertMiddleware(_ middleware: AnyModalMiddleware<M>, at index: Int, debugName: String? = nil) -> ModalMiddlewareHandle | []
 symbol | swift.method | ModalStore.moveMiddleware(_:to:) | moveMiddleware(_:to:) | @discardableResult @MainActor func moveMiddleware(_ handle: ModalMiddlewareHandle, to index: Int) -> Bool | []
 symbol | swift.method | ModalStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where M == O.RouteType, O : StoreObserver | []
-symbol | swift.method | ModalStore.present(_:style:) | present(_:style:) | @MainActor func present(_ route: M, style: ModalPresentationStyle) | []
+symbol | swift.method | ModalStore.present(_:style:) | present(_:style:) | @discardableResult @MainActor func present(_ route: M, style: ModalPresentationStyle) -> ModalPresentResult<M> | []
 symbol | swift.method | ModalStore.removeMiddleware(_:) | removeMiddleware(_:) | @discardableResult @MainActor func removeMiddleware(_ handle: ModalMiddlewareHandle) -> AnyModalMiddleware<M>? | []
 symbol | swift.method | ModalStore.replaceCurrent(_:style:) | replaceCurrent(_:style:) | @MainActor func replaceCurrent(_ route: M, style: ModalPresentationStyle) | []
 symbol | swift.method | ModalStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: ModalMiddlewareHandle, with middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> Bool | []
@@ -593,6 +610,7 @@ symbol | swift.property | FlowStore.events | events | @MainActor var events: Asy
 symbol | swift.property | FlowStore.modalStore | modalStore | @MainActor let modalStore: ModalStore<R> | []
 symbol | swift.property | FlowStore.navigationStore | navigationStore | @MainActor let navigationStore: NavigationStore<R> | []
 symbol | swift.property | FlowStore.path | path | @MainActor var path: [RouteStep<R>] { get set } | []
+symbol | swift.property | FlowStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | let eventBufferingPolicy: EventBufferingPolicy | []
 symbol | swift.property | FlowStoreConfiguration.modal | modal | let modal: ModalStoreConfiguration<R> | []
 symbol | swift.property | FlowStoreConfiguration.navigation | navigation | let navigation: NavigationStoreConfiguration<R> | []
 symbol | swift.property | FlowStoreConfiguration.onIntentRejected | onIntentRejected | let onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? | []
@@ -609,11 +627,16 @@ symbol | swift.property | ModalMiddlewareMutationEvent.index | index | let index
 symbol | swift.property | ModalMiddlewareMutationEvent.metadata | metadata | let metadata: ModalMiddlewareMetadata | []
 symbol | swift.property | ModalMiddlewareRegistration.debugName | debugName | let debugName: String? | []
 symbol | swift.property | ModalMiddlewareRegistration.middleware | middleware | let middleware: AnyModalMiddleware<M> | []
+symbol | swift.property | ModalPresentResult.isQueuedBehind | isQueuedBehind | var isQueuedBehind: Bool { get } | []
+symbol | swift.property | ModalPresentResult.isShownImmediately | isShownImmediately | var isShownImmediately: Bool { get } | []
+symbol | swift.property | ModalPresentResult.presentationID | presentationID | var presentationID: UUID? { get } | []
 symbol | swift.property | ModalStore.currentPresentation | currentPresentation | @MainActor var currentPresentation: ModalPresentation<M>? { get set } | []
 symbol | swift.property | ModalStore.events | events | @MainActor var events: AsyncStream<ModalEvent<M>> { get } | []
+symbol | swift.property | ModalStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: AnyModalIntentDispatcher<M> { get } | []
 symbol | swift.property | ModalStore.middlewareHandles | middlewareHandles | @MainActor var middlewareHandles: [ModalMiddlewareHandle] { get } | []
 symbol | swift.property | ModalStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [ModalMiddlewareMetadata] { get } | []
 symbol | swift.property | ModalStore.queuedPresentations | queuedPresentations | @MainActor var queuedPresentations: [ModalPresentation<M>] { get set } | []
+symbol | swift.property | ModalStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | let eventBufferingPolicy: EventBufferingPolicy | []
 symbol | swift.property | ModalStoreConfiguration.logger | logger | let logger: Logger? | []
 symbol | swift.property | ModalStoreConfiguration.middlewares | middlewares | let middlewares: [ModalMiddlewareRegistration<M>] | []
 symbol | swift.property | ModalStoreConfiguration.onCommandIntercepted | onCommandIntercepted | let onCommandIntercepted: (@MainActor (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? | []
@@ -633,11 +656,13 @@ symbol | swift.property | NavigationPathMismatchEvent.policy | policy | let poli
 symbol | swift.property | NavigationPathMismatchEvent.resolution | resolution | let resolution: NavigationPathMismatchEvent<R>.Resolution | []
 symbol | swift.property | NavigationSplitHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | NavigationStore.events | events | @MainActor var events: AsyncStream<NavigationEvent<R>> { get } | []
+symbol | swift.property | NavigationStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: AnyNavigationIntentDispatcher<R> { get } | []
 symbol | swift.property | NavigationStore.middlewareHandles | middlewareHandles | @MainActor var middlewareHandles: [NavigationMiddlewareHandle] { get } | []
 symbol | swift.property | NavigationStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [NavigationMiddlewareMetadata] { get } | []
 symbol | swift.property | NavigationStore.pathBinding | pathBinding | @MainActor var pathBinding: Binding<[R]> { get } | []
 symbol | swift.property | NavigationStore.state | state | @MainActor var state: RouteStack<R> { get set } | []
 symbol | swift.property | NavigationStoreConfiguration.engine | engine | let engine: NavigationEngine<R> | []
+symbol | swift.property | NavigationStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | let eventBufferingPolicy: EventBufferingPolicy | []
 symbol | swift.property | NavigationStoreConfiguration.logger | logger | let logger: Logger? | []
 symbol | swift.property | NavigationStoreConfiguration.middlewares | middlewares | let middlewares: [NavigationMiddlewareRegistration<R>] | []
 symbol | swift.property | NavigationStoreConfiguration.onBatchExecuted | onBatchExecuted | let onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? | []

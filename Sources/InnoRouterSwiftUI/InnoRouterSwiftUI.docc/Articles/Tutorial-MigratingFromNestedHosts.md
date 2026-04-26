@@ -168,3 +168,7 @@ checkout, ...) is supported.
 - Read the `Tutorial-TestingFlows` guide in the
   `InnoRouterTesting` documentation catalog for the full host-less
   test harness story.
+- See the **`send(_:)` vs `execute(_:)` — picking the right entry
+  point** section of the README for guidance on choosing among
+  `send`, `execute`, `executeBatch`, and `executeTransaction` once
+  the flow is migrated.

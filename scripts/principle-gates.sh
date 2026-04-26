@@ -64,6 +64,9 @@ echo "[principle-gates] Checking public API baselines"
 echo "[principle-gates] Checking maintainer docs consistency"
 ./scripts/check-docs-consistency.sh
 
+echo "[principle-gates] Checking Examples↔ExamplesSmoke parity"
+./scripts/check-examples-parity.sh
+
 echo "[principle-gates] Building example smoke targets"
 swift build --target InnoRouterExamplesSmoke
 swift build --target InnoRouterStandaloneExampleSmoke
@@ -80,6 +83,9 @@ swift build --target InnoRouterSplitCoordinatorExample
 swift build --target InnoRouterAppShellExample
 swift build --target InnoRouterMultiPlatformExample
 swift build --target InnoRouterVisionOSImmersiveExample
+
+echo "[principle-gates] Running performance smoke"
+./scripts/performance-smoke.sh
 
 echo "[principle-gates] Checking Nav* public symbols"
 if rg -n "public .*\\bNav[A-Z]" Sources; then

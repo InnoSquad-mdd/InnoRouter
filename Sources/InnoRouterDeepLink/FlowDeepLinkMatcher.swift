@@ -64,13 +64,32 @@ public struct FlowDeepLinkMapping<R: Route>: Sendable {
 /// matchers coexist so apps can adopt the flow matcher incrementally.
 public struct FlowDeepLinkMatcher<R: Route>: Sendable {
     private let mappings: [FlowDeepLinkMapping<R>]
+    public let diagnostics: [DeepLinkMatcherDiagnostic]
 
     public init(@FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) {
-        self.mappings = mappings()
+        self.init(configuration: .default, mappings: mappings)
+    }
+
+    public init(
+        configuration: DeepLinkMatcherConfiguration = .default,
+        @FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]
+    ) {
+        self.init(configuration: configuration, mappings: mappings())
     }
 
     public init(mappings: [FlowDeepLinkMapping<R>]) {
+        self.init(configuration: .default, mappings: mappings)
+    }
+
+    public init(
+        configuration: DeepLinkMatcherConfiguration = .default,
+        mappings: [FlowDeepLinkMapping<R>]
+    ) {
         self.mappings = mappings
+        self.diagnostics = DeepLinkPattern.makeDiagnostics(
+            for: mappings.map(\.pattern)
+        )
+        DeepLinkMatcherDiagnostic.emit(self.diagnostics, configuration: configuration)
     }
 
     /// Walks every declared mapping and returns the first plan that

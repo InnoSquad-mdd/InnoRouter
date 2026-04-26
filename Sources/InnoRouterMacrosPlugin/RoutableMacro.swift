@@ -58,7 +58,11 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
         conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [ExtensionDeclSyntax] {
-        guard declaration.as(EnumDeclSyntax.self) != nil else { return [] }
+        guard let enumDecl = declaration.as(EnumDeclSyntax.self) else { return [] }
+        // Generic enums are diagnosed in the member-macro pass; skip synthesising
+        // a `Route` conformance extension so the compiler doesn't see a partial
+        // expansion alongside the diagnostic.
+        guard enumDecl.genericParameterClause == nil else { return [] }
 
         let extensionDecl = try ExtensionDeclSyntax("extension \(type): Route {}")
         return [extensionDecl]
