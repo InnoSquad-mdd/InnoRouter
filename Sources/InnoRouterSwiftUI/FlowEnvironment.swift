@@ -69,6 +69,7 @@ public final class AnyFlowIntentDispatcher<R: Route>: FlowIntentDispatching {
 @propertyWrapper
 public struct EnvironmentFlowIntent<R: Route>: DynamicProperty {
     @Environment(\.flowEnvironmentStorage) private var flowEnvironmentStorage
+    @Environment(\.innoRouterEnvironmentMissingPolicy) private var environmentMissingPolicy
     private let routeType: R.Type
 
     public init(_ routeType: R.Type) {
@@ -76,18 +77,20 @@ public struct EnvironmentFlowIntent<R: Route>: DynamicProperty {
     }
 
     public var wrappedValue: AnyFlowIntentDispatcher<R> {
-        guard let flowEnvironmentStorage else {
-            preconditionFailure(
+        if let dispatcher = flowEnvironmentStorage?[R.self] {
+            return dispatcher
+        }
+        if flowEnvironmentStorage == nil {
+            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "FlowEnvironmentStorage is missing for \(String(describing: routeType)). " +
                 "Attach this view inside FlowHost."
-            )
-        }
-        guard let dispatcher = flowEnvironmentStorage[R.self] else {
-            preconditionFailure(
+            }
+        } else {
+            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "AnyFlowIntentDispatcher is missing for \(String(describing: routeType)). " +
                 "Ensure the matching FlowHost is in the environment hierarchy."
-            )
+            }
         }
-        return dispatcher
+        return AnyFlowIntentDispatcher<R> { _ in /* no-op placeholder */ }
     }
 }

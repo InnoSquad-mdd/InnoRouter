@@ -70,6 +70,7 @@ public final class AnyModalIntentDispatcher<M: Route>: ModalIntentDispatching {
 @propertyWrapper
 public struct EnvironmentModalIntent<M: Route>: DynamicProperty {
     @Environment(\.modalEnvironmentStorage) private var modalEnvironmentStorage
+    @Environment(\.innoRouterEnvironmentMissingPolicy) private var environmentMissingPolicy
     private let routeType: M.Type
 
     public init(_ routeType: M.Type) {
@@ -77,18 +78,20 @@ public struct EnvironmentModalIntent<M: Route>: DynamicProperty {
     }
 
     public var wrappedValue: AnyModalIntentDispatcher<M> {
-        guard let modalEnvironmentStorage else {
-            preconditionFailure(
+        if let dispatcher = modalEnvironmentStorage?[M.self] {
+            return dispatcher
+        }
+        if modalEnvironmentStorage == nil {
+            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "ModalEnvironmentStorage is missing for \(String(describing: routeType)). " +
                 "Attach this view inside ModalHost."
-            )
-        }
-        guard let dispatcher = modalEnvironmentStorage[M.self] else {
-            preconditionFailure(
+            }
+        } else {
+            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "AnyModalIntentDispatcher is missing for \(String(describing: routeType)). " +
                 "Ensure the matching ModalHost is in the environment hierarchy."
-            )
+            }
         }
-        return dispatcher
+        return AnyModalIntentDispatcher<M> { _ in /* no-op placeholder */ }
     }
 }
