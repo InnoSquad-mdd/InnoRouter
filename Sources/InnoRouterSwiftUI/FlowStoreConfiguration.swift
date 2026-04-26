@@ -6,22 +6,27 @@ import InnoRouterCore
 /// configuration gives callers a single entry point for configuring both of
 /// them (logging, middleware, per-store lifecycle observers) plus FlowStore
 /// specific observation hooks for path and intent rejection.
+///
+/// Stored properties are `public var` so call sites can adjust
+/// individual hooks after construction without re-stating every
+/// other parameter — see ``NavigationStoreConfiguration`` for the
+/// same pattern.
 public struct FlowStoreConfiguration<R: Route>: Sendable {
     /// Configuration applied to the inner `NavigationStore`.
-    public let navigation: NavigationStoreConfiguration<R>
+    public var navigation: NavigationStoreConfiguration<R>
     /// Configuration applied to the inner `ModalStore`.
-    public let modal: ModalStoreConfiguration<R>
+    public var modal: ModalStoreConfiguration<R>
     /// Called whenever `FlowStore.path` changes, with (old, new) snapshots.
-    public let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
+    public var onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
     /// Called whenever `FlowStore.send(_:)` refuses to apply an intent.
-    public let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?
+    public var onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?
     /// Backpressure policy applied to each subscriber of ``FlowStore/events``.
     ///
     /// Controls the flow-level fan-out only; the inner `NavigationStore` and
     /// `ModalStore` carry their own policies through ``NavigationStoreConfiguration/eventBufferingPolicy``
     /// and ``ModalStoreConfiguration/eventBufferingPolicy``. Defaults to
     /// ``EventBufferingPolicy/default``.
-    public let eventBufferingPolicy: EventBufferingPolicy
+    public var eventBufferingPolicy: EventBufferingPolicy
 
     /// Creates a flow store configuration.
     public init(

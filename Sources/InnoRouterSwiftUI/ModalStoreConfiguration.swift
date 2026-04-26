@@ -111,33 +111,38 @@ public enum ModalPresentResult<M: Route>: Sendable, Equatable {
 }
 
 /// Configuration for `ModalStore` observability, middleware, and logging.
+///
+/// Stored properties are `public var` so call sites can adjust
+/// individual callbacks after construction without re-stating every
+/// other parameter — see ``NavigationStoreConfiguration`` for the
+/// same pattern.
 public struct ModalStoreConfiguration<M: Route>: Sendable {
     /// Optional logger used for modal telemetry.
-    public let logger: Logger?
+    public var logger: Logger?
     /// Initial middleware registrations applied at store construction time.
-    public let middlewares: [ModalMiddlewareRegistration<M>]
+    public var middlewares: [ModalMiddlewareRegistration<M>]
     /// Called whenever a presentation becomes active.
-    public let onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)?
+    public var onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)?
     /// Called whenever the active presentation is dismissed.
-    public let onDismissed: (@MainActor @Sendable (ModalPresentation<M>, ModalDismissalReason) -> Void)?
+    public var onDismissed: (@MainActor @Sendable (ModalPresentation<M>, ModalDismissalReason) -> Void)?
     /// Called whenever the queued modal list changes.
-    public let onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)?
+    public var onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)?
     /// Called after a successful middleware mutation
     /// (`add`/`insert`/`remove`/`replace`/`move`).
     ///
     /// Invalid mutations (e.g. `replaceMiddleware(...)` with an unknown
     /// handle) never fire this callback.
-    public let onMiddlewareMutation: (@MainActor @Sendable (ModalMiddlewareMutationEvent<M>) -> Void)?
+    public var onMiddlewareMutation: (@MainActor @Sendable (ModalMiddlewareMutationEvent<M>) -> Void)?
     /// Called after every `execute(_:)` call, including cancelled and no-op
     /// outcomes. Use this to feed analytics or diagnostics pipelines without
     /// reaching for `@testable import`.
-    public let onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?
+    public var onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?
     /// Backpressure policy applied to each subscriber of ``ModalStore/events``.
     ///
     /// Defaults to ``EventBufferingPolicy/default``. Opt into
     /// ``EventBufferingPolicy/unbounded`` when a deterministic test harness
     /// needs every emitted event.
-    public let eventBufferingPolicy: EventBufferingPolicy
+    public var eventBufferingPolicy: EventBufferingPolicy
 
     /// Creates a modal store configuration.
     public init(
