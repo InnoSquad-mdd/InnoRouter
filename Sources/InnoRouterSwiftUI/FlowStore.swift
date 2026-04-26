@@ -41,6 +41,7 @@ public final class FlowStore<R: Route> {
 
     private let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
     private let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?
+    private let queueCoalescePolicy: QueueCoalescePolicy<R>
     private let link: FlowStoreLink<R>
     private let broadcaster: EventBroadcaster<FlowEvent<R>>
     private var innerNavigationEventsTask: Task<Void, Never>?
@@ -179,6 +180,7 @@ public final class FlowStore<R: Route> {
         ).path
         self.onPathChanged = configuration.onPathChanged
         self.onIntentRejected = configuration.onIntentRejected
+        self.queueCoalescePolicy = configuration.queueCoalescePolicy
         self.link = link
         let broadcaster = EventBroadcaster<FlowEvent<R>>(
             bufferingPolicy: configuration.eventBufferingPolicy
@@ -545,8 +547,42 @@ public final class FlowStore<R: Route> {
     }
 
     private func emitIntentRejected(_ intent: FlowIntent<R>, reason: FlowRejectionReason) {
+        applyQueueCoalescePolicyIfNeeded(intent: intent, reason: reason)
         onIntentRejected?(intent, reason)
         broadcaster.broadcast(.intentRejected(intent, reason))
+    }
+
+    private func applyQueueCoalescePolicyIfNeeded(
+        intent: FlowIntent<R>,
+        reason: FlowRejectionReason
+    ) {
+        // Only middleware-rejected commands engage the policy. Other
+        // rejections (`.invalidResetPath`, `.pushBlockedByModalTail`)
+        // are caller errors and should not silently mutate the modal
+        // queue.
+        guard case .middlewareRejected = reason else { return }
+
+        let action: QueueCoalescePolicy<R>.Action
+        switch queueCoalescePolicy {
+        case .preserve:
+            return
+        case .dropQueued:
+            action = .dropQueued
+        case .custom(let resolve):
+            action = resolve(intent, reason)
+        }
+
+        guard action == .dropQueued else { return }
+        guard
+            modalStore.currentPresentation != nil
+                || !modalStore.queuedPresentations.isEmpty
+        else { return }
+
+        withInternalMutation {
+            modalStore.dismissAll()
+        }
+        let oldPath = path
+        syncPathFromStores(from: oldPath)
     }
 
     private func withInternalMutation<T>(_ body: () -> T) -> T {
