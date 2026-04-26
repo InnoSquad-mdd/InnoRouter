@@ -39,7 +39,7 @@ A `FlowPlan` always satisfies the FlowStore invariants:
 - All other steps are `.push`.
 
 `FlowPlan(validating:)` and `FlowPlan.validate(_:)` enforce these
-invariants up front and throw ``FlowPlanValidationError`` on
+invariants up front and throw `FlowPlanValidationError` on
 violation. Codable decode runs the same validator and converts a
 violation into `DecodingError.dataCorruptedError`, so a
 `FlowPlan` round-tripped through disk or network can no longer
@@ -48,9 +48,8 @@ the snapshot format on disk drifts (older builds, hand-edited
 JSON, schema migration mid-flight), the decode call surfaces the
 error at restoration time — not at the next user action.
 
-The permissive ``FlowPlan/init(steps:)`` initializer remains
-available for internal builders that already trust the origin of
-`steps`.
+The permissive `FlowPlan(steps:)` initializer remains available
+for internal builders that already trust the origin of `steps`.
 
 ## Scope
 

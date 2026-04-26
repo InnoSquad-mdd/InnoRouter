@@ -44,10 +44,15 @@ relationship | memberOf | EventBufferingPolicy.bufferingNewest(_:) | EventBuffer
 relationship | memberOf | EventBufferingPolicy.bufferingOldest(_:) | EventBufferingPolicy |  |
 relationship | memberOf | EventBufferingPolicy.default | EventBufferingPolicy |  |
 relationship | memberOf | EventBufferingPolicy.unbounded | EventBufferingPolicy |  |
+relationship | memberOf | FlowPlan.init(from:) | FlowPlan |  |
 relationship | memberOf | FlowPlan.init(steps:) | FlowPlan |  |
+relationship | memberOf | FlowPlan.init(validating:) | FlowPlan |  |
 relationship | memberOf | FlowPlan.steps | FlowPlan |  |
+relationship | memberOf | FlowPlan.validate(_:) | FlowPlan |  |
 relationship | memberOf | FlowPlanApplyResult.applied(path:) | FlowPlanApplyResult |  |
 relationship | memberOf | FlowPlanApplyResult.rejected(currentPath:) | FlowPlanApplyResult |  |
+relationship | memberOf | FlowPlanValidationError.modalNotAtTail | FlowPlanValidationError |  |
+relationship | memberOf | FlowPlanValidationError.tooManyModals | FlowPlanValidationError |  |
 relationship | memberOf | FlowRejectionReason.invalidResetPath | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason |  |
 relationship | memberOf | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason |  |
@@ -199,6 +204,7 @@ symbol | swift.class | AnyBatchNavigator | AnyBatchNavigator | @MainActor final 
 symbol | swift.class | AnyNavigator | AnyNavigator | @MainActor final class AnyNavigator<R> where R : Route | []
 symbol | swift.enum | EventBufferingPolicy | EventBufferingPolicy | enum EventBufferingPolicy | []
 symbol | swift.enum | FlowPlanApplyResult | FlowPlanApplyResult | enum FlowPlanApplyResult<R> where R : Route | []
+symbol | swift.enum | FlowPlanValidationError | FlowPlanValidationError | enum FlowPlanValidationError | []
 symbol | swift.enum | FlowRejectionReason | FlowRejectionReason | enum FlowRejectionReason | []
 symbol | swift.enum | ImmersiveStyle | ImmersiveStyle | enum ImmersiveStyle | []
 symbol | swift.enum | ModalCancellationReason | ModalCancellationReason | enum ModalCancellationReason<M> where M : Route | []
@@ -220,6 +226,8 @@ symbol | swift.enum.case | EventBufferingPolicy.bufferingOldest(_:) | EventBuffe
 symbol | swift.enum.case | EventBufferingPolicy.unbounded | EventBufferingPolicy.unbounded | case unbounded | []
 symbol | swift.enum.case | FlowPlanApplyResult.applied(path:) | FlowPlanApplyResult.applied(path:) | case applied(path: [RouteStep<R>]) | []
 symbol | swift.enum.case | FlowPlanApplyResult.rejected(currentPath:) | FlowPlanApplyResult.rejected(currentPath:) | case rejected(currentPath: [RouteStep<R>]) | []
+symbol | swift.enum.case | FlowPlanValidationError.modalNotAtTail | FlowPlanValidationError.modalNotAtTail | case modalNotAtTail | []
+symbol | swift.enum.case | FlowPlanValidationError.tooManyModals | FlowPlanValidationError.tooManyModals | case tooManyModals | []
 symbol | swift.enum.case | FlowRejectionReason.invalidResetPath | FlowRejectionReason.invalidResetPath | case invalidResetPath | []
 symbol | swift.enum.case | FlowRejectionReason.middlewareRejected(debugName:) | FlowRejectionReason.middlewareRejected(debugName:) | case middlewareRejected(debugName: String?) | []
 symbol | swift.enum.case | FlowRejectionReason.pushBlockedByModalTail | FlowRejectionReason.pushBlockedByModalTail | case pushBlockedByModalTail | []
@@ -297,7 +305,9 @@ symbol | swift.init | AnyNavigationMiddleware.init(_:) | init(_:) | @MainActor i
 symbol | swift.init | AnyNavigationMiddleware.init(willExecute:didExecute:) | init(willExecute:didExecute:) | @MainActor init(willExecute: @escaping @MainActor (NavigationCommand<R>, RouteStack<R>) -> NavigationInterception<R>, didExecute: @escaping @MainActor (NavigationCommand<R>, NavigationResult<R>, RouteStack<R>) -> NavigationResult<R> = { _, result, _ in result }) | []
 symbol | swift.init | AnyNavigator.init(_:) | init(_:) | @MainActor init<N>(_ navigator: N) where R == N.RouteType, N : NavigationCommandExecutor, N : NavigationStateReader | []
 symbol | swift.init | CasePath.init(embed:extract:) | init(embed:extract:) | init(embed: @escaping (Value) -> Root, extract: @escaping (Root) -> Value?) | []
+symbol | swift.init | FlowPlan.init(from:) | init(from:) | init(from decoder: any Decoder) throws | []
 symbol | swift.init | FlowPlan.init(steps:) | init(steps:) | init(steps: [RouteStep<R>] = []) | []
+symbol | swift.init | FlowPlan.init(validating:) | init(validating:) | init(validating steps: [RouteStep<R>]) throws | []
 symbol | swift.init | ModalPresentation.init(id:route:style:) | init(id:route:style:) | init(id: UUID = UUID(), route: M, style: ModalPresentationStyle) | []
 symbol | swift.init | NavigationBatchResult.init(requestedCommands:executedCommands:results:stateBefore:stateAfter:hasStoppedOnFailure:) | init(requestedCommands:executedCommands:results:stateBefore:stateAfter:hasStoppedOnFailure:) | init(requestedCommands: [NavigationCommand<R>], executedCommands: [NavigationCommand<R>], results: [NavigationResult<R>], stateBefore: RouteStack<R>, stateAfter: RouteStack<R>, hasStoppedOnFailure: Bool) | []
 symbol | swift.init | NavigationEngine.init() | init() | init() | []
@@ -400,6 +410,7 @@ symbol | swift.struct | RouteStack | RouteStack | struct RouteStack<R> where R :
 symbol | swift.struct | RouteStackValidator | RouteStackValidator | struct RouteStackValidator<R> where R : Route | []
 symbol | swift.struct | StatePersistence | StatePersistence | struct StatePersistence<R> where R : Route, R : Decodable, R : Encodable | []
 symbol | swift.struct | VolumetricSize | VolumetricSize | struct VolumetricSize | []
+symbol | swift.type.method | FlowPlan.validate(_:) | validate(_:) | static func validate(_ steps: [RouteStep<R>]) throws | []
 symbol | swift.type.method | RouteStackValidator.rooted(at:) | rooted(at:) | static func rooted(at route: R) -> RouteStackValidator<R> | []
 symbol | swift.type.property | EventBufferingPolicy.default | default | static let `default`: EventBufferingPolicy | []
 symbol | swift.type.property | RouteStackValidator.nonEmpty | nonEmpty | static var nonEmpty: RouteStackValidator<R> { get } | []

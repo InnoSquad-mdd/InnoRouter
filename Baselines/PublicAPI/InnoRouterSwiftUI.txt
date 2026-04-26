@@ -33,6 +33,7 @@ relationship | memberOf | DebouncingNavigator.init(wrapping:interval:clock:) | D
 relationship | memberOf | DebouncingNavigator.inner | DebouncingNavigator |  |
 relationship | memberOf | EnvironmentFlowIntent.init(_:) | EnvironmentFlowIntent |  |
 relationship | memberOf | EnvironmentFlowIntent.wrappedValue | EnvironmentFlowIntent |  |
+relationship | memberOf | EnvironmentMissingPolicy.assertAndLog | EnvironmentMissingPolicy |  |
 relationship | memberOf | EnvironmentMissingPolicy.crash | EnvironmentMissingPolicy |  |
 relationship | memberOf | EnvironmentMissingPolicy.logAndDegrade | EnvironmentMissingPolicy |  |
 relationship | memberOf | EnvironmentModalIntent.init(_:) | EnvironmentModalIntent |  |
@@ -385,6 +386,7 @@ symbol | swift.enum | SceneDeclaration.Kind | SceneDeclaration.Kind | enum Kind 
 symbol | swift.enum | SceneEvent | SceneEvent | enum SceneEvent<R> where R : Route | []
 symbol | swift.enum | SceneIntent | SceneIntent | enum SceneIntent<R> where R : Route | []
 symbol | swift.enum | SceneRejectionReason | SceneRejectionReason | enum SceneRejectionReason | []
+symbol | swift.enum.case | EnvironmentMissingPolicy.assertAndLog | EnvironmentMissingPolicy.assertAndLog | case assertAndLog | []
 symbol | swift.enum.case | EnvironmentMissingPolicy.crash | EnvironmentMissingPolicy.crash | case crash | []
 symbol | swift.enum.case | EnvironmentMissingPolicy.logAndDegrade | EnvironmentMissingPolicy.logAndDegrade | case logAndDegrade | []
 symbol | swift.enum.case | FlowEvent.intentRejected(_:_:) | FlowEvent.intentRejected(_:_:) | case intentRejected(FlowIntent<R>, FlowRejectionReason) | []
