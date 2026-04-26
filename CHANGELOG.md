@@ -4,6 +4,92 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## 4.0.0 (unreleased)
+
+4.0.0 is a quality + adoption sweep that cleans up macro-generated
+visibility, ships an opt-in queue-coalesce policy, exposes
+configuration mutables, and lands two adoption-focused docs (TCA
+migration + onboarding case study) plus minor observability
+fixes. One BREAKING change: macro-generated CasePath members now
+match the enclosing enum's access level instead of always
+emitting `public`.
+
+### BREAKING
+
+- `@Routable` and `@CasePathable` infer the access level of every
+  generated `Cases` table, `is(_:)`, `[case:]`, and case
+  `static let` member from the enclosing enum. `internal` and
+  `private` enums no longer leak public CasePath surface. Each
+  case `static let` also receives any `@available(...)`
+  attribute attached to the enum case. Mark the enclosing enum
+  `public` if a consumer relies on the wider surface; an opt-in
+  `@Routable(visibility: .public)` argument is on the v4.x
+  roadmap. See `Articles/Guide-MacroVisibility.md` for the full
+  migration matrix.
+
+### Added
+
+- `EnvironmentMissingPolicy.assertAndLog` is a third policy
+  alongside `.crash` and `.logAndDegrade`. It traps with
+  `assertionFailure` in Debug while degrading to a logged no-op
+  dispatcher in Release, fitting TestFlight / pre-launch ship
+  configs that need loud development signal without paging
+  users on a stray missing host.
+- `FlowPlan(validating:)` (throwing initializer),
+  `FlowPlan.validate(_:)` (public static validator), and
+  `FlowPlanValidationError` (`tooManyModals`, `modalNotAtTail`)
+  let deep-link planners and state-restoration drivers surface
+  invariant violations up front. `FlowPlan` Codable decode runs
+  the same validator and converts violations into
+  `DecodingError.dataCorruptedError`.
+- `QueueCoalescePolicy<R>` enum + `FlowStoreConfiguration.queueCoalescePolicy`
+  setting. When a `NavigationStore` middleware cancels a
+  flow-level command, the policy decides what happens to the
+  modal queue: `.preserve` (default, pre-4.0 behaviour) keeps
+  the queue intact; `.dropQueued` dismisses the active modal
+  and drops every queued presentation (useful for
+  `replaceStack` flows); `.custom(_:)` hands control to a
+  closure for per-intent decisions. See
+  `Articles/Guide-QueueCoalescePolicy.md`.
+- `NavigationStoreConfiguration` / `ModalStoreConfiguration` /
+  `FlowStoreConfiguration` stored properties are now
+  `public var` so call sites can patch individual callbacks
+  after construction without re-stating every parameter.
+- `FlowStore.intentDispatcher` is now exposed as a cached
+  property mirroring `NavigationStore` and `ModalStore`. Hosts
+  no longer allocate a fresh `AnyFlowIntentDispatcher` on every
+  body evaluation.
+- `Tests/InnoRouterTests/ConfigurationMutationTests.swift`
+  covers the `var` patchability of all three configuration
+  structs.
+- `Tests/InnoRouterTests/QueueCoalescePolicyTests.swift` covers
+  the three policy paths (`.preserve` / `.dropQueued` /
+  `.custom`) plus the caller-side invariant exclusion.
+- `Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Migration-FromTCA.md`
+  is a step-by-step guide for migrating navigation from TCA
+  (`StackState`, `@Presents`, `NavigationStackStore`) to
+  InnoRouter (`NavigationStore` + `ModalStore` + `FlowStore`),
+  with side-by-side reducer and view samples.
+- `Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/CaseStudy-OnboardingFlow.md`
+  is a representative composition showing how `FlowStore` +
+  `ChildCoordinator` + `FlowPlan` + middleware compose into a
+  12-screen onboarding sequence with deep-link rehydration and
+  entitlement gating.
+
+### Changed
+
+- `DebouncingNavigator` now logs sleep failures through a new
+  `os_log` `debouncing-navigator` category before tripping
+  `assertionFailure`, so Release builds leave an audit trail
+  even when the trap is compiled out.
+- `README.md` reframes the iOS 18+ / Swift 6.2 floor as the
+  Sendable / strict-concurrency feature it actually buys, with
+  a posture comparison against peers shipping on iOS 13+ that
+  rely on `@preconcurrency` / `@unchecked Sendable`.
+- `scripts/check-public-api.sh` source-level Sendable contracts
+  for the three configuration structs match `public var`
+  instead of `public let`, tracking the v-to-l switch.
+
 ## 3.1.0 (unreleased)
 
 3.1.0 is an additive minor that consolidates the v3.x quality
