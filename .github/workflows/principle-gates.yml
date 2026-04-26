@@ -12,6 +12,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Source-level lint gates run independently of the heavy
+  # swift-test / DocC pipeline so they fail fast on grep-detectable
+  # regressions (Hangul, legacy symbols, doc drift) without paying
+  # the full build cost. Same script the parent `principle-gates.sh`
+  # delegates to; running it in its own job lets the two slices
+  # parallelize on PRs.
+  lint:
+    runs-on: macos-15
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ripgrep
+        run: brew install ripgrep
+
+      - name: Run source-level lint gates
+        run: ./scripts/lint-source-gates.sh
+
   gates:
     runs-on: macos-15
     timeout-minutes: 30
