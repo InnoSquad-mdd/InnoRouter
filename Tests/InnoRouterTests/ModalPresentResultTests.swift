@@ -56,6 +56,92 @@ struct ModalPresentResultTests {
         #expect(store.currentPresentation?.route == .alpha)
     }
 
+    @Test("Middleware-rewritten present reports the effective presentation id")
+    func rewrittenPresentReportsEffectiveID() {
+        let rewrittenID = UUID()
+        let middleware = AnyModalMiddleware<PresentRoute>(
+            willExecute: { command, _, _ in
+                if case .present(let presentation) = command {
+                    return .proceed(
+                        .present(
+                            ModalPresentation(
+                                id: rewrittenID,
+                                route: presentation.route,
+                                style: .fullScreenCover
+                            )
+                        )
+                    )
+                }
+                return .proceed(command)
+            }
+        )
+        let store = ModalStore<PresentRoute>(
+            configuration: .init(middlewares: [.init(middleware: middleware)])
+        )
+
+        let result = store.present(.alpha, style: .sheet)
+
+        #expect(result.presentationID == rewrittenID)
+        #expect(store.currentPresentation?.id == rewrittenID)
+        #expect(store.currentPresentation?.style == .fullScreenCover)
+    }
+
+    @Test("Middleware-rewritten present-to-replaceCurrent reports the replacement id")
+    func rewrittenPresentToReplaceCurrentReportsEffectiveID() {
+        let replacementID = UUID()
+        let middleware = AnyModalMiddleware<PresentRoute>(
+            willExecute: { command, _, _ in
+                if case .present(let presentation) = command,
+                   presentation.route == .bravo {
+                    return .proceed(
+                        .replaceCurrent(
+                            ModalPresentation(
+                                id: replacementID,
+                                route: presentation.route,
+                                style: .fullScreenCover
+                            )
+                        )
+                    )
+                }
+                return .proceed(command)
+            }
+        )
+        let store = ModalStore<PresentRoute>(
+            configuration: .init(middlewares: [.init(middleware: middleware)])
+        )
+        _ = store.present(.alpha, style: .sheet)
+
+        let result = store.present(.bravo, style: .sheet)
+
+        #expect(result.presentationID == replacementID)
+        #expect(store.currentPresentation?.id == replacementID)
+        #expect(store.currentPresentation?.route == .bravo)
+        #expect(store.currentPresentation?.style == .fullScreenCover)
+    }
+
+    @Test("Middleware-rewritten present to non-presentation command reports no presentation id")
+    func rewrittenPresentToDismissReportsNoPresentationID() {
+        let middleware = AnyModalMiddleware<PresentRoute>(
+            willExecute: { command, _, _ in
+                if case .present(let presentation) = command,
+                   presentation.route == .bravo {
+                    return .proceed(.dismissCurrent(reason: .dismiss))
+                }
+                return .proceed(command)
+            }
+        )
+        let store = ModalStore<PresentRoute>(
+            configuration: .init(middlewares: [.init(middleware: middleware)])
+        )
+        _ = store.present(.alpha, style: .sheet)
+
+        let result = store.present(.bravo, style: .sheet)
+
+        #expect(result == .noop)
+        #expect(result.presentationID == nil)
+        #expect(store.currentPresentation == nil)
+    }
+
     @Test("Middleware-cancelled present surfaces .cancelled with the rejection reason")
     func cancelledPresentSurfacesReason() {
         let middleware = AnyModalMiddleware<PresentRoute>(

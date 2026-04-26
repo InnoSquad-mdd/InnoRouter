@@ -127,7 +127,7 @@ final class ModalStoreTelemetrySink<M: Route> {
             modal command intercepted \
             command=\(Self.commandSummary(for: command), privacy: .public) \
             outcome=\(outcome.rawValue, privacy: .public) \
-            cancellation=\(cancellationReason.map { String(describing: $0) } ?? "nil", privacy: .public)
+            cancellation=\(cancellationReason.map { String(describing: $0) } ?? "nil", privacy: .private)
             """
         )
     }

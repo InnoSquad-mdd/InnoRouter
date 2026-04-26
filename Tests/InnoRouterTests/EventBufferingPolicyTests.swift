@@ -136,4 +136,51 @@ struct EventBufferingPolicyTests {
             [.home, .detail, .settings, .profile]
         ])
     }
+
+    @Test("FlowStore preserves configured inner navigation buffering policy")
+    @MainActor
+    func flowStorePreservesInnerNavigationBufferingPolicy() async {
+        let store = FlowStore<BufferRoute>(
+            configuration: .init(
+                navigation: .init(eventBufferingPolicy: .bufferingNewest(1))
+            )
+        )
+        var iterator = store.navigationStore.events.makeAsyncIterator()
+
+        store.navigationStore.execute(.push(.home))
+        store.navigationStore.execute(.push(.detail))
+        store.navigationStore.execute(.push(.settings))
+
+        guard case .changed(_, let to) = await iterator.next() else {
+            Issue.record("Expected the newest inner navigation .changed event")
+            return
+        }
+        #expect(to.path == [.home, .detail, .settings])
+    }
+
+    @Test("FlowStore preserves configured inner modal buffering policy")
+    @MainActor
+    func flowStorePreservesInnerModalBufferingPolicy() async {
+        let store = FlowStore<BufferRoute>(
+            configuration: .init(
+                modal: .init(eventBufferingPolicy: .bufferingNewest(1))
+            )
+        )
+        var iterator = store.modalStore.events.makeAsyncIterator()
+
+        store.modalStore.present(.home, style: .sheet)
+
+        guard
+            case .commandIntercepted(command: .present(let commandPresentation), result: let result) = await iterator.next()
+        else {
+            Issue.record("Expected the newest inner modal .commandIntercepted event")
+            return
+        }
+        #expect(commandPresentation.route == .home)
+        guard case .executed(.present(let presentation)) = result else {
+            Issue.record("Expected executed present result, got \(result)")
+            return
+        }
+        #expect(presentation.route == .home)
+    }
 }
