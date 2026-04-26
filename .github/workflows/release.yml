@@ -128,7 +128,7 @@ jobs:
 
     steps:
       - name: Download Release Site Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: docc-site-release
           path: .build/release-site-artifact
