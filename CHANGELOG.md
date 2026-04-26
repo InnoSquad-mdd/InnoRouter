@@ -4,6 +4,36 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## 3.1.0 (unreleased)
+
+3.1.0 is an additive minor that consolidates the v3.x quality
+improvement backlog: macro-generation correctness for keyword-escaped
+cases, FlowStore projection sync after direct modal replacements,
+release-workflow support for rc/beta pre-releases, and an evidence
+record of macro dependency cost.
+
+### Added
+
+- `release.yml` accepts `workflow_dispatch` with `tag` and `prerelease`
+  inputs so `<version>-(rc|beta).<n>` tags can be published as GitHub
+  pre-releases. The pre-release path skips the `latest/` DocC subtree
+  through a new `build-docc-site.sh --skip-latest` flag.
+- `Docs/macro-dependency-cost.md` records `swift package show-traits`
+  output and `swift build` measurements for `InnoRouter` and
+  `InnoRouterMacros` so future macro-package decisions have a baseline
+  to compare against.
+
+### Fixed
+
+- `@Routable` and `@CasePathable` now preserve backtick-escaped Swift
+  keyword cases (for example a `default` or `switch` case wrapped in
+  backticks) in the generated `CasePath` members. The previous expansion
+  emitted unescaped identifiers and failed to compile.
+- `FlowStore.path` now resyncs when the inner `ModalStore` swaps its
+  current presentation through `replaceCurrent(_:style:)` (including
+  via typed `binding(case:style:)`). Observers used to lag one frame
+  behind a direct modal replacement.
+
 ## 3.0.0 (unreleased)
 
 The 3.0.0 release closes the design phase of the framework. All
