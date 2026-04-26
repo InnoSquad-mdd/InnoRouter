@@ -71,6 +71,31 @@ hatches, test coverage, DX guides, and CI parallelisation.
   weakness audit (deep stacks, deep modal queues, async auth
   flows, scene invariants, focus-driven traversal, environment
   policy, debounce timing).
+- `EnvironmentMissingPolicy.assertAndLog` is a third policy
+  alongside `.crash` and `.logAndDegrade`. It traps with
+  `assertionFailure` in Debug while degrading to a logged no-op
+  dispatcher in Release, fitting TestFlight / pre-launch ship
+  configs that need loud development signal without paging
+  users on a stray missing host. New
+  `Articles/Guide-EnvironmentMissingPolicy.md` documents when to
+  pick which policy.
+- `FlowPlan(validating:)` (throwing initializer),
+  `FlowPlan.validate(_:)` (public static validator), and
+  `FlowPlanValidationError` (`tooManyModals`, `modalNotAtTail`)
+  let deep-link planners and state-restoration drivers surface
+  invariant violations up front instead of relying on the
+  authority-level `apply(_:)` rejection. `FlowPlan` Codable decode
+  now runs the same validator and converts a violation into
+  `DecodingError.dataCorruptedError`, so a `FlowPlan`
+  round-tripped through disk or network can no longer silently
+  produce a value `apply(_:)` will reject later.
+- `Tests/InnoRouterTests/FlowPlanValidationTests.swift` covers
+  the validating initializer, the static validator, and Codable
+  decode rejections (multi-modal payloads, modal-not-at-tail
+  payloads).
+- `Tests/InnoRouterTests/DuplicateDispatcherDetectionTests.swift`
+  pins the pure detection rule shared by the three
+  `*EnvironmentStorage` setters.
 
 ### Changed
 
@@ -105,6 +130,17 @@ hatches, test coverage, DX guides, and CI parallelisation.
 - `principle-gates.sh` delegates source-lint gates to
   `lint-source-gates.sh`. Behaviour is unchanged; the
   encapsulation lets the sub-script run independently in CI.
+- `NavigationEnvironmentStorage`, `ModalEnvironmentStorage`, and
+  `FlowEnvironmentStorage` setters now distinguish a benign
+  same-instance environment update from a different-instance
+  overwrite at the same `(R.Type)` slot — the latter signals a
+  sibling host registering against a peer's dispatcher in the
+  same scope. The duplicate path traps with `assertionFailure`
+  in Debug and emits an `os_log` error through a new
+  `duplicate-dispatcher` category in Release. The
+  "Coordinators and environment intent" article documents the
+  rule and the workaround (distinct route types or scoped
+  environment subtrees).
 
 ### Fixed
 
