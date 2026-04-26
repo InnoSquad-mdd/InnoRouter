@@ -329,8 +329,9 @@ public final class ModalStore<M: Route> {
         }
     }
 
-    /// Presents a route and reports whether it became the active modal
-    /// immediately or was deferred behind an already-active one.
+    /// Presents a route and reports whether it became the active modal,
+    /// was deferred behind an already-active one, or was rewritten by
+    /// middleware into a non-presentation command.
     ///
     /// The returned identifier reflects the effective presentation after
     /// middleware rewrites. Callers that branch on the outcome can pattern-
@@ -350,9 +351,10 @@ public final class ModalStore<M: Route> {
         case .executed(.present(let presentation)),
              .executed(.replaceCurrent(let presentation)):
             return .shownImmediately(id: presentation.id)
-        case .executed(.dismissCurrent),
-             .executed(.dismissAll):
-            return .noop
+        case .executed(.dismissCurrent(let reason)):
+            return .rewrittenWithoutPresentation(command: .dismissCurrent(reason: reason))
+        case .executed(.dismissAll):
+            return .rewrittenWithoutPresentation(command: .dismissAll)
         case .queued(let queued):
             return .queuedBehind(id: queued.id)
         case .cancelled(let reason):

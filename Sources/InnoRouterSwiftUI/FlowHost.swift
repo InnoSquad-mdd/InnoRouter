@@ -35,7 +35,8 @@ public struct FlowHost<R: Route, Destination: View, Root: View>: View {
         .flowIntentDispatcher(
             AnyFlowIntentDispatcher { intent in
                 flowStore.send(intent)
-            }
+            },
+            owner: flowStore
         )
         .environment(\.flowEnvironmentStorage, flowEnvironmentStorage)
     }

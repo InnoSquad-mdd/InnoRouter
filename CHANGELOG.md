@@ -89,6 +89,10 @@ hatches, test coverage, DX guides, and CI parallelisation.
   `DecodingError.dataCorruptedError`, so a `FlowPlan`
   round-tripped through disk or network can no longer silently
   produce a value `apply(_:)` will reject later.
+- `ModalPresentResult.rewrittenWithoutPresentation(command:)`
+  distinguishes middleware rewrites that execute a non-presentation
+  command (such as `.dismissCurrent` or `.dismissAll`) from a true
+  store `.noop`, preserving `.noop` as "no state changed".
 - `Tests/InnoRouterTests/FlowPlanValidationTests.swift` covers
   the validating initializer, the static validator, and Codable
   decode rejections (multi-modal payloads, modal-not-at-tail
@@ -131,12 +135,12 @@ hatches, test coverage, DX guides, and CI parallelisation.
   `lint-source-gates.sh`. Behaviour is unchanged; the
   encapsulation lets the sub-script run independently in CI.
 - `NavigationEnvironmentStorage`, `ModalEnvironmentStorage`, and
-  `FlowEnvironmentStorage` setters now distinguish a benign
-  same-instance environment update from a different-instance
-  overwrite at the same `(R.Type)` slot — the latter signals a
-  sibling host registering against a peer's dispatcher in the
-  same scope. The duplicate path traps with `assertionFailure`
-  in Debug and emits an `os_log` error through a new
+  `FlowEnvironmentStorage` setters now distinguish a benign same-owner
+  environment update from a different-owner overwrite at the same
+  `(R.Type)` slot — the latter signals a sibling host registering
+  against a peer's dispatcher in the same scope. The duplicate path
+  traps with `assertionFailure` in Debug and emits an `os_log` error
+  through a new
   `duplicate-dispatcher` category in Release. The
   "Coordinators and environment intent" article documents the
   rule and the workaround (distinct route types or scoped

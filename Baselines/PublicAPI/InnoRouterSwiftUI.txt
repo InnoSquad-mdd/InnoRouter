@@ -131,6 +131,7 @@ relationship | memberOf | ModalPresentResult.isShownImmediately | ModalPresentRe
 relationship | memberOf | ModalPresentResult.noop | ModalPresentResult |  |
 relationship | memberOf | ModalPresentResult.presentationID | ModalPresentResult |  |
 relationship | memberOf | ModalPresentResult.queuedBehind(id:) | ModalPresentResult |  |
+relationship | memberOf | ModalPresentResult.rewrittenWithoutPresentation(command:) | ModalPresentResult |  |
 relationship | memberOf | ModalPresentResult.shownImmediately(id:) | ModalPresentResult |  |
 relationship | memberOf | ModalStore.addMiddleware(_:debugName:) | ModalStore |  |
 relationship | memberOf | ModalStore.binding(case:style:) | ModalStore |  |
@@ -429,6 +430,7 @@ symbol | swift.enum.case | ModalMiddlewareMutationEvent.Action.replaced | ModalM
 symbol | swift.enum.case | ModalPresentResult.cancelled(_:) | ModalPresentResult.cancelled(_:) | case cancelled(ModalCancellationReason<M>) | []
 symbol | swift.enum.case | ModalPresentResult.noop | ModalPresentResult.noop | case noop | []
 symbol | swift.enum.case | ModalPresentResult.queuedBehind(id:) | ModalPresentResult.queuedBehind(id:) | case queuedBehind(id: UUID) | []
+symbol | swift.enum.case | ModalPresentResult.rewrittenWithoutPresentation(command:) | ModalPresentResult.rewrittenWithoutPresentation(command:) | case rewrittenWithoutPresentation(command: ModalCommand<M>) | []
 symbol | swift.enum.case | ModalPresentResult.shownImmediately(id:) | ModalPresentResult.shownImmediately(id:) | case shownImmediately(id: UUID) | []
 symbol | swift.enum.case | NavigationEvent.batchExecuted(_:) | NavigationEvent.batchExecuted(_:) | case batchExecuted(NavigationBatchResult<R>) | []
 symbol | swift.enum.case | NavigationEvent.changed(from:to:) | NavigationEvent.changed(from:to:) | case changed(from: RouteStack<R>, to: RouteStack<R>) | []

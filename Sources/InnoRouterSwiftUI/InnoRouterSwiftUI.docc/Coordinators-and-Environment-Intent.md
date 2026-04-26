@@ -33,8 +33,10 @@ This keeps view code declarative:
 
 Each `NavigationHost` / `ModalHost` / `FlowHost` owns its own
 `*EnvironmentStorage` instance through `@State`, so SwiftUI scopes the
-dispatcher table to the host's view subtree. A sibling host that
-registers a *different* dispatcher against the same `Route` type in
+dispatcher table to the host's view subtree. Re-registering the
+same routing authority is allowed across SwiftUI updates, even when
+the dispatcher wrapper is freshly allocated. A sibling host with a
+different authority that registers against the same `Route` type in
 the same environment scope is treated as a wiring bug: in Debug
 builds the storage setter traps with `assertionFailure`, and in
 Release it logs an error through the `duplicate-dispatcher`

@@ -2503,6 +2503,30 @@ struct CoordinatorTests {
         #expect(coordinator.store.state.path == [.home])
     }
 
+    @Test("Coordinator environment storage accepts same-coordinator dispatcher refreshes")
+    @MainActor
+    func testCoordinatorDispatcherRefreshUsesOwnerIdentity() {
+        let coordinator = TestCoordinator()
+        let storage = NavigationEnvironmentStorage()
+        let ownerID = ObjectIdentifier(coordinator)
+
+        storage.setIntentDispatcher(
+            coordinator.navigationIntentDispatcher,
+            ownerID: ownerID,
+            routeType: TestRoute.self
+        )
+        storage.setIntentDispatcher(
+            coordinator.navigationIntentDispatcher,
+            ownerID: ownerID,
+            routeType: TestRoute.self
+        )
+
+        storage[TestRoute.self]?.send(.go(.home))
+
+        #expect(coordinator.handleCount == 1)
+        #expect(coordinator.store.state.path == [.home])
+    }
+
     @Test("Default coordinator supports goMany/backBy/backTo/backToRoot")
     @MainActor
     func testDefaultCoordinatorIntentSet() {

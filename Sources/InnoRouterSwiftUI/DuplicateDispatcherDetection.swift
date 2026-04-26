@@ -8,11 +8,11 @@ import OSLog
 // `*EnvironmentStorage` instance through `@State`, so SwiftUI scopes
 // the dispatcher table to the host's view subtree. The
 // `*EnvironmentStorage` setters are still called on every environment
-// update — usually with the same dispatcher reference, which is a
-// no-op. This helper distinguishes that benign case from the genuinely
-// problematic one: a *different* dispatcher being written to the same
-// `(R.Type)` slot in the same storage instance, which means a second
-// host is overwriting an earlier sibling registration.
+// update. Some hosts allocate a fresh dispatcher wrapper during
+// `body`, so dispatcher identity alone is not stable enough to
+// distinguish a benign re-registration from the genuinely problematic
+// case: a different owner writing to the same `(R.Type)` slot in the
+// same storage instance.
 
 @MainActor
 let duplicateDispatcherLogger = Logger(
@@ -20,18 +20,29 @@ let duplicateDispatcherLogger = Logger(
     category: "duplicate-dispatcher"
 )
 
-/// Returns `true` when `replacement` would overwrite a different
-/// dispatcher instance at the same key. Same-instance replacements
-/// (the common case during SwiftUI environment updates) and the
-/// initial-set case both return `false`.
+/// Dispatcher plus stable owner identity for a route-type slot.
+///
+/// The dispatcher may be freshly allocated by a host `body`; the
+/// owner identity is the authority (`NavigationStore`, `ModalStore`,
+/// `FlowStore`, or `Coordinator`) whose registration is allowed to
+/// refresh across SwiftUI updates.
+@MainActor
+struct DispatcherRegistration<Dispatcher: AnyObject> {
+    let dispatcher: Dispatcher
+    let ownerID: ObjectIdentifier
+}
+
+/// Returns `true` when `replacement` would overwrite the same key
+/// with a registration owned by a different routing authority.
+/// Same-owner replacements, initial sets, and clears return `false`.
 ///
 /// Split out from ``reportDuplicateDispatcherIfNeeded(existing:replacement:keyDescription:)``
 /// so the pure detection rule can be unit-tested directly without
 /// triggering the `assertionFailure` trap.
 @MainActor
 func detectDuplicateDispatcher<Dispatcher: AnyObject>(
-    existing: Dispatcher?,
-    replacement: Dispatcher?
+    existing: DispatcherRegistration<Dispatcher>?,
+    replacement: DispatcherRegistration<Dispatcher>?
 ) -> Bool {
     guard
         let existing,
@@ -39,13 +50,13 @@ func detectDuplicateDispatcher<Dispatcher: AnyObject>(
     else {
         return false
     }
-    return existing !== replacement
+    return existing.ownerID != replacement.ownerID
 }
 
 /// Reports a duplicate-dispatcher registration when `replacement`
-/// targets the same key but is a *different* instance from
-/// `existing`. Same-instance replacements (the common case during
-/// SwiftUI environment updates) are silently allowed.
+/// targets the same key but is owned by a different authority from
+/// `existing`. Same-owner replacements are silently allowed even when
+/// the dispatcher wrapper is a fresh instance from a SwiftUI render.
 ///
 /// In Debug builds the helper traps with `assertionFailure` so the
 /// host wiring bug surfaces immediately. In Release it logs an
@@ -55,8 +66,8 @@ func detectDuplicateDispatcher<Dispatcher: AnyObject>(
 /// trail in `Console.app` / `os_log` streams.
 @MainActor
 func reportDuplicateDispatcherIfNeeded<Dispatcher: AnyObject>(
-    existing: Dispatcher?,
-    replacement: Dispatcher?,
+    existing: DispatcherRegistration<Dispatcher>?,
+    replacement: DispatcherRegistration<Dispatcher>?,
     keyDescription: @autoclosure () -> String
 ) {
     guard detectDuplicateDispatcher(existing: existing, replacement: replacement) else {

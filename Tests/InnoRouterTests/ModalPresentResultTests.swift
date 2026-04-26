@@ -119,8 +119,8 @@ struct ModalPresentResultTests {
         #expect(store.currentPresentation?.style == .fullScreenCover)
     }
 
-    @Test("Middleware-rewritten present to non-presentation command reports no presentation id")
-    func rewrittenPresentToDismissReportsNoPresentationID() {
+    @Test("Middleware-rewritten present-to-dismissCurrent reports no presentation but can mutate state")
+    func rewrittenPresentToDismissCurrentReportsRewriteWithoutPresentation() {
         let middleware = AnyModalMiddleware<PresentRoute>(
             willExecute: { command, _, _ in
                 if case .present(let presentation) = command,
@@ -134,12 +134,67 @@ struct ModalPresentResultTests {
             configuration: .init(middlewares: [.init(middleware: middleware)])
         )
         _ = store.present(.alpha, style: .sheet)
+        _ = store.present(.alpha, style: .sheet)
 
         let result = store.present(.bravo, style: .sheet)
 
+        #expect(result == .rewrittenWithoutPresentation(command: .dismissCurrent(reason: .dismiss)))
+        #expect(result.presentationID == nil)
+        #expect(result.isShownImmediately == false)
+        #expect(result.isQueuedBehind == false)
+        #expect(store.currentPresentation?.route == .alpha)
+        #expect(store.queuedPresentations.isEmpty)
+    }
+
+    @Test("Middleware-rewritten present-to-dismissAll reports no presentation and clears modal state")
+    func rewrittenPresentToDismissAllReportsRewriteWithoutPresentation() {
+        let middleware = AnyModalMiddleware<PresentRoute>(
+            willExecute: { command, _, _ in
+                if case .present(let presentation) = command,
+                   presentation.route == .bravo {
+                    return .proceed(.dismissAll)
+                }
+                return .proceed(command)
+            }
+        )
+        let store = ModalStore<PresentRoute>(
+            configuration: .init(middlewares: [.init(middleware: middleware)])
+        )
+        _ = store.present(.alpha, style: .sheet)
+        _ = store.present(.alpha, style: .sheet)
+
+        let result = store.present(.bravo, style: .sheet)
+
+        #expect(result == .rewrittenWithoutPresentation(command: .dismissAll))
+        #expect(result.presentationID == nil)
+        #expect(result.isShownImmediately == false)
+        #expect(result.isQueuedBehind == false)
+        #expect(store.currentPresentation == nil)
+        #expect(store.queuedPresentations.isEmpty)
+    }
+
+    @Test("Middleware-rewritten present-to-noop reports noop only when the store no-ops")
+    func rewrittenPresentToNoopReportsNoop() {
+        let middleware = AnyModalMiddleware<PresentRoute>(
+            willExecute: { command, _, _ in
+                if case .present(let presentation) = command {
+                    return .proceed(.replaceCurrent(presentation))
+                }
+                return .proceed(command)
+            }
+        )
+        let store = ModalStore<PresentRoute>(
+            configuration: .init(middlewares: [.init(middleware: middleware)])
+        )
+
+        let result = store.present(.alpha, style: .sheet)
+
         #expect(result == .noop)
         #expect(result.presentationID == nil)
+        #expect(result.isShownImmediately == false)
+        #expect(result.isQueuedBehind == false)
         #expect(store.currentPresentation == nil)
+        #expect(store.queuedPresentations.isEmpty)
     }
 
     @Test("Middleware-cancelled present surfaces .cancelled with the rejection reason")

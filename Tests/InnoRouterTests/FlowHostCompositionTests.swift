@@ -62,6 +62,29 @@ struct FlowHostCompositionTests {
         #expect(secondStore.path == [.push(.child)])
     }
 
+    @Test("FlowEnvironmentStorage accepts same-store dispatcher refreshes")
+    @MainActor
+    func flowEnvironmentStorageAcceptsSameStoreDispatcherRefreshes() {
+        let store = FlowStore<FlowHostRoute>()
+        let storage = FlowEnvironmentStorage()
+        let ownerID = ObjectIdentifier(store)
+
+        storage.setIntentDispatcher(
+            AnyFlowIntentDispatcher { store.send($0) },
+            ownerID: ownerID,
+            routeType: FlowHostRoute.self
+        )
+        storage.setIntentDispatcher(
+            AnyFlowIntentDispatcher { store.send($0) },
+            ownerID: ownerID,
+            routeType: FlowHostRoute.self
+        )
+
+        storage[FlowHostRoute.self]?.send(.push(.landing))
+
+        #expect(store.path == [.push(.landing)])
+    }
+
     @Test("FlowNavigating default handle forwards to flowStore.send")
     @MainActor
     func flowNavigatingDefaultHandle() {

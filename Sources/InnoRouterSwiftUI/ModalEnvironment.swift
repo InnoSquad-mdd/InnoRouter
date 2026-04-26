@@ -11,17 +11,42 @@ final class ModalEnvironmentStorage {
 
     subscript<M: Route>(routeType: M.Type) -> AnyModalIntentDispatcher<M>? {
         get {
-            intentDispatchers[ObjectIdentifier(routeType)] as? AnyModalIntentDispatcher<M>
+            let registration = intentDispatchers[ObjectIdentifier(routeType)]
+                as? DispatcherRegistration<AnyModalIntentDispatcher<M>>
+            return registration?.dispatcher
         }
         set {
-            let key = ObjectIdentifier(routeType)
-            let existing = intentDispatchers[key] as? AnyModalIntentDispatcher<M>
-            reportDuplicateDispatcherIfNeeded(
-                existing: existing,
-                replacement: newValue,
-                keyDescription: "AnyModalIntentDispatcher<\(String(describing: routeType))>"
+            setIntentDispatcher(
+                newValue,
+                ownerID: newValue.map(ObjectIdentifier.init),
+                routeType: routeType
             )
-            intentDispatchers[key] = newValue
+        }
+    }
+
+    func setIntentDispatcher<M: Route>(
+        _ dispatcher: AnyModalIntentDispatcher<M>?,
+        ownerID: ObjectIdentifier?,
+        routeType: M.Type
+    ) {
+        let key = ObjectIdentifier(routeType)
+        let existing = intentDispatchers[key]
+            as? DispatcherRegistration<AnyModalIntentDispatcher<M>>
+        let replacement = dispatcher.map {
+            DispatcherRegistration(
+                dispatcher: $0,
+                ownerID: ownerID ?? ObjectIdentifier($0)
+            )
+        }
+        reportDuplicateDispatcherIfNeeded(
+            existing: existing,
+            replacement: replacement,
+            keyDescription: "AnyModalIntentDispatcher<\(String(describing: routeType))>"
+        )
+        if let replacement {
+            intentDispatchers[key] = replacement
+        } else {
+            intentDispatchers.removeValue(forKey: key)
         }
     }
 }
@@ -32,7 +57,10 @@ extension EnvironmentValues {
 
 extension View {
     @MainActor
-    func modalIntentDispatcher<M: Route>(_ dispatcher: AnyModalIntentDispatcher<M>) -> some View {
+    func modalIntentDispatcher<M: Route>(
+        _ dispatcher: AnyModalIntentDispatcher<M>,
+        owner: AnyObject
+    ) -> some View {
         transformEnvironment(\.modalEnvironmentStorage) { storage in
             guard let storage else {
                 assertionFailure(
@@ -40,7 +68,11 @@ extension View {
                 )
                 return
             }
-            storage[M.self] = dispatcher
+            storage.setIntentDispatcher(
+                dispatcher,
+                ownerID: ObjectIdentifier(owner),
+                routeType: M.self
+            )
         }
     }
 }

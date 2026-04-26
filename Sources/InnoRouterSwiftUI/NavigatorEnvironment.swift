@@ -11,17 +11,42 @@ final class NavigationEnvironmentStorage {
 
     subscript<R: Route>(routeType: R.Type) -> AnyNavigationIntentDispatcher<R>? {
         get {
-            return intentDispatchers[ObjectIdentifier(routeType)] as? AnyNavigationIntentDispatcher<R>
+            let registration = intentDispatchers[ObjectIdentifier(routeType)]
+                as? DispatcherRegistration<AnyNavigationIntentDispatcher<R>>
+            return registration?.dispatcher
         }
         set {
-            let key = ObjectIdentifier(routeType)
-            let existing = intentDispatchers[key] as? AnyNavigationIntentDispatcher<R>
-            reportDuplicateDispatcherIfNeeded(
-                existing: existing,
-                replacement: newValue,
-                keyDescription: "AnyNavigationIntentDispatcher<\(String(describing: routeType))>"
+            setIntentDispatcher(
+                newValue,
+                ownerID: newValue.map(ObjectIdentifier.init),
+                routeType: routeType
             )
-            intentDispatchers[key] = newValue
+        }
+    }
+
+    func setIntentDispatcher<R: Route>(
+        _ dispatcher: AnyNavigationIntentDispatcher<R>?,
+        ownerID: ObjectIdentifier?,
+        routeType: R.Type
+    ) {
+        let key = ObjectIdentifier(routeType)
+        let existing = intentDispatchers[key]
+            as? DispatcherRegistration<AnyNavigationIntentDispatcher<R>>
+        let replacement = dispatcher.map {
+            DispatcherRegistration(
+                dispatcher: $0,
+                ownerID: ownerID ?? ObjectIdentifier($0)
+            )
+        }
+        reportDuplicateDispatcherIfNeeded(
+            existing: existing,
+            replacement: replacement,
+            keyDescription: "AnyNavigationIntentDispatcher<\(String(describing: routeType))>"
+        )
+        if let replacement {
+            intentDispatchers[key] = replacement
+        } else {
+            intentDispatchers.removeValue(forKey: key)
         }
     }
 }
@@ -32,7 +57,10 @@ extension EnvironmentValues {
 
 extension View {
     @MainActor
-    func navigationIntentDispatcher<R: Route>(_ dispatcher: AnyNavigationIntentDispatcher<R>) -> some View {
+    func navigationIntentDispatcher<R: Route>(
+        _ dispatcher: AnyNavigationIntentDispatcher<R>,
+        owner: AnyObject
+    ) -> some View {
         transformEnvironment(\.navigationEnvironmentStorage) { storage in
             guard let storage else {
                 assertionFailure(
@@ -40,7 +68,11 @@ extension View {
                 )
                 return
             }
-            storage[R.self] = dispatcher
+            storage.setIntentDispatcher(
+                dispatcher,
+                ownerID: ObjectIdentifier(owner),
+                routeType: R.self
+            )
         }
     }
 }
