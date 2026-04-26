@@ -46,6 +46,7 @@ public final class DebouncingNavigator<
     private let interval: Duration
     private let clock: C
     private var pendingTask: Task<NavigationResult<N.RouteType>?, Never>?
+    private var pendingTaskGeneration = 0
 
     /// - Parameters:
     ///   - inner: The destination navigator commands ultimately
@@ -78,6 +79,8 @@ public final class DebouncingNavigator<
         _ command: NavigationCommand<N.RouteType>
     ) async -> NavigationResult<N.RouteType>? {
         pendingTask?.cancel()
+        pendingTaskGeneration += 1
+        let generation = pendingTaskGeneration
 
         let interval = self.interval
         let clock = self.clock
@@ -86,7 +89,10 @@ public final class DebouncingNavigator<
         let task = Task<NavigationResult<N.RouteType>?, Never> { @MainActor in
             do {
                 try await clock.sleep(for: interval)
+            } catch is CancellationError {
+                return nil
             } catch {
+                assertionFailure("DebouncingNavigator sleep failed with non-cancellation error: \(error)")
                 return nil
             }
             if Task.isCancelled {
@@ -95,7 +101,17 @@ public final class DebouncingNavigator<
             return inner.execute(command)
         }
         pendingTask = task
-        return await task.value
+
+        let result = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+
+        if pendingTaskGeneration == generation {
+            pendingTask = nil
+        }
+        return result
     }
 
     /// Cancels any pending debounced command without firing it.
@@ -104,6 +120,7 @@ public final class DebouncingNavigator<
     public func cancelPending() {
         pendingTask?.cancel()
         pendingTask = nil
+        pendingTaskGeneration += 1
     }
 }
 

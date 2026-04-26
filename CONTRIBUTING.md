@@ -68,8 +68,11 @@ If your PR touches the public surface:
 2. Add a `## 3.x.y (unreleased)` entry to [`CHANGELOG.md`](CHANGELOG.md)
    under the right header (`### Added` / `### Changed` / `### Fixed` /
    `### Removed`).
-3. Update the relevant DocC article under `Sources/*/*.docc/Articles/`
-   if the change affects how a feature is *used*, not just *named*.
+3. Update the relevant DocC article under the affected
+   `Sources/*/*.docc` catalog if the change affects how a feature is
+   *used*, not just *named*. Create an `Articles/` directory in that
+   catalog when the feature needs long-form guidance and one does not
+   already exist.
 
 ## Macros
 

@@ -82,12 +82,12 @@ public struct EnvironmentNavigationIntent<R: Route>: DynamicProperty {
             return dispatcher
         }
         if navigationEnvironmentStorage == nil {
-            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
+            handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "NavigationEnvironmentStorage is missing for \(String(describing: routeType)). " +
                 "Attach this view inside NavigationHost or CoordinatorHost."
             }
         } else {
-            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
+            handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "AnyNavigationIntentDispatcher is missing for \(String(describing: routeType)). " +
                 "Ensure the matching NavigationHost or CoordinatorHost is in the environment hierarchy."
             }

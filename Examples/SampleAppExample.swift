@@ -31,7 +31,7 @@ enum SampleRoute {
     case home
     case detail(id: String)
     case profile
-    case search
+    case search(query: String)
     case kycReview
 }
 
@@ -72,7 +72,7 @@ final class SampleAppAuthority {
                 switch url.path {
                 case "/profile": .profile
                 case "/kyc":     .kycReview
-                case "/search":  .search
+                case "/search":  .search(query: Self.searchQuery(from: url))
                 default:         nil
                 }
             },
@@ -98,7 +98,7 @@ final class SampleAppAuthority {
             // Real apps would persist `pending` so it survives a
             // sign-in round trip. The sample logs and drops.
             Logger(subsystem: "io.innosquad.innorouter.sample", category: "deeplink")
-                .info("deferred deep link until auth: \(pending.url.absoluteString, privacy: .public)")
+                .info("deferred deep link until auth: \(pending.url.absoluteString, privacy: .private)")
         case .rejected, .unhandled:
             break
         }
@@ -107,7 +107,14 @@ final class SampleAppAuthority {
     func searchTyped(_ query: String) async {
         // Debouncing collapses rapid keystrokes into a single
         // navigation per quiet window.
-        await debouncedSearch.debouncedExecute(.replace([.search]))
+        await debouncedSearch.debouncedExecute(.replace([.search(query: query)]))
+    }
+
+    nonisolated private static func searchQuery(from url: URL) -> String {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first { $0.name == "q" || $0.name == "query" }?
+            .value ?? ""
     }
 }
 

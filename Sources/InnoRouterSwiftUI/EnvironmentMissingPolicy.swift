@@ -63,13 +63,12 @@ let environmentMissingLogger = Logger(
 func handleMissingEnvironment(
     policy: EnvironmentMissingPolicy,
     message: () -> String
-) -> Never? {
+) {
     switch policy {
     case .crash:
         preconditionFailure(message())
     case .logAndDegrade:
         let resolved = message()
         environmentMissingLogger.error("\(resolved, privacy: .public)")
-        return nil
     }
 }

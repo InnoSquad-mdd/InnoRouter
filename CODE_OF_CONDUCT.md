@@ -29,12 +29,9 @@ appropriate corrective action in response to behaviour that they
 deem inappropriate, threatening, offensive, or harmful.
 
 Instances of abusive, harassing, or otherwise unacceptable behaviour
-may be reported through GitHub's [private vulnerability
-reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability)
-flow on this repository — the maintainer team will receive the
-report privately. All complaints will be reviewed and investigated
-and will result in a response that is deemed necessary and
-appropriate.
+may be reported privately to `conduct@innosquadcorp.com`. The
+maintainer team will review and investigate all complaints and will
+respond in the way it deems necessary and appropriate.
 
 ## Attribution
 

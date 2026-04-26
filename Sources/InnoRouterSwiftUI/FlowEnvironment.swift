@@ -81,12 +81,12 @@ public struct EnvironmentFlowIntent<R: Route>: DynamicProperty {
             return dispatcher
         }
         if flowEnvironmentStorage == nil {
-            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
+            handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "FlowEnvironmentStorage is missing for \(String(describing: routeType)). " +
                 "Attach this view inside FlowHost."
             }
         } else {
-            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
+            handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "AnyFlowIntentDispatcher is missing for \(String(describing: routeType)). " +
                 "Ensure the matching FlowHost is in the environment hierarchy."
             }

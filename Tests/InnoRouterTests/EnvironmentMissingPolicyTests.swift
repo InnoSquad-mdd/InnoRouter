@@ -1,9 +1,13 @@
 // MARK: - EnvironmentMissingPolicyTests.swift
-// InnoRouterTests - host-less property-wrapper missing-env coverage
+// InnoRouterTests - host-backed property-wrapper missing-env coverage
 // Copyright © 2026 Inno Squad. All rights reserved.
 
-import Testing
+#if canImport(AppKit)
+import AppKit
+#endif
 import SwiftUI
+import Testing
+
 import InnoRouter
 import InnoRouterSwiftUI
 
@@ -11,43 +15,58 @@ private enum EnvMissingRoute: Route {
     case home
 }
 
-@Suite("EnvironmentMissingPolicy")
+@Suite("EnvironmentMissingPolicy", .tags(.unit))
 @MainActor
 struct EnvironmentMissingPolicyTests {
 
-    // MARK: - .logAndDegrade returns a no-op dispatcher
+    // MARK: - .logAndDegrade returns no-op dispatchers
 
-    @Test(".logAndDegrade returns a no-op navigation dispatcher when env is missing")
-    func navigationDispatcher_logAndDegrade() throws {
-        let policyView = MissingEnvProbeView()
+    @Test(".logAndDegrade resolves a no-op navigation dispatcher through SwiftUI")
+    func navigationDispatcher_logAndDegrade_send_does_not_trap() throws {
+        var appeared = false
+
+        _ = try render(
+            MissingNavigationEnvProbeView {
+                appeared = true
+            }
             .innoRouterEnvironmentMissingPolicy(.logAndDegrade)
+        )
 
-        // Render the view tree off-screen so the property wrapper
-        // resolves with the policy in place. The wrapper must not
-        // trap when storage is missing.
-        _ = try renderWrappedValue(of: policyView)
+        #expect(appeared)
     }
 
-    @Test(".logAndDegrade dispatches to a no-op when send(_:) is invoked")
-    func navigationDispatcher_logAndDegrade_send_does_not_trap() {
-        // Constructing a no-op `AnyNavigationIntentDispatcher` and
-        // sending into it must not trap; this mirrors the placeholder
-        // returned by the property wrapper under `.logAndDegrade`.
-        let dispatcher = AnyNavigationIntentDispatcher<EnvMissingRoute> { _ in
-            // intentionally empty
-        }
-        let route: EnvMissingRoute = .home
-        dispatcher.send(NavigationIntent<EnvMissingRoute>.go(route))
+    @Test(".logAndDegrade resolves a no-op modal dispatcher through SwiftUI")
+    func modalDispatcher_logAndDegrade_send_does_not_trap() throws {
+        var appeared = false
+
+        _ = try render(
+            MissingModalEnvProbeView {
+                appeared = true
+            }
+            .innoRouterEnvironmentMissingPolicy(.logAndDegrade)
+        )
+
+        #expect(appeared)
+    }
+
+    @Test(".logAndDegrade resolves a no-op flow dispatcher through SwiftUI")
+    func flowDispatcher_logAndDegrade_send_does_not_trap() throws {
+        var appeared = false
+
+        _ = try render(
+            MissingFlowEnvProbeView {
+                appeared = true
+            }
+            .innoRouterEnvironmentMissingPolicy(.logAndDegrade)
+        )
+
+        #expect(appeared)
     }
 
     // MARK: - default policy is .crash
 
     @Test("default environment policy is .crash")
     func defaultPolicy_isCrash() {
-        // We cannot assert the trap itself in a Swift Testing run
-        // without process isolation; assert the default value of
-        // the environment key instead so a future accidental
-        // default flip would fail the test.
         let environment = EnvironmentValues()
         #expect(environment.innoRouterEnvironmentMissingPolicy == .crash)
     }
@@ -56,59 +75,91 @@ struct EnvironmentMissingPolicyTests {
 
     @Test(".innoRouterEnvironmentMissingPolicy(_:) writes the environment key")
     func viewModifier_writesEnvironmentKey() throws {
-        let probe = PolicyReadingProbe()
-            .innoRouterEnvironmentMissingPolicy(.logAndDegrade)
+        var observed: EnvironmentMissingPolicy?
 
-        let observed = try readObservedPolicy(from: probe)
+        _ = try render(
+            PolicyReadingProbe { policy in
+                observed = policy
+            }
+            .innoRouterEnvironmentMissingPolicy(.logAndDegrade)
+        )
+
         #expect(observed == .logAndDegrade)
     }
 }
 
 // MARK: - Probes
 
-private struct MissingEnvProbeView: View {
+private struct MissingNavigationEnvProbeView: View {
     @EnvironmentNavigationIntent(EnvMissingRoute.self)
     private var dispatcher
 
+    let onAppear: @MainActor () -> Void
+
     var body: some View {
         Color.clear.onAppear {
-            // Force the wrapped value to be evaluated so the policy
-            // path runs even in the host-less render below.
-            let route: EnvMissingRoute = .home
-            dispatcher.send(NavigationIntent<EnvMissingRoute>.go(route))
+            dispatcher.send(.go(.home))
+            onAppear()
+        }
+    }
+}
+
+private struct MissingModalEnvProbeView: View {
+    @EnvironmentModalIntent(EnvMissingRoute.self)
+    private var dispatcher
+
+    let onAppear: @MainActor () -> Void
+
+    var body: some View {
+        Color.clear.onAppear {
+            dispatcher.send(.present(.home, style: .sheet))
+            onAppear()
+        }
+    }
+}
+
+private struct MissingFlowEnvProbeView: View {
+    @EnvironmentFlowIntent(EnvMissingRoute.self)
+    private var dispatcher
+
+    let onAppear: @MainActor () -> Void
+
+    var body: some View {
+        Color.clear.onAppear {
+            dispatcher.send(.push(.home))
+            onAppear()
         }
     }
 }
 
 private struct PolicyReadingProbe: View {
     @Environment(\.innoRouterEnvironmentMissingPolicy)
-    var policy
+    private var policy
+
+    let onRead: @MainActor (EnvironmentMissingPolicy) -> Void
 
     var body: some View {
-        Color.clear
+        Color.clear.onAppear {
+            onRead(policy)
+        }
     }
 }
 
-// Render helpers — InnoRouter does not depend on a host in test
-// builds, so we drive `body` through a synchronous evaluation that
-// the SwiftUI runtime treats as a single render pass. The helper is
-// intentionally minimal: any failure to evaluate `wrappedValue`
-// inside `body` would surface as a trap and fail the run.
+// MARK: - Render helper
 
+#if canImport(AppKit)
 @MainActor
-private func renderWrappedValue<V: View>(of view: V) throws -> AnyView {
-    AnyView(view)
+@discardableResult
+private func render<V: View>(_ view: V) throws -> NSHostingView<V> {
+    let hostingView = NSHostingView(rootView: view)
+    hostingView.frame = NSRect(x: 0, y: 0, width: 24, height: 24)
+    hostingView.layoutSubtreeIfNeeded()
+    RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+    return hostingView
 }
-
+#else
 @MainActor
-private func readObservedPolicy<V: View>(from view: V) throws -> EnvironmentMissingPolicy {
-    // We cannot directly reach into a SwiftUI environment from a
-    // Swift-Testing test harness, so we approximate: build the same
-    // policy value the modifier would have written and assert it
-    // round-trips through `EnvironmentValues`. This mirrors the
-    // pattern used elsewhere in the test suite for environment
-    // assertions.
-    var environment = EnvironmentValues()
-    environment.innoRouterEnvironmentMissingPolicy = .logAndDegrade
-    return environment.innoRouterEnvironmentMissingPolicy
+private func render<V: View>(_ view: V) throws {
+    throw Skip("EnvironmentMissingPolicyTests require AppKit-backed SwiftUI rendering.")
 }
+#endif

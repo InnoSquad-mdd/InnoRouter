@@ -24,13 +24,20 @@ Release-candidate and beta channels use the
 - `3.2.0-beta.2` (beta)
 
 Pre-release tags do **not** match the GA regex above. Publish them
-from the same `release.yml` workflow by manually dispatching it with
-`tag=<pre-release-tag>` and `prerelease=true`. A pre-release tag push
-may start the workflow because the tag glob is broad, but validation
-rejects it before publishing. The manual pre-release path publishes a
-GitHub Release marked as pre-release and a DocC subtree under
-`/InnoRouter/<tag>/`, but does **not** update `/latest/`. Only a
-bare-semver GA tag advances `/latest/`.
+from the same `release.yml` workflow by first creating and pushing
+the tag, then manually dispatching the workflow with
+`tag=<pre-release-tag>` and `prerelease=true`:
+
+```bash
+git tag 3.1.0-rc.1
+git push origin 3.1.0-rc.1
+```
+
+A pre-release tag push may start the workflow because the tag glob is
+broad, but validation rejects it before publishing. The manual
+pre-release path publishes a GitHub Release marked as pre-release and
+a DocC subtree under `/InnoRouter/<tag>/`, but does **not** update
+`/latest/`. Only a bare-semver GA tag advances `/latest/`.
 
 ## SemVer commitment
 

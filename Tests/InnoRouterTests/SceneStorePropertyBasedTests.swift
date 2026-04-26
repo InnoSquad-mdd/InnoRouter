@@ -8,14 +8,14 @@ import Foundation
 import Testing
 
 import InnoRouterCore
-import InnoRouterSwiftUI
+@testable import InnoRouterSwiftUI
 
 private enum SpatialRoute: String, Route {
     case main
     case theatre
 }
 
-@Suite("SceneStore property-based scenarios")
+@Suite("SceneStore property-based scenarios", .tags(.unit))
 @MainActor
 struct SceneStorePropertyBasedTests {
 
@@ -23,43 +23,57 @@ struct SceneStorePropertyBasedTests {
         "openWindow / dismissWindow round-trips do not corrupt SceneStore state",
         arguments: 1...32
     )
-    func openDismissRoundTrip(seed: Int) {
-        // Deterministic alternating open/dismiss pattern keyed on
-        // the seed. The store must end with no ghost active scenes
-        // after the final dismissal regardless of the sequence
-        // length the seed produces.
-        let store = SceneStore<SpatialRoute>()
+    func openDismissRoundTrip(seed: Int) throws {
+        var state = SceneStoreState<SpatialRoute>()
         let length = seed + 4
 
         for index in 0..<length {
-            let window = store.openWindow(.main)
-            #expect(window.route == .main)
+            let window = ScenePresentation<SpatialRoute>.window(
+                .main,
+                id: UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", index + 1))!
+            )
 
-            if index % 2 == 0 {
-                store.dismissWindow(window)
-                store.completeDismissal(of: window)
-            }
+            #expect(state.requestOpen(window).isEmpty)
+            let openRequestID = try #require(state.currentPendingRequestID)
+            #expect(state.claimPendingRequest(openRequestID) == .open(window))
+            #expect(
+                state.completeOpen(
+                    window,
+                    accepted: true,
+                    requestID: openRequestID
+                ) == .broadcast(.presented(window))
+            )
+            #expect(state.activeScenes.contains(window))
+
+            #expect(state.requestDismissWindow(window).isEmpty)
+            let dismissRequestID = try #require(state.currentPendingRequestID)
+            #expect(state.claimPendingRequest(dismissRequestID) == .dismissWindow(window))
+            #expect(
+                state.completeDismissal(
+                    of: window,
+                    requestID: dismissRequestID
+                ) == .broadcast(.dismissed(window))
+            )
+            #expect(state.activeScenes.contains(window) == false)
         }
 
-        // After draining, even-length runs leave nothing pending.
-        if length % 2 == 0 {
-            #expect(store.activeScenes.isEmpty)
-        }
+        #expect(state.activeScenes.isEmpty)
+        #expect(state.pendingIntent == nil)
+        #expect(state.currentPendingRequestID == nil)
     }
 
     @Test("Repeated immersive opens stay single-occupancy")
-    func repeatedImmersive_singleSlot() {
+    func repeatedImmersive_singleSlot() throws {
         let store = SceneStore<SpatialRoute>()
 
         for _ in 0..<5 {
             store.openImmersive(.theatre, style: .mixed)
         }
 
-        // The pending immersive slot is single-occupancy: a fresh
-        // open request overwrites the queued one rather than
-        // multiplying into a backlog.
-        if let pending = store.pendingIntent {
-            #expect(pending == .openImmersive(.theatre, style: .mixed))
+        let pending = try #require(store.pendingIntent)
+        guard case .open(.immersive(.theatre, style: .mixed, id: _)) = pending else {
+            Issue.record("Expected pending immersive open, got \(pending)")
+            return
         }
     }
 }

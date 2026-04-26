@@ -82,12 +82,12 @@ public struct EnvironmentModalIntent<M: Route>: DynamicProperty {
             return dispatcher
         }
         if modalEnvironmentStorage == nil {
-            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
+            handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "ModalEnvironmentStorage is missing for \(String(describing: routeType)). " +
                 "Attach this view inside ModalHost."
             }
         } else {
-            _ = handleMissingEnvironment(policy: environmentMissingPolicy) {
+            handleMissingEnvironment(policy: environmentMissingPolicy) {
                 "AnyModalIntentDispatcher is missing for \(String(describing: routeType)). " +
                 "Ensure the matching ModalHost is in the environment hierarchy."
             }

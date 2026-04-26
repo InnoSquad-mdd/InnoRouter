@@ -67,7 +67,13 @@ if rg -n "\\.deepLink\\(|case \\.deepLink" Sources/InnoRouterSwiftUI Sources/Inn
 fi
 
 echo "[lint-source-gates] Checking deep-link fallback removal"
-if rg -n "about:blank|schemeNotAllowed\\(actualScheme: nil\\)" Sources/InnoRouterEffects Sources/InnoRouterDeepLinkEffects Sources/InnoRouterNavigationEffects; then
+DEEP_LINK_FALLBACK_PATHS=()
+for path in Sources/InnoRouterEffects Sources/InnoRouterDeepLinkEffects Sources/InnoRouterNavigationEffects; do
+  if [[ -e "$path" ]]; then
+    DEEP_LINK_FALLBACK_PATHS+=("$path")
+  fi
+done
+if [[ ${#DEEP_LINK_FALLBACK_PATHS[@]} -gt 0 ]] && rg -n "about:blank|schemeNotAllowed\\(actualScheme: nil\\)" "${DEEP_LINK_FALLBACK_PATHS[@]}"; then
   echo "[lint-source-gates] Failed: legacy fallback found"
   exit 1
 fi

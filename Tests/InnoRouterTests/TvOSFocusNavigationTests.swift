@@ -20,7 +20,7 @@ private enum FocusRoute: Route {
     case detail(Int)
 }
 
-@Suite("tvOS focus-driven navigation")
+@Suite("tvOS focus-driven navigation", .tags(.unit))
 @MainActor
 struct TvOSFocusNavigationTests {
 
@@ -37,26 +37,19 @@ struct TvOSFocusNavigationTests {
     }
 
     @Test("focus-equivalent .replace coalesces a path swap into a single change")
-    func replaceOnFocusChange_coalescesEvents() async {
+    func replaceOnFocusChange_coalescesEvents() async throws {
         let store = NavigationStore<FocusRoute>()
-        var emittedChanges = 0
-
-        let task = Task {
-            for await event in store.events {
-                if case .changed = event {
-                    emittedChanges += 1
-                }
-            }
-        }
+        var iterator = store.events.makeAsyncIterator()
 
         _ = store.execute(.replace([.grid, .detail(1)]))
-        try? await Task.sleep(for: .milliseconds(20))
-        task.cancel()
 
-        // .replace is a single command; the events stream emits
-        // exactly one .changed for the operation regardless of how
-        // many path entries it rewrites.
-        #expect(emittedChanges == 1)
+        let event = try #require(await iterator.next())
+        guard case .changed(let old, let new) = event else {
+            Issue.record("Expected .changed, got \(event)")
+            return
+        }
+        #expect(old.path.isEmpty)
+        #expect(new.path == [.grid, .detail(1)])
     }
 }
 

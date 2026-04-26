@@ -112,7 +112,7 @@ navigation surface should react.
 
 ## See also
 
-- ``NavigationStore``
-- ``NavigationCommand``
-- ``ThrottleNavigationMiddleware``
-- ``DebouncingNavigator``
+- `NavigationStore`
+- `NavigationCommand`
+- `ThrottleNavigationMiddleware`
+- `DebouncingNavigator`

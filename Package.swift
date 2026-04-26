@@ -156,16 +156,14 @@ let package = Package(
     dependencies: [
         // Swift Syntax for Macros.
         //
-        // Pinned `upToNextMinor` because swift-syntax bumps its
-        // SwiftSyntaxBuilder API surface at minor cadence and our
-        // macro plugin uses the SwiftSyntaxBuilder / SwiftDiagnostics
-        // types directly (see `MacroDiagnostic.swift`,
-        // `RoutableMacro.swift`). A floating `from:` constraint
-        // pulls 603.x silently the day it ships and breaks the
-        // plugin without a tracked dependency-update PR. dependabot
-        // opens those updates explicitly so the macro test fixtures
-        // and public-API baselines can be regenerated alongside the
-        // bump.
+        // Pinned `upToNextMinor` because swift-syntax compatibility
+        // is tracked by major release lines such as 602.x and 603.x.
+        // The macro plugin uses SwiftSyntaxBuilder / SwiftDiagnostics
+        // directly (see `MacroDiagnostic.swift`, `RoutableMacro.swift`),
+        // so this constraint allows 602.0.x patch backports while
+        // preventing a silent jump to the next major line. Dependabot
+        // opens those updates explicitly so macro fixtures and
+        // public-API baselines can move alongside the bump.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", .upToNextMinor(from: "602.0.0")),
     ],
     targets: [

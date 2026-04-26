@@ -70,6 +70,6 @@ shape of the type stays compatible with that rename.
 
 ## See also
 
-- ``FlowStore``
-- ``FlowCoordinator``
-- ``FlowStoreConfiguration``
+- `FlowStore`
+- `FlowCoordinator`
+- `FlowStoreConfiguration`

@@ -16,8 +16,9 @@ public final class NavigationEffectHandler<R: Route> {
     private let executeTransactionCommands: @MainActor ([NavigationCommand<R>]) -> NavigationTransactionResult<R>
     private let readState: @MainActor () -> RouteStack<R>
 
-    /// Result of the most recent single-command execution, or `nil`
-    /// when the last call was a batch / transaction.
+    /// Result of the most recent command result emitted by a single
+    /// command, batch, or transaction execution, or `nil` before any
+    /// execution.
     public private(set) var lastResult: NavigationResult<R>?
 
     /// Result of the most recent batch execution, or `nil` when the

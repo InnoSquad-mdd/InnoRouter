@@ -98,8 +98,17 @@ public final class FlowStore<R: Route> {
         }
         let composedModalOnCommandIntercepted: @MainActor @Sendable (ModalCommand<R>, ModalExecutionResult<R>) -> Void = { command, result in
             userModalOnCommandIntercepted?(command, result)
-            guard case .executed(.replaceCurrent) = result else { return }
-            link.owner?.handleModalStoreReplacement()
+            switch result {
+            case .executed(.replaceCurrent):
+                link.owner?.handleModalStoreReplacement()
+            case .executed(.present),
+                 .executed(.dismissCurrent),
+                 .executed(.dismissAll),
+                 .queued,
+                 .cancelled,
+                 .noop:
+                break
+            }
         }
 
         let navConfig = NavigationStoreConfiguration<R>(
