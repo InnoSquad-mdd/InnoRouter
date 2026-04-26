@@ -65,12 +65,26 @@ hatches, test coverage, DX guides, and CI parallelisation.
   `ModalStoreQueueStressTests.swift`,
   `FlowDeepLinkAsyncAuthTests.swift`,
   `SceneStorePropertyBasedTests.swift` (visionOS-gated),
-  `TvOSFocusNavigationTests.swift` (tvOS-gated),
+  `Tests/InnoRouterPlatformTests/TvOSFocusNavigationTests.swift`
+  (tvOS-gated),
   `EnvironmentMissingPolicyTests.swift`, and
   `DebouncingNavigatorTests.swift` close gaps in the test-suite
   weakness audit (deep stacks, deep modal queues, async auth
   flows, scene invariants, focus-driven traversal, environment
   policy, debounce timing).
+- `TvOSFocusNavigationTests.swift` adds three focus-engine
+  collapse regressions: `popTo` from a deep focus chain,
+  `popToRoot` from a deep focus chain, and over-depth `popCount`
+  preserving the stack while reporting insufficient depth.
+- `WatchOSCrownNavigationTests.swift` (watchOS-gated) covers
+  Digital Crown navigation cadence: dense `.push` sequence keeps
+  state.path monotonically growing, rapid `.pop` collapses one
+  step at a time, and over-scroll past root reports `.emptyStack`
+  while leaving the path empty.
+- `InnoRouterPlatformTests` and the `platforms` workflow now run
+  tvOS / watchOS runtime tests for the platform-gated focus and
+  crown regressions instead of relying on compile-only platform
+  probes.
 - `EnvironmentMissingPolicy.assertAndLog` is a third policy
   alongside `.crash` and `.logAndDegrade`. It traps with
   `assertionFailure` in Debug while degrading to a logged no-op
