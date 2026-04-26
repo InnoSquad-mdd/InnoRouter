@@ -413,6 +413,20 @@ The same layering applies to `ModalStore` and `FlowStore`:
 `execute(_:)` / `executeBatch(_:)` / `executeTransaction(_:)` at the engine
 boundary.
 
+### Choosing between `.sequence`, `executeBatch`, and `executeTransaction`
+
+| You want… | Reach for | Why |
+|---|---|---|
+| One observable change for many commands, best-effort | `executeBatch(_:stopOnFailure:)` | Coalesced `onChange` / `events`, optional fail-fast |
+| All-or-nothing apply with rollback | `executeTransaction(_:)` | Shadow-state preview, journal-based discard |
+| A composite *value* the engine plans / validates | `NavigationCommand.sequence([...])` | Pure command, flows through every middleware as one unit |
+| Fire only the latest command after a quiet window | `DebouncingNavigator` | Async wrapping navigator, `Clock`-injectable |
+| Rate-limit per key | `ThrottleNavigationMiddleware` | Synchronous, last-accept timestamp |
+
+The full decision matrix with worked examples and anti-patterns
+lives in the DocC tutorial
+[`Guide-SequenceVsBatchVsTransaction`](Sources/InnoRouterSwiftUI/InnoRouterSwiftUI.docc/Articles/Guide-SequenceVsBatchVsTransaction.md).
+
 ## Stack routing surface
 
 `NavigationIntent` is the official SwiftUI stack-intent surface:
