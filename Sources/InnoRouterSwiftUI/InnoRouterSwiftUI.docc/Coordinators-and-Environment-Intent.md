@@ -29,6 +29,22 @@ This keeps view code declarative:
 - fail-fast behavior catches host wiring mistakes early
 - multi-host trees can keep separate routing authorities in the same hierarchy
 
+### Sibling hosts and duplicate registration
+
+Each `NavigationHost` / `ModalHost` / `FlowHost` owns its own
+`*EnvironmentStorage` instance through `@State`, so SwiftUI scopes the
+dispatcher table to the host's view subtree. A sibling host that
+registers a *different* dispatcher against the same `Route` type in
+the same environment scope is treated as a wiring bug: in Debug
+builds the storage setter traps with `assertionFailure`, and in
+Release it logs an error through the `duplicate-dispatcher`
+`os_log` category before letting the overwrite proceed (preserving
+prior behaviour for production cold-starts).
+
+If two surfaces legitimately need different routing authorities,
+either give them distinct `Route` types or scope them with separate
+environment subtrees so each host gets its own storage.
+
 ## Flow and tab coordinators
 
 `FlowCoordinator` and `TabCoordinator` complement `NavigationStore`; they do not replace it.
