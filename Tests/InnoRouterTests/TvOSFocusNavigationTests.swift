@@ -51,6 +51,50 @@ struct TvOSFocusNavigationTests {
         #expect(old.path.isEmpty)
         #expect(new.path == [.grid, .detail(1)])
     }
+
+    // MARK: - Focus state restoration after pop
+    //
+    // The focus engine reattaches focus to the prior leaf when a
+    // remote-driven `Menu` press collapses the stack. From the
+    // store's perspective this is a `.pop` reducing path by one;
+    // the regression vector is path-state shape after the pop, not
+    // the focus engine itself (which is a system service we don't
+    // own).
+
+    @Test("popTo from a deep focus chain restores the prefix verbatim")
+    func popTo_fromDeepChain_restoresPrefix() {
+        let store = NavigationStore<FocusRoute>()
+        _ = store.execute(.push(.grid))
+        _ = store.execute(.push(.detail(1)))
+        _ = store.execute(.push(.detail(2)))
+        _ = store.execute(.push(.detail(3)))
+        #expect(store.state.path.count == 4)
+
+        _ = store.execute(.popTo(.grid))
+
+        #expect(store.state.path == [.grid])
+    }
+
+    @Test("popToRoot from a deep focus chain leaves an empty path")
+    func popToRoot_fromDeepChain_leavesEmptyPath() {
+        let store = NavigationStore<FocusRoute>()
+        _ = store.execute(.replace([.grid, .detail(1), .detail(2), .detail(3)]))
+        #expect(store.state.path.count == 4)
+
+        _ = store.execute(.popToRoot)
+
+        #expect(store.state.path.isEmpty)
+    }
+
+    @Test("popCount past the stack depth is clamped, not over-popped")
+    func popCount_pastDepth_isClamped() {
+        let store = NavigationStore<FocusRoute>()
+        _ = store.execute(.replace([.grid, .detail(1)]))
+
+        _ = store.execute(.popCount(99))
+
+        #expect(store.state.path.isEmpty)
+    }
 }
 
 #endif
