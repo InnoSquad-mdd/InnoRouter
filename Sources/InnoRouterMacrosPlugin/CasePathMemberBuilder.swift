@@ -15,7 +15,58 @@ private struct CasePathAssociatedValueParameter {
 private struct CasePathEnumCase {
     let name: String
     let emittedName: String
+    let availabilityAttributes: [String]
     let parameters: [CasePathAssociatedValueParameter]
+}
+
+/// Access level inferred from the enclosing enum declaration.
+///
+/// `@Routable` / `@CasePathable` previously emitted every member as
+/// `public`, which leaked CasePath surface for `internal` and
+/// `private` enums. From v4.0.0 the generated members match the
+/// enclosing enum's access level so a `private enum` no longer
+/// produces a public CasePath table.
+private enum InferredAccessLevel: String {
+    case `public`
+    case `internal`
+    case `fileprivate`
+    case `private`
+
+    var keyword: String {
+        switch self {
+        case .public: return "public"
+        case .internal: return "internal"
+        case .fileprivate: return "fileprivate"
+        case .private: return "fileprivate"
+            // Note: `private` enums still need their generated
+            // members at fileprivate so the same-file `is` and
+            // `subscript` callers can reach them.
+        }
+    }
+}
+
+private func inferAccessLevel(from enumDecl: EnumDeclSyntax) -> InferredAccessLevel {
+    for modifier in enumDecl.modifiers {
+        switch modifier.name.tokenKind {
+        case .keyword(.public): return .public
+        case .keyword(.internal): return .internal
+        case .keyword(.fileprivate): return .fileprivate
+        case .keyword(.private): return .private
+        default: continue
+        }
+    }
+    return .internal
+}
+
+private func availabilityAttributes(
+    from caseDecl: EnumCaseDeclSyntax
+) -> [String] {
+    caseDecl.attributes.compactMap { attribute -> String? in
+        guard let attr = attribute.as(AttributeSyntax.self) else { return nil }
+        let name = attr.attributeName.trimmedDescription
+        guard name == "available" else { return nil }
+        return attr.trimmedDescription
+    }
 }
 
 func buildCasePathMembers(
@@ -51,22 +102,23 @@ func buildCasePathMembers(
     }
 
     let enumName = enumDecl.name.text
-    let casesMembers = cases.map { buildCasePathMember($0, enumName: enumName) }
+    let access = inferAccessLevel(from: enumDecl).keyword
+    let casesMembers = cases.map { buildCasePathMember($0, enumName: enumName, access: access) }
 
     let casesEnum: DeclSyntax = """
-        public enum Cases {
+        \(raw: access) enum Cases {
         \(raw: casesMembers.joined(separator: "\n"))
         }
         """
 
     let isMethod: DeclSyntax = """
-        public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+        \(raw: access) func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
             casePath.extract(self) != nil
         }
         """
 
     let subscriptDecl: DeclSyntax = """
-        public subscript<Value>(case casePath: CasePath<Self, Value>) -> Value? {
+        \(raw: access) subscript<Value>(case casePath: CasePath<Self, Value>) -> Value? {
             casePath.extract(self)
         }
         """
@@ -79,29 +131,37 @@ private func extractCasePathEnumCases(
 ) -> [CasePathEnumCase] {
     enumDecl.memberBlock.members
         .compactMap { $0.decl.as(EnumCaseDeclSyntax.self) }
-        .flatMap { $0.elements }
-        .map { enumCase in
-            CasePathEnumCase(
-                name: enumCase.name.text,
-                emittedName: escapedIdentifier(enumCase.name),
-                parameters: enumCase.parameterClause?.parameters.enumerated().map { index, param in
-                    CasePathAssociatedValueParameter(
-                        type: param.type.trimmedDescription,
-                        bindingName: bindingName(for: param, index: index),
-                        emittedLabel: emittedLabel(for: param)
-                    )
-                } ?? []
-            )
+        .flatMap { caseDecl -> [CasePathEnumCase] in
+            let availability = availabilityAttributes(from: caseDecl)
+            return caseDecl.elements.map { enumCase in
+                CasePathEnumCase(
+                    name: enumCase.name.text,
+                    emittedName: escapedIdentifier(enumCase.name),
+                    availabilityAttributes: availability,
+                    parameters: enumCase.parameterClause?.parameters.enumerated().map { index, param in
+                        CasePathAssociatedValueParameter(
+                            type: param.type.trimmedDescription,
+                            bindingName: bindingName(for: param, index: index),
+                            emittedLabel: emittedLabel(for: param)
+                        )
+                    } ?? []
+                )
+            }
         }
 }
 
 private func buildCasePathMember(
     _ enumCase: CasePathEnumCase,
-    enumName: String
+    enumName: String,
+    access: String
 ) -> String {
+    let availabilityPrefix = enumCase.availabilityAttributes
+        .map { "        \($0)\n" }
+        .joined()
+
     if enumCase.parameters.isEmpty {
         return """
-                public static let \(enumCase.emittedName) = CasePath<\(enumName), Void>(
+        \(availabilityPrefix)        \(access) static let \(enumCase.emittedName) = CasePath<\(enumName), Void>(
                     embed: { _ in .\(enumCase.emittedName) },
                     extract: { if case .\(enumCase.emittedName) = $0 { return () }; return nil }
                 )
@@ -139,7 +199,7 @@ private func buildCasePathMember(
     }.joined(separator: ", ")
 
     return """
-            public static let \(enumCase.emittedName) = CasePath<\(enumName), \(tupleType)>(
+    \(availabilityPrefix)        \(access) static let \(enumCase.emittedName) = CasePath<\(enumName), \(tupleType)>(
                 embed: { value in .\(enumCase.emittedName)(\(embedArgs)) },
                 extract: { if case .\(enumCase.emittedName)(\(extractBindings)) = $0 { return \(returnValue) }; return nil }
             )
