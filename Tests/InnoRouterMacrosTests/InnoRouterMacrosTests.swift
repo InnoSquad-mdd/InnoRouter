@@ -87,6 +87,66 @@ struct RoutableMacroTests {
         #endif
     }
 
+    @Test("Escaped keyword cases expansion")
+    func testRoutableWithEscapedKeywordCases() throws {
+        #if canImport(InnoRouterMacrosPlugin)
+        assertMacroExpansion(
+            """
+            @Routable
+            enum KeywordRoute {
+                case `default`
+                case `switch`(id: String)
+            }
+            """,
+            expandedSource: """
+            enum KeywordRoute {
+                case `default`
+                case `switch`(id: String)
+
+                public enum Cases {
+                        public static let `default` = CasePath<KeywordRoute, Void>(
+                            embed: { _ in
+                                .`default`
+                            },
+                            extract: {
+                                if case .`default` = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                        public static let `switch` = CasePath<KeywordRoute, String>(
+                            embed: { value in
+                                .`switch`(id: value)
+                            },
+                            extract: {
+                                if case .`switch`(let id) = $0 {
+                                    return id
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension KeywordRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
+        #else
+        throw Skip("Macros not available")
+        #endif
+    }
+
     @Test("Associated values expansion")
     func testRoutableWithAssociatedValues() throws {
         #if canImport(InnoRouterMacrosPlugin)
@@ -448,6 +508,63 @@ struct CasePathableMacroTests {
                             extract: {
                                 if case .profile(let userId) = $0 {
                                     return userId
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+        #else
+        throw Skip("Macros not available")
+        #endif
+    }
+
+    @Test("Escaped keyword cases expansion")
+    func testCasePathableWithEscapedKeywordCases() throws {
+        #if canImport(InnoRouterMacrosPlugin)
+        assertMacroExpansion(
+            """
+            @CasePathable
+            enum Destination {
+                case `default`
+                case `switch`(id: String)
+            }
+            """,
+            expandedSource: """
+            enum Destination {
+                case `default`
+                case `switch`(id: String)
+
+                public enum Cases {
+                        public static let `default` = CasePath<Destination, Void>(
+                            embed: { _ in
+                                .`default`
+                            },
+                            extract: {
+                                if case .`default` = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                        public static let `switch` = CasePath<Destination, String>(
+                            embed: { value in
+                                .`switch`(id: value)
+                            },
+                            extract: {
+                                if case .`switch`(let id) = $0 {
+                                    return id
                                 };
                                 return nil
                             }
