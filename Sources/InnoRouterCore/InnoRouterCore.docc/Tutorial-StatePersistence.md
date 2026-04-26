@@ -19,7 +19,7 @@ call sites don't have to redeclare them:
 let persistence = StatePersistence<AppRoute>()
 
 // At checkpoint time (e.g. scene will deactivate):
-let plan = FlowPlan(steps: flowStore.path)
+let plan = try FlowPlan(validating: flowStore.path)
 let data = try persistence.encode(plan)
 try data.write(to: restorationURL, options: .atomic)
 
@@ -29,6 +29,28 @@ if let data = try? Data(contentsOf: restorationURL) {
     flowStore.apply(restored)
 }
 ```
+
+## Validation on decode
+
+A `FlowPlan` always satisfies the FlowStore invariants:
+
+- At most one modal step.
+- A modal step only at the tail of `steps`.
+- All other steps are `.push`.
+
+`FlowPlan(validating:)` and `FlowPlan.validate(_:)` enforce these
+invariants up front and throw ``FlowPlanValidationError`` on
+violation. Codable decode runs the same validator and converts a
+violation into `DecodingError.dataCorruptedError`, so a
+`FlowPlan` round-tripped through disk or network can no longer
+silently produce a value that `apply(_:)` will reject later. If
+the snapshot format on disk drifts (older builds, hand-edited
+JSON, schema migration mid-flight), the decode call surfaces the
+error at restoration time — not at the next user action.
+
+The permissive ``FlowPlan/init(steps:)`` initializer remains
+available for internal builders that already trust the origin of
+`steps`.
 
 ## Scope
 
