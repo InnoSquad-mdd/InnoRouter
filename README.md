@@ -34,6 +34,22 @@ Keep these concerns outside InnoRouter:
 - visionOS 2+
 - Swift 6.2+
 
+The iOS 18 floor and `swift-tools-version: 6.2` baseline are deliberate:
+they let every public type adopt strict concurrency and `Sendable` without
+the `@preconcurrency` / `@unchecked Sendable` escape hatches, which means
+navigation state never silently leaks off the main actor at the boundary
+between view code and the store. The cost is a smaller adoption window
+than libraries that target iOS 13–16; the benefit is a router whose
+`Sendable`/`@MainActor` discipline is checked by the compiler instead of
+documented in prose.
+
+| Concurrency posture | InnoRouter | TCA / FlowStacks / others on iOS 13+ |
+|---|---|---|
+| Public types declare `Sendable` unconditionally | ✅ | ⚠ partial — many use `@preconcurrency` |
+| Stores are `@MainActor`-isolated, no runtime hops | ✅ | ⚠ varies |
+| `@unchecked Sendable` / `nonisolated(unsafe)` in source | ❌ none | ⚠ used in some adapters |
+| Strict concurrency mode | ✅ enforced per module | ⚠ opt-in or partial |
+
 ## Platform support
 
 InnoRouter ships on every Apple platform through SwiftUI. No UIKit or
