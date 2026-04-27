@@ -45,9 +45,13 @@ InnoRouter ships on every Apple platform it currently supports:
 | `NavigationSplitHost` / `CoordinatorSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `ModalHost` `.fullScreenCover` (native) | ✅ | ✅ | ⚠ degrades to `.sheet` | ✅ | ⚠ degrades to `.sheet` | ⚠ degrades to `.sheet` |
-| `TabCoordinator.badge` | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
 | `SceneStore`, `SceneHost` | — | — | — | — | — | ✅ |
 | `innoRouterOrnament` | no-op | no-op | no-op | no-op | no-op | ✅ |
+
+`⚠ state only` means `TabCoordinator` stores and exposes badge state, but
+`TabCoordinatorView` omits SwiftUI's native visual badge because `.badge(_:)`
+is unavailable on that platform.
 
 ## Topics
 

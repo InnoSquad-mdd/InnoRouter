@@ -67,15 +67,17 @@ AppKit bridge modules are required.
 | `NavigationSplitHost` / `CoordinatorSplitHost` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 | `ModalHost` `.sheet` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `ModalHost` `.fullScreenCover` native | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
-| `TabCoordinator.badge` | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `SceneStore` / `SceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
 | `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrades` means the store API accepts the request unchanged but the
 SwiftUI host renders it as a `.sheet` because `.fullScreenCover` is
-unavailable. `❌` means the symbol is not declared on that platform;
-build it behind `#if !os(...)`.
+unavailable. `⚠ state only` means the coordinator stores and exposes badge
+state, but `TabCoordinatorView` omits SwiftUI's native visual badge because
+`.badge(_:)` is unavailable. `❌` means the symbol is not declared on that
+platform; build it behind `#if !os(...)`.
 
 ## Installation
 
