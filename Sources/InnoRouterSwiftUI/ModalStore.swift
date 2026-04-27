@@ -296,7 +296,7 @@ public final class ModalStore<M: Route> {
                     outcome.command,
                     currentPresentation: currentPresentation,
                     queuedPresentations: queuedPresentations,
-                    participantCount: outcome.participantCount
+                    participants: outcome.participants
                 )
                 telemetrySink.recordCommandIntercepted(
                     command: outcome.command,
@@ -313,7 +313,7 @@ public final class ModalStore<M: Route> {
                     effectiveCommand,
                     currentPresentation: currentPresentation,
                     queuedPresentations: queuedPresentations,
-                    participantCount: outcome.participantCount
+                    participants: outcome.participants
                 )
 
                 telemetrySink.recordCommandIntercepted(
@@ -418,7 +418,7 @@ public final class ModalStore<M: Route> {
                 requestedCommand: command,
                 effectiveCommand: outcome.command,
                 result: .cancelled(reason),
-                participantCount: outcome.participantCount,
+                participants: outcome.participants,
                 stateBefore: stateBefore,
                 stateAfter: stateBefore
             )
@@ -428,7 +428,7 @@ public final class ModalStore<M: Route> {
                 requestedCommand: command,
                 effectiveCommand: effectiveCommand,
                 result: previewOutcome.result,
-                participantCount: outcome.participantCount,
+                participants: outcome.participants,
                 stateBefore: stateBefore,
                 stateAfter: previewOutcome.stateAfter
             )
@@ -452,7 +452,7 @@ public final class ModalStore<M: Route> {
                 preview.effectiveCommand,
                 currentPresentation: currentPresentation,
                 queuedPresentations: queuedPresentations,
-                participantCount: preview.participantCount
+                participants: preview.participants
             )
 
             if case .cancelled(let reason) = preview.result {

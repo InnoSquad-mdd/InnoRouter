@@ -234,20 +234,80 @@ struct UnifiedTelemetryStreamTests {
 
         store.send(.push(.home))
 
-        // Expect: .navigation(.changed) + .pathChanged in order.
-        // The inner-nav Task runs on the MainActor, so events fan in
-        // synchronously with respect to MainActor scheduling.
-        var sawNavigationChanged = false
-        var sawPathChanged = false
-
-        for _ in 0..<4 {
-            let event = await iterator.next()
-            if case .navigation(.changed) = event { sawNavigationChanged = true }
-            if case .pathChanged = event { sawPathChanged = true }
-            if sawNavigationChanged && sawPathChanged { break }
+        let first = await iterator.next()
+        guard case .navigation(.changed(let from, let to)) = first else {
+            Issue.record("Expected .navigation(.changed) first, got \(String(describing: first))")
+            return
         }
-        #expect(sawNavigationChanged)
-        #expect(sawPathChanged)
+        #expect(from.path.isEmpty)
+        #expect(to.path == [.home])
+
+        let second = await iterator.next()
+        guard case .pathChanged(let old, let new) = second else {
+            Issue.record("Expected .pathChanged second, got \(String(describing: second))")
+            return
+        }
+        #expect(old.isEmpty)
+        #expect(new == [.push(.home)])
+    }
+
+    @Test("FlowStore.events wraps modal events before .pathChanged")
+    @MainActor
+    func flowEventsWrapsModalBeforePathChanged() async {
+        let store = FlowStore<StreamRoute>()
+        var iterator = store.events.makeAsyncIterator()
+
+        store.send(.presentSheet(.sheet))
+
+        let first = await iterator.next()
+        guard case .modal(.presented(let presentation)) = first else {
+            Issue.record("Expected .modal(.presented) first, got \(String(describing: first))")
+            return
+        }
+        #expect(presentation.route == .sheet)
+
+        let second = await iterator.next()
+        guard case .modal(.commandIntercepted(_, let result)) = second else {
+            Issue.record("Expected .modal(.commandIntercepted) second, got \(String(describing: second))")
+            return
+        }
+        guard case .executed(.present(let presentation)) = result else {
+            Issue.record("Expected .executed(.present), got \(result)")
+            return
+        }
+        #expect(presentation.route == .sheet)
+
+        let third = await iterator.next()
+        guard case .pathChanged(let old, let new) = third else {
+            Issue.record("Expected .pathChanged third, got \(String(describing: third))")
+            return
+        }
+        #expect(old.isEmpty)
+        #expect(new == [.sheet(.sheet)])
+    }
+
+    @Test("FlowStore.events preserves order for direct inner navigation mutations")
+    @MainActor
+    func flowEventsPreservesDirectInnerNavigationOrder() async {
+        let store = FlowStore<StreamRoute>()
+        var iterator = store.events.makeAsyncIterator()
+
+        store.navigationStore.send(.go(.home))
+
+        let first = await iterator.next()
+        guard case .navigation(.changed) = first else {
+            Issue.record("Expected .navigation(.changed) first, got \(String(describing: first))")
+            return
+        }
+
+        let second = await iterator.next()
+        guard case .pathChanged(let old, let new) = second else {
+            Issue.record("Expected .pathChanged second, got \(String(describing: second))")
+            return
+        }
+        #expect(old.isEmpty)
+        #expect(new == [.push(.home)])
+        #expect(store.path == [.push(.home)])
     }
 
     @Test("FlowStore.events surfaces .intentRejected for push-after-modal")

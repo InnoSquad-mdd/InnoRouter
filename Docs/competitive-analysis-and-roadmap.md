@@ -406,7 +406,7 @@ Shape (landed):
   uses `@Test(arguments:)` to exercise compositionality of
   `.sequence` and snapshot semantics of `.whenCancelled` across
   many seeds. The pre-existing random-command test in
-  `InnoRouterTests.swift` already used the same pattern; this
+  `NavigationCommandTests.swift` already used the same pattern; this
   complements it with engine-level invariants.
 - **P3-7 FlowIntent modal-aware variants** —
   `.backOrPushDismissingModal(R)` and

@@ -80,15 +80,28 @@ public enum InternalExecutionTrace {
     /// evaluated inside the span after `body` returns, and the recorder receives
     /// `.start` before execution and `.finish` after execution while task-local
     /// root/span identifiers are active for nested calls.
+    ///
+    /// `metadata` is `@autoclosure`d so call sites that build the dictionary
+    /// from `String(describing:)` (the common case for command/preview
+    /// arguments) pay zero cost when `recorder` is `nil`.
     @MainActor
     public static func withSpan<T>(
         domain: InternalExecutionTraceDomain,
         operation: String,
         recorder: InternalExecutionTraceRecorder?,
-        metadata: [String: String] = [:],
+        metadata: @autoclosure () -> [String: String] = [:],
         _ body: () -> T,
         outcome: (T) -> String
     ) -> T {
+        guard let recorder else {
+            // Fast path: no recorder means no telemetry sink and no
+            // logger, so the task-local span identifiers are the only
+            // observable side effect. Skip metadata evaluation
+            // entirely — the caller's `String(describing:)` work
+            // never runs.
+            return body()
+        }
+
         let rootID = currentRootID ?? UUID().uuidString
         let parentSpanID = currentSpanID
         let spanID = UUID().uuidString
@@ -99,11 +112,11 @@ public enum InternalExecutionTrace {
             domain: domain
         )
 
-        recorder?(.start(context: context, operation: operation, metadata: metadata))
+        recorder(.start(context: context, operation: operation, metadata: metadata()))
         return $currentRootID.withValue(rootID) {
             $currentSpanID.withValue(spanID) {
                 let value = body()
-                recorder?(.finish(context: context, operation: operation, outcome: outcome(value)))
+                recorder(.finish(context: context, operation: operation, outcome: outcome(value)))
                 return value
             }
         }
@@ -115,15 +128,23 @@ public enum InternalExecutionTrace {
     /// correlation across suspension points. The task-local identifiers are set
     /// for the duration of `body`, and `outcome` is evaluated before `.finish`
     /// is emitted.
+    ///
+    /// `metadata` is `@autoclosure`d for the same reason as the synchronous
+    /// overload — when no recorder is installed, the dictionary expression is
+    /// not evaluated.
     @MainActor
     public static func withSpan<T>(
         domain: InternalExecutionTraceDomain,
         operation: String,
         recorder: InternalExecutionTraceRecorder?,
-        metadata: [String: String] = [:],
+        metadata: @autoclosure () -> [String: String] = [:],
         _ body: () async -> T,
         outcome: @escaping (T) -> String
     ) async -> T {
+        guard let recorder else {
+            return await body()
+        }
+
         let rootID = currentRootID ?? UUID().uuidString
         let parentSpanID = currentSpanID
         let spanID = UUID().uuidString
@@ -134,11 +155,11 @@ public enum InternalExecutionTrace {
             domain: domain
         )
 
-        recorder?(.start(context: context, operation: operation, metadata: metadata))
+        recorder(.start(context: context, operation: operation, metadata: metadata()))
         return await $currentRootID.withValue(rootID) {
             await $currentSpanID.withValue(spanID) {
                 let value = await body()
-                recorder?(.finish(context: context, operation: operation, outcome: outcome(value)))
+                recorder(.finish(context: context, operation: operation, outcome: outcome(value)))
                 return value
             }
         }

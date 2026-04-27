@@ -25,7 +25,14 @@ enum MacroDiagnostic: DiagnosticMessage {
     var severity: DiagnosticSeverity {
         switch self {
         case .requiresEnum: return .error
-        case .emptyEnum: return .warning
+        // Promoted from .warning to .error in 4.0.0. A `@Routable` /
+        // `@CasePathable` macro applied to an empty enum produces zero
+        // members; the warning was easy to miss in noisy build logs and
+        // turned the macro into a silent no-op. Failing the build
+        // forces the author to either add a case or remove the macro,
+        // which matches every other macro diagnostic's severity in
+        // this plugin.
+        case .emptyEnum: return .error
         case .unsupportedGenericEnum: return .error
         }
     }

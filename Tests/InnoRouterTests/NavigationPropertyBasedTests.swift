@@ -14,7 +14,7 @@ private enum PBTRoute: String, Route {
 }
 
 /// Minimal xorshift PRNG so property tests are reproducible from a
-/// seed. Mirrors the established pattern in InnoRouterTests.swift but
+/// seed. Mirrors the established pattern in NavigationCommandTests but
 /// scoped to this file to avoid cross-file coupling.
 private struct PBTGenerator {
     private var state: UInt64

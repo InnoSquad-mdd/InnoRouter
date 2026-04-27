@@ -5,7 +5,13 @@ final class NavigationMiddlewareRegistry<R: Route> {
     struct InterceptionOutcome {
         let command: NavigationCommand<R>
         let interception: NavigationInterception<R>
-        let participantCount: Int
+        /// Snapshot of the middlewares that ran `willExecute` for this
+        /// command, in the same order they ran. The follow-up
+        /// `didExecute` / `discardExecution` calls iterate this exact
+        /// list so a middleware mutated into or out of the live
+        /// `entries` array between intercept and finalisation cannot
+        /// receive a one-sided callback.
+        let participants: [AnyNavigationMiddleware<R>]
     }
 
     private struct Entry {
@@ -128,11 +134,16 @@ final class NavigationMiddlewareRegistry<R: Route> {
         state: RouteStack<R>
     ) -> InterceptionOutcome {
         var currentCommand = command
-        var participantCount = 0
+        var participants: [AnyNavigationMiddleware<R>] = []
+        participants.reserveCapacity(entries.count)
 
         for entry in entries {
             let interception = entry.middleware.willExecute(currentCommand, state: state)
-            participantCount += 1
+            // Append before branching on the interception so a
+            // middleware that cancels here is still recorded as a
+            // participant and receives its didExecute/discard
+            // callback for the same command.
+            participants.append(entry.middleware)
 
             switch interception {
             case .proceed(let updatedCommand):
@@ -142,7 +153,7 @@ final class NavigationMiddlewareRegistry<R: Route> {
                 return InterceptionOutcome(
                     command: currentCommand,
                     interception: .cancel(resolvedReason),
-                    participantCount: participantCount
+                    participants: participants
                 )
             }
         }
@@ -150,7 +161,7 @@ final class NavigationMiddlewareRegistry<R: Route> {
         return InterceptionOutcome(
             command: currentCommand,
             interception: .proceed(currentCommand),
-            participantCount: participantCount
+            participants: participants
         )
     }
 
@@ -158,11 +169,11 @@ final class NavigationMiddlewareRegistry<R: Route> {
         _ command: NavigationCommand<R>,
         result: NavigationResult<R>,
         state: RouteStack<R>,
-        participantCount: Int
+        participants: [AnyNavigationMiddleware<R>]
     ) -> NavigationResult<R> {
         var currentResult = result
-        for entry in entries.prefix(participantCount) {
-            currentResult = entry.middleware.didExecute(command, result: currentResult, state: state)
+        for middleware in participants {
+            currentResult = middleware.didExecute(command, result: currentResult, state: state)
         }
         return currentResult
     }
@@ -171,10 +182,10 @@ final class NavigationMiddlewareRegistry<R: Route> {
         _ command: NavigationCommand<R>,
         result: NavigationResult<R>,
         state: RouteStack<R>,
-        participantCount: Int
+        participants: [AnyNavigationMiddleware<R>]
     ) {
-        for entry in entries.prefix(participantCount) {
-            entry.middleware.discardExecution(command, result: result, state: state)
+        for middleware in participants {
+            middleware.discardExecution(command, result: result, state: state)
         }
     }
 

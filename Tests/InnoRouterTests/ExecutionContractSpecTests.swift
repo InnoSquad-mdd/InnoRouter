@@ -149,7 +149,7 @@ struct ExecutionContractSpecTests {
         #expect(middleware.discardedCommands == [.push(.home), .popTo(.settings)])
     }
 
-    @Test("FlowStore successful mutations merge inner and flow-level events on one stream without requiring a total order")
+    @Test("FlowStore successful mutations emit inner events before flow-level path changes")
     @MainActor
     func flowStoreSuccessUsesMergedStreamContract() async {
         let store = FlowStore<ContractRoute>()
@@ -162,8 +162,7 @@ struct ExecutionContractSpecTests {
         let normalized = await recorder.rawEvents(since: mark, minimumCount: 2)
             .compactMap(normalizeContractFlowEvent)
 
-        #expect(normalized.filter { $0 == .pathChanged }.count == 1)
-        #expect(normalized.contains(.navigationChanged))
+        #expect(normalized == [.navigationChanged, .pathChanged])
     }
 
     @Test("FlowStore queued-modal promotion merges modal lifecycle and settled flow events on one stream")

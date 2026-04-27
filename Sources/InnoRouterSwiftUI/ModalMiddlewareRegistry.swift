@@ -5,7 +5,13 @@ final class ModalMiddlewareRegistry<M: Route> {
     struct InterceptionOutcome {
         let command: ModalCommand<M>
         let interception: ModalInterception<M>
-        let participantCount: Int
+        /// Snapshot of the middlewares that ran `willExecute` for this
+        /// command, in the same order they ran. The follow-up
+        /// `didExecute` call iterates this exact list so a middleware
+        /// mutated into or out of the live `entries` array between
+        /// intercept and finalisation cannot receive a one-sided
+        /// callback.
+        let participants: [AnyModalMiddleware<M>]
     }
 
     private struct Entry {
@@ -129,7 +135,8 @@ final class ModalMiddlewareRegistry<M: Route> {
         queuedPresentations: [ModalPresentation<M>]
     ) -> InterceptionOutcome {
         var currentCommand = command
-        var participantCount = 0
+        var participants: [AnyModalMiddleware<M>] = []
+        participants.reserveCapacity(entries.count)
 
         for entry in entries {
             let interception = entry.middleware.willExecute(
@@ -137,7 +144,9 @@ final class ModalMiddlewareRegistry<M: Route> {
                 currentPresentation: currentPresentation,
                 queuedPresentations: queuedPresentations
             )
-            participantCount += 1
+            // Append before branching so a cancelling middleware is
+            // still recorded as a participant for its didExecute pair.
+            participants.append(entry.middleware)
 
             switch interception {
             case .proceed(let updatedCommand):
@@ -147,7 +156,7 @@ final class ModalMiddlewareRegistry<M: Route> {
                 return InterceptionOutcome(
                     command: currentCommand,
                     interception: .cancel(resolvedReason),
-                    participantCount: participantCount
+                    participants: participants
                 )
             }
         }
@@ -155,7 +164,7 @@ final class ModalMiddlewareRegistry<M: Route> {
         return InterceptionOutcome(
             command: currentCommand,
             interception: .proceed(currentCommand),
-            participantCount: participantCount
+            participants: participants
         )
     }
 
@@ -163,10 +172,10 @@ final class ModalMiddlewareRegistry<M: Route> {
         _ command: ModalCommand<M>,
         currentPresentation: ModalPresentation<M>?,
         queuedPresentations: [ModalPresentation<M>],
-        participantCount: Int
+        participants: [AnyModalMiddleware<M>]
     ) {
-        for entry in entries.prefix(participantCount) {
-            entry.middleware.didExecute(
+        for middleware in participants {
+            middleware.didExecute(
                 command,
                 currentPresentation: currentPresentation,
                 queuedPresentations: queuedPresentations

@@ -6,12 +6,12 @@ This repository ships a Swift Package, versioned DocC documentation, and GitHub 
 
 Allowed tag format:
 
-- `3.0.0`
+- `3.0.1`
 
 Disallowed tag format:
 
 - any tag with a leading `v`
-- `release-3.0.0`
+- `release-3.0.1`
 
 The release workflow validates `GITHUB_REF_NAME` with `^[0-9]+\.[0-9]+\.[0-9]+$` and fails on anything else.
 
@@ -83,6 +83,13 @@ release rather than `latest-stable` so CI is reproducible across
 the lifetime of a release. **When cutting a new release, audit and
 optionally bump that pin** — see the release checklist below.
 
+`swift-tools-version: 6.2` is the package floor. The macro target
+currently pins `swift-syntax` with `.upToNextMinor(from: "603.0.1")`,
+and CI may validate the release on a pinned Xcode whose host compiler
+reports Swift 6.3. Treat that as additional validation, not as a raised
+minimum supported Swift version. Raising the Swift floor belongs in a
+major release note.
+
 ## What a release publishes
 
 A release tag triggers:
@@ -116,10 +123,11 @@ swift test
 ./scripts/build-docc-site.sh --version preview
 ```
 
-If you regenerate `Baselines/PublicAPI`, do it with the same Swift 6.2 toolchain
-used in CI. The symbol-graph baseline gate is intentionally toolchain-sensitive.
-If local platform coverage is not available, confirm the GitHub
-`platforms` workflow is green for the release commit before tagging.
+If you regenerate `Baselines/PublicAPI`, do it with the same pinned
+toolchain used in CI. The symbol-graph baseline gate is intentionally
+toolchain-sensitive. Before tagging, either run
+`./scripts/principle-gates.sh --platforms=all` locally or confirm the
+GitHub `platforms` workflow is green for the release commit.
 
 ## CI and CD responsibilities
 

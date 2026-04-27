@@ -36,7 +36,6 @@ relationship | memberOf | DeepLinkMatcherDiagnostic.parameterShadowing(pattern:i
 relationship | memberOf | DeepLinkMatcherDiagnostic.wildcardShadowing(pattern:index:shadowedPattern:shadowedIndex:) | DeepLinkMatcherDiagnostic |  |
 relationship | memberOf | DeepLinkMatcherDiagnosticsMode.debugWarnings | DeepLinkMatcherDiagnosticsMode |  |
 relationship | memberOf | DeepLinkMatcherDiagnosticsMode.disabled | DeepLinkMatcherDiagnosticsMode |  |
-relationship | memberOf | DeepLinkMatcherDiagnosticsMode.strict | DeepLinkMatcherDiagnosticsMode |  |
 relationship | memberOf | DeepLinkMatcherStrictError.diagnostics | DeepLinkMatcherStrictError |  |
 relationship | memberOf | DeepLinkMatcherStrictError.init(diagnostics:) | DeepLinkMatcherStrictError |  |
 relationship | memberOf | DeepLinkParameters.firstValue(forName:) | DeepLinkParameters |  |
@@ -134,7 +133,6 @@ symbol | swift.enum.case | DeepLinkMatcherDiagnostic.parameterShadowing(pattern:
 symbol | swift.enum.case | DeepLinkMatcherDiagnostic.wildcardShadowing(pattern:index:shadowedPattern:shadowedIndex:) | DeepLinkMatcherDiagnostic.wildcardShadowing(pattern:index:shadowedPattern:shadowedIndex:) | case wildcardShadowing(pattern: String, index: Int, shadowedPattern: String, shadowedIndex: Int) | []
 symbol | swift.enum.case | DeepLinkMatcherDiagnosticsMode.debugWarnings | DeepLinkMatcherDiagnosticsMode.debugWarnings | case debugWarnings | []
 symbol | swift.enum.case | DeepLinkMatcherDiagnosticsMode.disabled | DeepLinkMatcherDiagnosticsMode.disabled | case disabled | []
-symbol | swift.enum.case | DeepLinkMatcherDiagnosticsMode.strict | DeepLinkMatcherDiagnosticsMode.strict | case strict | []
 symbol | swift.enum.case | DeepLinkRejectionReason.hostNotAllowed(actualHost:) | DeepLinkRejectionReason.hostNotAllowed(actualHost:) | case hostNotAllowed(actualHost: String?) | []
 symbol | swift.enum.case | DeepLinkRejectionReason.schemeNotAllowed(actualScheme:) | DeepLinkRejectionReason.schemeNotAllowed(actualScheme:) | case schemeNotAllowed(actualScheme: String?) | []
 symbol | swift.enum.case | FlowDeepLinkDecision.flowPlan(_:) | FlowDeepLinkDecision.flowPlan(_:) | case flowPlan(FlowPlan<R>) | []

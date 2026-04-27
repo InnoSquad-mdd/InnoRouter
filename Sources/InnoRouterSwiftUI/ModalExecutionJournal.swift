@@ -9,7 +9,7 @@ struct ModalExecutionJournal<M: Route> {
     let requestedCommand: ModalCommand<M>
     let effectiveCommand: ModalCommand<M>
     let result: ModalExecutionResult<M>
-    let participantCount: Int
+    let participants: [AnyModalMiddleware<M>]
     let stateBefore: ModalExecutionState<M>
     let stateAfter: ModalExecutionState<M>
 }

@@ -17,7 +17,7 @@ struct NavigationExecutionJournal<R: Route> {
     let kind: Kind
     let requestedCommand: NavigationCommand<R>
     let effectiveCommand: NavigationCommand<R>?
-    let participantCount: Int?
+    let participants: [AnyNavigationMiddleware<R>]?
     let result: NavigationResult<R>
     let stateBefore: RouteStack<R>
     let stateAfter: RouteStack<R>
@@ -147,12 +147,12 @@ struct NavigationExecutionJournal<R: Route> {
     func finalizePreview(
         using middlewareRegistry: NavigationMiddlewareRegistry<R>
     ) -> NavigationResult<R> {
-        guard let effectiveCommand, let participantCount else { return result }
+        guard let effectiveCommand, let participants else { return result }
         return middlewareRegistry.didExecute(
             effectiveCommand,
             result: result,
             state: stateAfter,
-            participantCount: participantCount
+            participants: participants
         )
     }
 
@@ -163,15 +163,15 @@ struct NavigationExecutionJournal<R: Route> {
         case .leaf:
             guard leafDisposition == .publicDidExecute,
                   let effectiveCommand,
-                  let participantCount else {
+                  let participants else {
                 if leafDisposition == .discardCleanup,
                    let effectiveCommand,
-                   let participantCount {
+                   let participants {
                     middlewareRegistry.discardExecution(
                         effectiveCommand,
                         result: result,
                         state: stateAfter,
-                        participantCount: participantCount
+                        participants: participants
                     )
                 }
                 return result
@@ -180,7 +180,7 @@ struct NavigationExecutionJournal<R: Route> {
                 effectiveCommand,
                 result: result,
                 state: stateAfter,
-                participantCount: participantCount
+                participants: participants
             )
 
         case .sequence:
@@ -211,12 +211,12 @@ struct NavigationExecutionJournal<R: Route> {
         case .leaf:
             guard leafDisposition == .discardCleanup,
                   let effectiveCommand,
-                  let participantCount else { return }
+                  let participants else { return }
             middlewareRegistry.discardExecution(
                 effectiveCommand,
                 result: result,
                 state: stateAfter,
-                participantCount: participantCount
+                participants: participants
             )
 
         case .sequence, .whenCancelled:
@@ -239,7 +239,7 @@ struct NavigationExecutionJournal<R: Route> {
                 kind: kind,
                 requestedCommand: requestedCommand,
                 effectiveCommand: effectiveCommand,
-                participantCount: participantCount,
+                participants: participants,
                 result: result,
                 stateBefore: stateBefore,
                 stateAfter: stateAfter,
@@ -264,7 +264,7 @@ struct NavigationExecutionJournal<R: Route> {
             kind: kind,
             requestedCommand: requestedCommand,
             effectiveCommand: effectiveCommand,
-            participantCount: participantCount,
+            participants: participants,
             result: result,
             stateBefore: stateBefore,
             stateAfter: stateAfter,
@@ -287,7 +287,7 @@ struct NavigationExecutionJournal<R: Route> {
             kind: kind,
             requestedCommand: requestedCommand,
             effectiveCommand: nil,
-            participantCount: nil,
+            participants: nil,
             result: result,
             stateBefore: stateBefore,
             stateAfter: stateAfter,
@@ -313,7 +313,7 @@ struct NavigationExecutionJournal<R: Route> {
                 kind: .leaf,
                 requestedCommand: command,
                 effectiveCommand: interceptionOutcome.command,
-                participantCount: interceptionOutcome.participantCount,
+                participants: interceptionOutcome.participants,
                 result: result,
                 stateBefore: stateBefore,
                 stateAfter: currentState,
@@ -328,7 +328,7 @@ struct NavigationExecutionJournal<R: Route> {
                 kind: .leaf,
                 requestedCommand: command,
                 effectiveCommand: commandToExecute,
-                participantCount: interceptionOutcome.participantCount,
+                participants: interceptionOutcome.participants,
                 result: result,
                 stateBefore: stateBefore,
                 stateAfter: currentState,

@@ -18,6 +18,24 @@ public enum NavigationCommand<R: Route>: Sendable, Equatable {
     /// cancellation on `primary` triggers `fallback` with middleware
     /// still applied to the fallback command. Direct
     /// ``NavigationEngine`` users see engine-level failures only.
+    ///
+    /// **Broadcaster contract.** `NavigationStore` emits at most one
+    /// `.changed` event for the *net* transition produced by a
+    /// `.whenCancelled` execution:
+    ///
+    /// - Primary success: one event for `oldState → primaryFinalState`
+    ///   (suppressed entirely if the final state equals `oldState`).
+    /// - Primary failure (engine or middleware): partial mutations
+    ///   reached during a partially-applied primary are rolled back
+    ///   *before* the fallback runs, and a single event is emitted
+    ///   for `oldState → fallbackFinalState`.
+    ///
+    /// In particular, when `primary` is itself a `.sequence`, the
+    /// per-step intermediate states reached by the sequence do not
+    /// leak as separate `.changed` events. The store internally drives
+    /// the recursive primary execution with broadcaster suppression
+    /// and only re-enables emission for the final coalesced
+    /// transition.
     indirect case whenCancelled(
         NavigationCommand<R>,
         fallback: NavigationCommand<R>
