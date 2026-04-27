@@ -4,17 +4,19 @@ import OSLog
 import InnoRouterCore
 
 /// Controls how `DeepLinkMatcher` surfaces structural diagnostics.
+///
+/// Strict-mode diagnostic promotion is intentionally not a case on this
+/// enum; promotion is only available through the throwing
+/// ``DeepLinkMatcher/init(strict:logger:mappings:)`` initializer, which
+/// validates without going through `DeepLinkMatcherConfiguration` at
+/// all. Splitting the diagnostics surface this way removes a previous
+/// release-crash trap where a non-throwing init paired with a `.strict`
+/// configuration would `preconditionFailure` at runtime.
 public enum DeepLinkMatcherDiagnosticsMode: Sendable, Equatable {
     /// Disables matcher diagnostics.
     case disabled
     /// Emits warning diagnostics during matcher construction without failing execution.
     case debugWarnings
-    /// Promotes any structural diagnostic into a thrown error, preventing a
-    /// misconfigured matcher from being constructed at all. Use this in
-    /// release builds or release-readiness gates where shipping shadowed /
-    /// duplicated patterns would corrupt deep-link routing in production.
-    /// Pair with ``DeepLinkMatcher/init(strict:mappings:)``.
-    case strict
 }
 
 /// Error thrown by ``DeepLinkMatcher/init(strict:mappings:)`` when a
@@ -470,19 +472,6 @@ extension DeepLinkMatcherDiagnostic {
             for diagnostic in diagnostics {
                 configuration.logger?.warning("\(diagnostic.message, privacy: .public)")
             }
-        case .strict:
-            // `.strict` is meaningful only when constructed via a throwing
-            // strict matcher initializer. Reaching this branch from a
-            // non-throwing init means the caller picked `.strict` without a
-            // `try`, which silently suppresses the failure they were trying to
-            // gate on. Trap to surface the misuse at the configuration site.
-            preconditionFailure(
-                """
-                DeepLinkMatcherDiagnosticsMode.strict requires a throwing strict \
-                matcher initializer. Picking `.strict` from a non-throwing init \
-                silently swallows diagnostics — pair `.strict` with `try` instead.
-                """
-            )
         }
     }
 }
