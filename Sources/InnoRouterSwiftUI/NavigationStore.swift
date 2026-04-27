@@ -595,7 +595,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                     command: interceptionOutcome.command,
                     executedCommands: [],
                     result: result,
-                    participantCount: interceptionOutcome.participantCount,
+                    participants: interceptionOutcome.participants,
                     stateBefore: stateBefore,
                     currentState: &currentState,
                     shouldNotifyOnChange: shouldNotifyOnChange
@@ -607,7 +607,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                     command: commandToExecute,
                     executedCommands: [commandToExecute],
                     result: result,
-                    participantCount: interceptionOutcome.participantCount,
+                    participants: interceptionOutcome.participants,
                     stateBefore: stateBefore,
                     currentState: &currentState,
                     shouldNotifyOnChange: shouldNotifyOnChange
@@ -620,7 +620,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         command: NavigationCommand<R>,
         executedCommands: [NavigationCommand<R>],
         result: NavigationResult<R>,
-        participantCount: Int,
+        participants: [AnyNavigationMiddleware<R>],
         stateBefore: RouteStack<R>,
         currentState: inout RouteStack<R>,
         shouldNotifyOnChange: Bool
@@ -629,7 +629,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             command,
             result: result,
             state: currentState,
-            participantCount: participantCount
+            participants: participants
         )
 
         emitChangeIfNeeded(

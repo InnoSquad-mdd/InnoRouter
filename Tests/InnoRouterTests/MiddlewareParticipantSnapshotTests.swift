@@ -152,18 +152,15 @@ struct MiddlewareParticipantSnapshotTests {
             .push(.a),
             result: .success,
             state: RouteStack<SnapshotRoute>(),
-            participantCount: outcome.participantCount
+            participants: outcome.participants
         )
 
         #expect(log.willExecute == ["A", "B", "C"])
-        // The current prefix-by-count strategy fails this contract: it
-        // reports didExecute for [X, A, B] instead of [A, B, C].
-        // The next commit replaces the count with a frozen participants
-        // snapshot, after which this assertion holds and the
-        // `withKnownIssue` wrapper can be removed.
-        withKnownIssue("Pending participants-snapshot fix") {
-            #expect(log.didExecute == ["A", "B", "C"])
-        }
+        // The participants-snapshot strategy: every middleware that ran
+        // willExecute receives didExecute for the same command, even if
+        // entries[] is mutated mid-flight. X (inserted at head) does not
+        // appear because it never ran willExecute for this command.
+        #expect(log.didExecute == ["A", "B", "C"])
     }
 
     @Test("Navigation: remove mid-flight does not orphan didExecute calls")
@@ -190,13 +187,11 @@ struct MiddlewareParticipantSnapshotTests {
             .push(.a),
             result: .success,
             state: RouteStack<SnapshotRoute>(),
-            participantCount: outcome.participantCount
+            participants: outcome.participants
         )
 
         #expect(log.willExecute == ["A", "B", "C"])
-        withKnownIssue("Pending participants-snapshot fix") {
-            #expect(log.didExecute == ["A", "B", "C"])
-        }
+        #expect(log.didExecute == ["A", "B", "C"])
     }
 
     @Test("Modal: insert mid-flight does not corrupt didExecute participants")
@@ -226,13 +221,11 @@ struct MiddlewareParticipantSnapshotTests {
             .present(presentation),
             currentPresentation: nil,
             queuedPresentations: [],
-            participantCount: outcome.participantCount
+            participants: outcome.participants
         )
 
         #expect(log.willExecute == ["A", "B", "C"])
-        withKnownIssue("Pending participants-snapshot fix") {
-            #expect(log.didExecute == ["A", "B", "C"])
-        }
+        #expect(log.didExecute == ["A", "B", "C"])
     }
 
     @Test("Modal: remove mid-flight does not orphan didExecute calls")
@@ -261,12 +254,10 @@ struct MiddlewareParticipantSnapshotTests {
             .present(presentation),
             currentPresentation: nil,
             queuedPresentations: [],
-            participantCount: outcome.participantCount
+            participants: outcome.participants
         )
 
         #expect(log.willExecute == ["A", "B", "C"])
-        withKnownIssue("Pending participants-snapshot fix") {
-            #expect(log.didExecute == ["A", "B", "C"])
-        }
+        #expect(log.didExecute == ["A", "B", "C"])
     }
 }
