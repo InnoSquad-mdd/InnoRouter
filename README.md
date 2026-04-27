@@ -208,6 +208,23 @@ and testing are intentionally separate. The library keeps these
 authorities explicit so apps can adopt only the pieces that match
 their routing boundary.
 
+### Quick decision flowchart
+
+```text
+Does the screen surface combine push and modal in one flow?
+├── Yes → FlowStore + FlowHost (one source of truth, one events stream)
+└── No  → does it own modal authority (sheet / cover) only?
+         ├── Yes → ModalStore + ModalHost
+         └── No  → NavigationStore + NavigationHost
+                  (split-view variant: NavigationSplitHost)
+```
+
+For dispatching from view code (no store reference), use the matching
+intent type in [`Docs/IntentSelectionGuide.md`](Docs/IntentSelectionGuide.md):
+`NavigationIntent` for the stack-only stores, `FlowIntent` for
+`FlowStore` (six overlapping cases plus modal-aware variants only
+`FlowIntent` knows about).
+
 ## Documentation
 
 - Latest DocC portal: [InnoRouter latest docs](https://innosquadcorp.github.io/InnoRouter/latest/)
