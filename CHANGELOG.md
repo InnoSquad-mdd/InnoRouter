@@ -26,6 +26,33 @@ emitting `public`.
   `@Routable(visibility: .public)` argument is on the v4.x
   roadmap. See `Articles/Guide-MacroVisibility.md` for the full
   migration matrix.
+- `@Routable` / `@CasePathable` now emit an `error`-severity
+  diagnostic (was `warning`) when applied to an enum with zero
+  cases. The macro produces no members on an empty enum, so the
+  warning was easy to miss in noisy build logs and turned the
+  macro into a silent no-op. Builds now fail at the macro site
+  with "add a case or remove the macro" guidance.
+- `DeepLinkMatcherDiagnosticsMode.strict` is removed. The strict
+  diagnostic-promotion path was always reachable only through the
+  throwing `DeepLinkMatcher.init(strict:logger:mappings:)`
+  initializer; configuring `.strict` on the non-throwing
+  `init(configuration:mappings:)` previously trapped at runtime
+  via `preconditionFailure`. The case removal makes the misuse
+  unrepresentable. `.disabled` and `.debugWarnings` remain.
+- Middleware-mutation-during-willExecute semantics: when a
+  middleware calls `registry.add(_:)` / `remove(_:)` from its own
+  `willExecute`, the same set of middlewares that ran `willExecute`
+  receives `didExecute` (or `discardExecution`) for the same
+  command — the live `entries` snapshot at intercept time is
+  authoritative. Previously, mid-flight inserts could deliver a
+  one-sided `didExecute` to a middleware that had not run
+  `willExecute`, and removes could orphan `didExecute` for a
+  middleware that did. Internal API change:
+  `NavigationMiddlewareRegistry.InterceptionOutcome.participantCount`
+  is now `participants: [AnyNavigationMiddleware<R>]` (mirror for
+  `AnyModalMiddleware`); `NavigationExecutionJournal` and
+  `ModalExecutionJournal` carry the snapshot through their
+  preview / transaction / discard paths.
 
 ### Added
 
@@ -92,6 +119,28 @@ emitting `public`.
   `scripts/check-changelog-sync.sh`, the `changelog-sync` workflow
   job, weekly Dependabot config, and platform runtime tests for tvOS /
   watchOS make release drift visible before tags are cut.
+- `Docs/IntentSelectionGuide.md` names the four request types
+  (`NavigationCommand` / `ModalCommand` / `*Intent` / `FlowPlan`)
+  side by side with imperative-vs-view-layer guidance,
+  `NavigationIntent` vs `FlowIntent` decision boundary, and three
+  pitfalls that come up most often in code review. The README
+  "Choosing the right surface" section gains a quick decision
+  flowchart and links the guide.
+- `NavigationCommand.whenCancelled` doc-comment now spells out
+  the broadcaster contract: at most one `.changed` event for the
+  net transition, with no leakage of intermediate states reached
+  during a partially-applied primary that is later rolled back.
+- `Tests/InnoRouterTests/MiddlewareParticipantSnapshotTests.swift`
+  locks in the in-flight middleware add/remove invariant on both
+  `NavigationMiddlewareRegistry` and `ModalMiddlewareRegistry`.
+- `Tests/InnoRouterTests/WhenCancelledBroadcastTests.swift` locks
+  in the `.whenCancelled` broadcaster ordering contract across
+  primary success, partial-sequence rollback, middleware-cancelled
+  primary, and zero-net-change paths.
+- `Tests/InnoRouterTests/EventBroadcasterLeakTests.swift` smokes
+  the `EventBroadcaster` subscriber lifecycle so bulk subscribe /
+  cancel churn drains back to zero and concurrent subscribers
+  each receive every broadcast in order.
 
 ### Changed
 
@@ -131,6 +180,51 @@ emitting `public`.
 - `FlowStore.path` now resyncs when the inner `ModalStore` swaps its
   current presentation through `replaceCurrent(_:style:)`, including
   via typed `binding(case:style:)`.
+- Middleware `participantCount` prefix-iteration corruption: see the
+  BREAKING entry. `NavigationMiddlewareRegistry` and
+  `ModalMiddlewareRegistry` now operate on a frozen participants
+  snapshot.
+- Trace metadata hot-path: `InternalExecutionTrace.withSpan`'s
+  `metadata` parameter is now `@autoclosure`, and the function
+  short-circuits when no recorder is installed. `String(describing:)`
+  on every command/preview argument is no longer evaluated for the
+  99% of installs that do not register a `Logger` or telemetry
+  recorder.
+- `NavigationStore.executeBatch` and `executeTransaction` now
+  `reserveCapacity(commands.count)` on their per-command result
+  arrays so a 64+ command batch does not pay the doubling-grow
+  reallocation cost.
+- `FlowStore.withInternalMutation` carries a DEBUG-only assertion
+  against reentrant invocation. The flag's "set → run → restore"
+  pattern is correct only under MainActor + synchronous body
+  execution; a future async path would silently misbehave at the
+  reverse-sync guards. Production keeps the existing zero-cost flag
+  behaviour.
+
+### Deferred to 4.1
+
+The following items from the same review backlog are intentionally
+held for the 4.1 minor release. Each is independent of the 4.0.0
+release surface and has a published intent in
+`Docs/competitive-analysis-and-roadmap.md`:
+
+- `MiddlewareRegistryCore` generic extraction — DRY refactor of the
+  decalcomania across `NavigationMiddlewareRegistry` and
+  `ModalMiddlewareRegistry`. Internal-only refactor, no API impact.
+- `FlowStore.path` projection caching with invalidation token —
+  amortizes per-mutation array reconstruction in deep stacks.
+- `FlowStore` decomposition into `FlowDispatcher` / `FlowProjection`
+  / `FlowReverseSync` — internal SRP cleanup; the public facade
+  (`send` / `apply` / `events` / `intentDispatcher`) remains.
+- `@_spi(FlowStoreInternals)` gate on `FlowStore.navigationStore` /
+  `modalStore` — closes the invariant-bypass surface for external
+  callers while preserving test/Examples access through a one-line
+  SPI import.
+- `Tests/InnoRouterDocCompileTests` — extracts every ` ```swift `
+  code block from the seven DocC catalogs and compiles them in CI.
+- `Package.swift` example boilerplate cleanup via SPM 5.9+ resource
+  enumeration (low priority — current `exampleTarget(...)` helper
+  already collapses adds to two edits).
 
 ## 3.0.1 - 2026-04-13
 
