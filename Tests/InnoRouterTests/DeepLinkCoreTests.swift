@@ -1,0 +1,425 @@
+// MARK: - DeepLinkCoreTests.swift
+// InnoRouter Tests
+// Copyright © 2025 Inno Squad. All rights reserved.
+
+import Testing
+import Foundation
+import Observation
+import OSLog
+import Synchronization
+import SwiftUI
+import InnoRouter
+import InnoRouterEffects
+@testable import InnoRouterSwiftUI
+
+// MARK: - DeepLink Tests
+
+@Suite("DeepLink Tests")
+struct DeepLinkTests {
+    
+    @Test("DeepLinkParser parses URL correctly")
+    func testParser() {
+        let parsed = DeepLinkParser.parse("myapp://example.com/products/123?category=electronics")!
+        
+        #expect(parsed.scheme == "myapp")
+        #expect(parsed.host == "example.com")
+        #expect(parsed.path == ["products", "123"])
+        #expect(parsed.queryItems["category"] == ["electronics"])
+        #expect(parsed.firstQueryItems["category"] == "electronics")
+    }
+
+    @Test("DeepLinkParser keeps duplicate query values without crashing")
+    func testParserDuplicateQueries() {
+        let parsed = DeepLinkParser.parse("myapp://example.com/products/123?tag=a&tag=b&tag=c")!
+        #expect(parsed.queryItems["tag"] == ["a", "b", "c"])
+        #expect(parsed.firstQueryItems["tag"] == "a")
+    }
+
+    @Test("DeepLinkParser keeps flag-style query items as empty strings")
+    func testParserFlagQueryItem() {
+        let parsed = DeepLinkParser.parse("myapp://example.com/products/123?debug&tag=a")!
+        #expect(parsed.queryItems["debug"] == [""])
+        #expect(parsed.firstQueryItems["debug"] == "")
+        #expect(parsed.queryItems["tag"] == ["a"])
+    }
+
+    @Test("DeepLinkParameters preserves duplicate query value order")
+    func testDeepLinkParametersValueOrder() {
+        let parameters = DeepLinkParameters(valuesByName: ["tag": ["a", "b", "c"]])
+        #expect(parameters.values(forName: "tag") == ["a", "b", "c"])
+        #expect(parameters.firstValue(forName: "tag") == "a")
+    }
+
+    @Test("Path parameters take precedence when query uses same key")
+    func testPatternMergeCollisionOrder() {
+        let pattern = DeepLinkPattern("/products/:id")
+        let parsed = DeepLinkParser.parse("myapp://example.com/products/123?id=override&id=final")!
+
+        guard let result = pattern.match(parsed) else {
+            Issue.record("Expected pattern match")
+            return
+        }
+
+        #expect(result.parameters["id"] == ["123", "override", "final"])
+
+        let parameters = DeepLinkParameters(valuesByName: result.parameters)
+        #expect(parameters.firstValue(forName: "id") == "123")
+    }
+
+    @Test("Repeated path parameters append values in declaration order")
+    func testRepeatedPathParametersAppend() {
+        let pattern = DeepLinkPattern("/compare/:id/:id")
+
+        guard let result = pattern.match("/compare/a/b") else {
+            Issue.record("Expected pattern match")
+            return
+        }
+
+        #expect(result.parameters["id"] == ["a", "b"])
+    }
+
+    @Test("Repeated path parameters append before query values")
+    func testRepeatedPathParametersAppendBeforeQueryValues() {
+        let pattern = DeepLinkPattern("/compare/:id/:id")
+        let parsed = DeepLinkParser.parse("myapp://example.com/compare/a/b?id=c&id=d")!
+
+        guard let result = pattern.match(parsed) else {
+            Issue.record("Expected pattern match")
+            return
+        }
+
+        #expect(result.parameters["id"] == ["a", "b", "c", "d"])
+    }
+    
+    @Test("DeepLinkPattern matches literal path")
+    func testPatternLiteral() {
+        let pattern = DeepLinkPattern("/home")
+        
+        let result = pattern.match("/home")
+        #expect(result != nil)
+        #expect(result?.parameters.isEmpty == true)
+        
+        let noMatch = pattern.match("/settings")
+        #expect(noMatch == nil)
+    }
+    
+    @Test("DeepLinkPattern matches parameter")
+    func testPatternParameter() {
+        let pattern = DeepLinkPattern("/products/:id")
+        
+        let result = pattern.match("/products/123")
+        #expect(result != nil)
+        #expect(result?.parameters["id"] == ["123"])
+    }
+    
+    @Test("DeepLinkPattern matches wildcard")
+    func testPatternWildcard() {
+        let pattern = DeepLinkPattern("/api/*")
+        
+        let result = pattern.match("/api/v1/users/123")
+        #expect(result != nil)
+    }
+    
+    @Test("DeepLinkMatcher finds matching route")
+    func testMatcher() {
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/home") { _ in .home }
+            DeepLinkMapping("/detail/:id") { params in
+                guard let id = params.firstValue(forName: "id") else { return nil }
+                return .detail(id: id)
+            }
+            DeepLinkMapping("/settings") { _ in .settings }
+        }
+        
+        let url1 = URL(string: "myapp://app/home")!
+        #expect(matcher.match(url1) == .home)
+        
+        let url2 = URL(string: "myapp://app/detail/456")!
+        #expect(matcher.match(url2) == .detail(id: "456"))
+        
+        let url3 = URL(string: "myapp://app/unknown")!
+        #expect(matcher.match(url3) == nil)
+    }
+
+    @Test("DeepLinkMatcher surfaces duplicate pattern diagnostics")
+    func testMatcherDuplicatePatternDiagnostics() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/home") { _ in .home }
+            DeepLinkMapping("/home") { _ in .settings }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .duplicatePattern(pattern: "/home", firstIndex: 0, duplicateIndex: 1)
+            ]
+        )
+    }
+
+    @Test("DeepLinkMatcher surfaces wildcard shadowing diagnostics")
+    func testMatcherWildcardShadowingDiagnostics() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/api/*") { _ in .home }
+            DeepLinkMapping("/api/users") { _ in .settings }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .wildcardShadowing(
+                    pattern: "/api/*",
+                    index: 0,
+                    shadowedPattern: "/api/users",
+                    shadowedIndex: 1
+                )
+            ]
+        )
+    }
+
+    @Test("DeepLinkMatcher surfaces parameter shadowing diagnostics")
+    func testMatcherParameterShadowingDiagnostics() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/products/:id") { _ in .detail(id: "generic") }
+            DeepLinkMapping("/products/featured") { _ in .settings }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .parameterShadowing(
+                    pattern: "/products/:param",
+                    index: 0,
+                    shadowedPattern: "/products/featured",
+                    shadowedIndex: 1
+                )
+            ]
+        )
+    }
+
+    @Test("DeepLinkMatcher treats renamed parameters as equivalent structure")
+    func testMatcherParameterNameOnlyShadowingDiagnostics() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/users/:id") { _ in .detail(id: "id") }
+            DeepLinkMapping("/users/:slug") { _ in .detail(id: "slug") }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .duplicatePattern(pattern: "/users/:param", firstIndex: 0, duplicateIndex: 1)
+            ]
+        )
+    }
+
+    @Test("DeepLinkMatcher debug warnings remain non-fatal")
+    func testMatcherDebugWarningsDoNotAssert() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(
+                diagnosticsMode: .debugWarnings,
+                logger: Logger(subsystem: "InnoRouterTests", category: "DeepLinkMatcher")
+            )
+        ) {
+            DeepLinkMapping("/products/:id") { _ in .detail(id: "generic") }
+            DeepLinkMapping("/products/featured") { _ in .settings }
+        }
+
+        #expect(matcher.diagnostics.count == 1)
+    }
+
+    @Test("DeepLinkMatcher diagnostics do not change declaration-order precedence")
+    func testMatcherDiagnosticsDoNotAffectMatchingPrecedence() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/products/:id") { _ in .detail(id: "generic") }
+            DeepLinkMapping("/products/featured") { _ in .settings }
+        }
+
+        let matched = matcher.match(URL(string: "myapp://app/products/featured")!)
+
+        #expect(matched == .detail(id: "generic"))
+        #expect(matcher.diagnostics.count == 1)
+    }
+
+    @Test("DeepLinkPipeline rejected reason is schemeNotAllowed")
+    func testPipelineRejectsSchemeWithReason() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            allowedSchemes: ["myapp"],
+            resolve: { _ in .home }
+        )
+        let url = URL(string: "https://myapp.com/home")!
+
+        let decision = pipeline.decide(for: url)
+        guard case .rejected(let reason) = decision else {
+            Issue.record("Expected rejected decision")
+            return
+        }
+        #expect(reason == .schemeNotAllowed(actualScheme: "https"))
+    }
+
+    @Test("DeepLinkPipeline rejected reason is hostNotAllowed")
+    func testPipelineRejectsHostWithReason() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            allowedHosts: ["myapp.com"],
+            resolve: { _ in .home }
+        )
+        let url = URL(string: "myapp://other.com/home")!
+
+        let decision = pipeline.decide(for: url)
+        guard case .rejected(let reason) = decision else {
+            Issue.record("Expected rejected decision")
+            return
+        }
+        #expect(reason == .hostNotAllowed(actualHost: "other.com"))
+    }
+
+    @Test("DeepLinkPipeline keeps URL in unhandled decision")
+    func testPipelineUnhandledKeepsURL() {
+        let pipeline = DeepLinkPipeline<TestRoute>(resolve: { _ in nil })
+        let url = URL(string: "myapp://myapp.com/missing")!
+
+        let decision = pipeline.decide(for: url)
+        guard case .unhandled(let unhandledURL) = decision else {
+            Issue.record("Expected unhandled decision")
+            return
+        }
+        #expect(unhandledURL == url)
+    }
+
+    @Test("DeepLinkPipeline notRequired policy returns plan")
+    func testPipelineNotRequiredPolicyReturnsPlan() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .settings },
+            authenticationPolicy: .notRequired
+        )
+        let url = URL(string: "myapp://myapp.com/settings")!
+
+        let decision = pipeline.decide(for: url)
+        guard case .plan(let plan) = decision else {
+            Issue.record("Expected plan decision")
+            return
+        }
+        #expect(plan.commands == [.push(.settings)])
+    }
+
+    @Test("DeepLinkPipeline auth scans planned replace routes")
+    func testPipelineAuthenticationScansPlannedReplaceRoutes() {
+        let commands: [NavigationCommand<TestRoute>] = [
+            .replace([.home, .settings])
+        ]
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .home },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { false }
+            ),
+            plan: { _ in NavigationPlan(commands: commands) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/public")!)
+        guard case .pending(let pending) = decision else {
+            Issue.record("Expected pending decision")
+            return
+        }
+        #expect(pending.route == .settings)
+        #expect(pending.plan.commands == commands)
+    }
+
+    @Test("DeepLinkPipeline auth scans planned pushAll routes")
+    func testPipelineAuthenticationScansPlannedPushAllRoutes() {
+        let commands: [NavigationCommand<TestRoute>] = [
+            .pushAll([.home, .settings])
+        ]
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .home },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { false }
+            ),
+            plan: { _ in NavigationPlan(commands: commands) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/public")!)
+        guard case .pending(let pending) = decision else {
+            Issue.record("Expected pending decision")
+            return
+        }
+        #expect(pending.route == .settings)
+        #expect(pending.plan.commands == commands)
+    }
+
+    @Test("DeepLinkPipeline auth scans nested and fallback command routes")
+    func testPipelineAuthenticationScansNestedAndFallbackRoutes() {
+        let commands: [NavigationCommand<TestRoute>] = [
+            .sequence([
+                .push(.home),
+                .whenCancelled(
+                    .pushAll([.detail(id: "primary")]),
+                    fallback: .popTo(.settings)
+                )
+            ])
+        ]
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .home },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { false }
+            ),
+            plan: { _ in NavigationPlan(commands: commands) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/public")!)
+        guard case .pending(let pending) = decision else {
+            Issue.record("Expected pending decision")
+            return
+        }
+        #expect(pending.route == .settings)
+        #expect(pending.plan.commands == commands)
+    }
+
+    @Test("DeepLinkPipeline auth falls back to resolved route when plan has no routes")
+    func testPipelineAuthenticationFallbackScansResolvedRoute() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .settings },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { false }
+            ),
+            plan: { _ in NavigationPlan(commands: [.pop]) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/secure")!)
+        guard case .pending(let pending) = decision else {
+            Issue.record("Expected pending decision")
+            return
+        }
+        #expect(pending.route == .settings)
+        #expect(pending.plan.commands == [.pop])
+    }
+
+    @Test("DeepLinkPipeline returns plan when protected planned route is authenticated")
+    func testPipelineAuthenticationPassesWhenAuthenticated() {
+        let commands: [NavigationCommand<TestRoute>] = [
+            .replace([.home, .settings])
+        ]
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .home },
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { $0 == .settings },
+                isAuthenticated: { true }
+            ),
+            plan: { _ in NavigationPlan(commands: commands) }
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://myapp.com/public")!)
+        guard case .plan(let plan) = decision else {
+            Issue.record("Expected plan decision")
+            return
+        }
+        #expect(plan.commands == commands)
+    }
+}
