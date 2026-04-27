@@ -44,8 +44,6 @@ public final class FlowStore<R: Route> {
     private let queueCoalescePolicy: QueueCoalescePolicy<R>
     private let link: FlowStoreLink<R>
     private let broadcaster: EventBroadcaster<FlowEvent<R>>
-    private var innerNavigationEventsTask: Task<Void, Never>?
-    private var innerModalEventsTask: Task<Void, Never>?
     private var traceRecorder: InternalExecutionTraceRecorder?
     /// Cached intent dispatcher that lives for the lifetime of this store.
     /// Built on first access by ``intentDispatcher`` so SwiftUI hosts do
@@ -105,24 +103,58 @@ public final class FlowStore<R: Route> {
         let link = FlowStoreLink<R>()
 
         let userNavOnChange = configuration.navigation.onChange
+        let userNavOnBatchExecuted = configuration.navigation.onBatchExecuted
+        let userNavOnTransactionExecuted = configuration.navigation.onTransactionExecuted
+        let userNavOnMiddlewareMutation = configuration.navigation.onMiddlewareMutation
+        let userNavOnPathMismatch = configuration.navigation.onPathMismatch
         let userModalOnPresented = configuration.modal.onPresented
         let userModalOnDismissed = configuration.modal.onDismissed
+        let userModalOnQueueChanged = configuration.modal.onQueueChanged
+        let userModalOnMiddlewareMutation = configuration.modal.onMiddlewareMutation
         let userModalOnCommandIntercepted = configuration.modal.onCommandIntercepted
 
         let composedNavOnChange: @MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void = { old, new in
             userNavOnChange?(old, new)
+            link.owner?.emitNavigationEvent(.changed(from: old, to: new))
             link.owner?.handleNavigationStoreChange(from: old, to: new)
+        }
+        let composedNavOnBatchExecuted: @MainActor @Sendable (NavigationBatchResult<R>) -> Void = { batch in
+            userNavOnBatchExecuted?(batch)
+            link.owner?.emitNavigationEvent(.batchExecuted(batch))
+        }
+        let composedNavOnTransactionExecuted: @MainActor @Sendable (NavigationTransactionResult<R>) -> Void = { transaction in
+            userNavOnTransactionExecuted?(transaction)
+            link.owner?.emitNavigationEvent(.transactionExecuted(transaction))
+        }
+        let composedNavOnMiddlewareMutation: @MainActor @Sendable (MiddlewareMutationEvent<R>) -> Void = { event in
+            userNavOnMiddlewareMutation?(event)
+            link.owner?.emitNavigationEvent(.middlewareMutation(event))
+        }
+        let composedNavOnPathMismatch: @MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void = { event in
+            userNavOnPathMismatch?(event)
+            link.owner?.emitNavigationEvent(.pathMismatch(event))
         }
         let composedModalOnPresented: @MainActor @Sendable (ModalPresentation<R>) -> Void = { presentation in
             userModalOnPresented?(presentation)
+            link.owner?.emitModalEvent(.presented(presentation))
             link.owner?.handleModalStorePresentation(presentation)
         }
         let composedModalOnDismissed: @MainActor @Sendable (ModalPresentation<R>, ModalDismissalReason) -> Void = { presentation, reason in
             userModalOnDismissed?(presentation, reason)
+            link.owner?.emitModalEvent(.dismissed(presentation, reason: reason))
             link.owner?.handleModalStoreDismissal(presentation: presentation, reason: reason)
+        }
+        let composedModalOnQueueChanged: @MainActor @Sendable ([ModalPresentation<R>], [ModalPresentation<R>]) -> Void = { old, new in
+            userModalOnQueueChanged?(old, new)
+            link.owner?.emitModalEvent(.queueChanged(old: old, new: new))
+        }
+        let composedModalOnMiddlewareMutation: @MainActor @Sendable (ModalMiddlewareMutationEvent<R>) -> Void = { event in
+            userModalOnMiddlewareMutation?(event)
+            link.owner?.emitModalEvent(.middlewareMutation(event))
         }
         let composedModalOnCommandIntercepted: @MainActor @Sendable (ModalCommand<R>, ModalExecutionResult<R>) -> Void = { command, result in
             userModalOnCommandIntercepted?(command, result)
+            link.owner?.emitModalEvent(.commandIntercepted(command: command, result: result))
             switch result {
             case .executed(.replaceCurrent):
                 link.owner?.handleModalStoreReplacement()
@@ -143,10 +175,10 @@ public final class FlowStore<R: Route> {
             pathMismatchPolicy: configuration.navigation.pathMismatchPolicy,
             logger: configuration.navigation.logger,
             onChange: composedNavOnChange,
-            onBatchExecuted: configuration.navigation.onBatchExecuted,
-            onTransactionExecuted: configuration.navigation.onTransactionExecuted,
-            onMiddlewareMutation: configuration.navigation.onMiddlewareMutation,
-            onPathMismatch: configuration.navigation.onPathMismatch,
+            onBatchExecuted: composedNavOnBatchExecuted,
+            onTransactionExecuted: composedNavOnTransactionExecuted,
+            onMiddlewareMutation: composedNavOnMiddlewareMutation,
+            onPathMismatch: composedNavOnPathMismatch,
             eventBufferingPolicy: configuration.navigation.eventBufferingPolicy
         )
 
@@ -155,8 +187,8 @@ public final class FlowStore<R: Route> {
             middlewares: configuration.modal.middlewares,
             onPresented: composedModalOnPresented,
             onDismissed: composedModalOnDismissed,
-            onQueueChanged: configuration.modal.onQueueChanged,
-            onMiddlewareMutation: configuration.modal.onMiddlewareMutation,
+            onQueueChanged: composedModalOnQueueChanged,
+            onMiddlewareMutation: composedModalOnMiddlewareMutation,
             onCommandIntercepted: composedModalOnCommandIntercepted,
             eventBufferingPolicy: configuration.modal.eventBufferingPolicy
         )
@@ -188,27 +220,6 @@ public final class FlowStore<R: Route> {
         self.broadcaster = broadcaster
         self.traceRecorder = nil
         self.link.owner = self
-
-        // Pipe the inner stores' unified event streams into our own
-        // broadcaster so a single FlowStore.events subscriber can
-        // observe the full chain.
-        let navStream = self.navigationStore.events
-        let modalStream = self.modalStore.events
-        self.innerNavigationEventsTask = Task { [weak self] in
-            for await event in navStream {
-                self?.broadcaster.broadcast(.navigation(event))
-            }
-        }
-        self.innerModalEventsTask = Task { [weak self] in
-            for await event in modalStream {
-                self?.broadcaster.broadcast(.modal(event))
-            }
-        }
-    }
-
-    isolated deinit {
-        innerNavigationEventsTask?.cancel()
-        innerModalEventsTask?.cancel()
     }
 
     // MARK: - Public API
@@ -554,6 +565,14 @@ public final class FlowStore<R: Route> {
         guard oldPath != path else { return }
         onPathChanged?(oldPath, path)
         broadcaster.broadcast(.pathChanged(old: oldPath, new: path))
+    }
+
+    private func emitNavigationEvent(_ event: NavigationEvent<R>) {
+        broadcaster.broadcast(.navigation(event))
+    }
+
+    private func emitModalEvent(_ event: ModalEvent<R>) {
+        broadcaster.broadcast(.modal(event))
     }
 
     private func emitIntentRejected(
