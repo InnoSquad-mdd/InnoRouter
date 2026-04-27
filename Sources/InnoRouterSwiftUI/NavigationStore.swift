@@ -284,7 +284,9 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         ) {
             let stateBefore = state
             var executedCommands: [NavigationCommand<R>] = []
+            executedCommands.reserveCapacity(commands.count)
             var results: [NavigationResult<R>] = []
+            results.reserveCapacity(commands.count)
             var hasStoppedOnFailure = false
 
             for command in commands {
@@ -333,6 +335,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             let stateBefore = state
             var shadowState = state
             var journals: [NavigationExecutionJournal<R>] = []
+            journals.reserveCapacity(commands.count)
             var failureIndex: Int?
 
             for (index, command) in commands.enumerated() {
