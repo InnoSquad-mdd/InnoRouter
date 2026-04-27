@@ -44,7 +44,14 @@ struct FlowStorePropertyBasedTests {
                 ),
                 modal: ModalStoreConfiguration(
                     middlewares: [policy.modalRegistration()]
-                )
+                ),
+                // The reference model in this suite predates the 4.0
+                // `.dropQueued` default and assumes the modal queue
+                // outlives a cancelled navigation prefix. Pin the
+                // pre-4.0 behaviour so the property-based comparison
+                // stays valid; a separate suite exercises the new
+                // default explicitly.
+                queueCoalescePolicy: .preserve
             )
         )
         let recorder = FlowEventRecorder(store: store)
@@ -74,7 +81,8 @@ struct FlowStorePropertyBasedTests {
                 ),
                 modal: ModalStoreConfiguration(
                     middlewares: policy.modalRegistrations()
-                )
+                ),
+                queueCoalescePolicy: .preserve
             )
         )
         let recorder = FlowEventRecorder(store: store)

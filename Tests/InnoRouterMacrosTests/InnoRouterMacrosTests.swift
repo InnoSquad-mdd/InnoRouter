@@ -29,7 +29,6 @@ func makeTestMacros() -> [String: Macro.Type] {
 struct RoutableMacroTests {
     @Test("Basic enum expansion")
     func testRoutableBasicEnum() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @Routable
@@ -43,8 +42,8 @@ struct RoutableMacroTests {
                 case home
                 case settings
 
-                public enum Cases {
-                        public static let home = CasePath<HomeRoute, Void>(
+                internal enum Cases {
+                        internal static let home = CasePath<HomeRoute, Void>(
                             embed: { _ in
                                 .home
                             },
@@ -55,7 +54,7 @@ struct RoutableMacroTests {
                                 return nil
                             }
                         )
-                        public static let settings = CasePath<HomeRoute, Void>(
+                        internal static let settings = CasePath<HomeRoute, Void>(
                             embed: { _ in
                                 .settings
                             },
@@ -68,11 +67,11 @@ struct RoutableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
@@ -82,14 +81,219 @@ struct RoutableMacroTests {
             """,
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
+    }
+
+    @Test("Access level inference preserves enclosing enum visibility")
+    func testRoutableAccessLevelInference() throws {
+        assertMacroExpansion(
+            """
+            @Routable
+            public enum PublicRoute {
+                case home
+            }
+            """,
+            expandedSource: """
+            public enum PublicRoute {
+                case home
+
+                public enum Cases {
+                        public static let home = CasePath<PublicRoute, Void>(
+                            embed: { _ in
+                                .home
+                            },
+                            extract: {
+                                if case .home = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension PublicRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
+
+        assertMacroExpansion(
+            """
+            @Routable
+            fileprivate enum FilePrivateRoute {
+                case home
+            }
+            """,
+            expandedSource: """
+            fileprivate enum FilePrivateRoute {
+                case home
+
+                fileprivate enum Cases {
+                        fileprivate static let home = CasePath<FilePrivateRoute, Void>(
+                            embed: { _ in
+                                .home
+                            },
+                            extract: {
+                                if case .home = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                fileprivate func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                fileprivate subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension FilePrivateRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
+
+        assertMacroExpansion(
+            """
+            @Routable
+            private enum PrivateRoute {
+                case home
+            }
+            """,
+            expandedSource: """
+            private enum PrivateRoute {
+                case home
+
+                fileprivate enum Cases {
+                        fileprivate static let home = CasePath<PrivateRoute, Void>(
+                            embed: { _ in
+                                .home
+                            },
+                            extract: {
+                                if case .home = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                fileprivate func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                fileprivate subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension PrivateRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
+
+        assertMacroExpansion(
+            """
+            @Routable
+            package enum PackageRoute {
+                case home
+            }
+            """,
+            expandedSource: """
+            package enum PackageRoute {
+                case home
+
+                package enum Cases {
+                        package static let home = CasePath<PackageRoute, Void>(
+                            embed: { _ in
+                                .home
+                            },
+                            extract: {
+                                if case .home = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                package func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                package subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension PackageRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
+    @Test("Case-level availability is copied to generated case paths")
+    func testRoutableCopiesCaseAvailability() throws {
+        assertMacroExpansion(
+            """
+            @Routable
+            enum AvailabilityRoute {
+                @available(iOS 19, *)
+                case future
+            }
+            """,
+            expandedSource: """
+            enum AvailabilityRoute {
+                @available(iOS 19, *)
+                case future
+
+                internal enum Cases {
+                        @available(iOS 19, *)
+                        internal static let future = CasePath<AvailabilityRoute, Void>(
+                            embed: { _ in
+                                .future
+                            },
+                            extract: {
+                                if case .future = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+
+            extension AvailabilityRoute: Route {
+            }
+            """,
+            macros: makeTestMacros()
+        )
     }
 
     @Test("Escaped keyword cases expansion")
     func testRoutableWithEscapedKeywordCases() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @Routable
@@ -103,8 +307,8 @@ struct RoutableMacroTests {
                 case `default`
                 case `switch`(id: String)
 
-                public enum Cases {
-                        public static let `default` = CasePath<KeywordRoute, Void>(
+                internal enum Cases {
+                        internal static let `default` = CasePath<KeywordRoute, Void>(
                             embed: { _ in
                                 .`default`
                             },
@@ -115,7 +319,7 @@ struct RoutableMacroTests {
                                 return nil
                             }
                         )
-                        public static let `switch` = CasePath<KeywordRoute, String>(
+                        internal static let `switch` = CasePath<KeywordRoute, String>(
                             embed: { value in
                                 .`switch`(id: value)
                             },
@@ -128,11 +332,11 @@ struct RoutableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
@@ -142,14 +346,10 @@ struct RoutableMacroTests {
             """,
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Associated values expansion")
     func testRoutableWithAssociatedValues() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @Routable
@@ -163,8 +363,8 @@ struct RoutableMacroTests {
                 case list
                 case detail(id: String)
 
-                public enum Cases {
-                        public static let list = CasePath<ProductRoute, Void>(
+                internal enum Cases {
+                        internal static let list = CasePath<ProductRoute, Void>(
                             embed: { _ in
                                 .list
                             },
@@ -175,7 +375,7 @@ struct RoutableMacroTests {
                                 return nil
                             }
                         )
-                        public static let detail = CasePath<ProductRoute, String>(
+                        internal static let detail = CasePath<ProductRoute, String>(
                             embed: { value in
                                 .detail(id: value)
                             },
@@ -188,11 +388,11 @@ struct RoutableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
@@ -202,14 +402,10 @@ struct RoutableMacroTests {
             """,
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Multiple associated values expansion")
     func testRoutableWithMultipleAssociatedValues() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @Routable
@@ -223,8 +419,8 @@ struct RoutableMacroTests {
                 case main
                 case edit(userId: String, section: Int)
 
-                public enum Cases {
-                        public static let main = CasePath<ProfileRoute, Void>(
+                internal enum Cases {
+                        internal static let main = CasePath<ProfileRoute, Void>(
                             embed: { _ in
                                 .main
                             },
@@ -235,7 +431,7 @@ struct RoutableMacroTests {
                                 return nil
                             }
                         )
-                        public static let edit = CasePath<ProfileRoute, (String, Int)>(
+                        internal static let edit = CasePath<ProfileRoute, (String, Int)>(
                             embed: { value in
                                 .edit(userId: value.0, section: value.1)
                             },
@@ -248,11 +444,11 @@ struct RoutableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
@@ -262,14 +458,10 @@ struct RoutableMacroTests {
             """,
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Underscore external label expansion")
     func testRoutableWithUnderscoreExternalLabel() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @Routable
@@ -281,8 +473,8 @@ struct RoutableMacroTests {
             enum DetailRoute {
                 case detail(_ id: String)
 
-                public enum Cases {
-                        public static let detail = CasePath<DetailRoute, String>(
+                internal enum Cases {
+                        internal static let detail = CasePath<DetailRoute, String>(
                             embed: { value in
                                 .detail(value)
                             },
@@ -295,11 +487,11 @@ struct RoutableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
@@ -309,14 +501,10 @@ struct RoutableMacroTests {
             """,
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Mixed labels expansion")
     func testRoutableWithMixedLabels() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @Routable
@@ -328,8 +516,8 @@ struct RoutableMacroTests {
             enum MixedRoute {
                 case edit(_ id: String, section: Int)
 
-                public enum Cases {
-                        public static let edit = CasePath<MixedRoute, (String, Int)>(
+                internal enum Cases {
+                        internal static let edit = CasePath<MixedRoute, (String, Int)>(
                             embed: { value in
                                 .edit(value.0, section: value.1)
                             },
@@ -342,11 +530,11 @@ struct RoutableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
@@ -356,14 +544,10 @@ struct RoutableMacroTests {
             """,
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Rejects non-enum declarations")
     func testRoutableOnlyAppliesToEnum() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @Routable
@@ -384,14 +568,10 @@ struct RoutableMacroTests {
             ],
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Warns when applied to an enum without cases")
     func testRoutableWarnsOnEmptyEnum() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @Routable
@@ -415,14 +595,10 @@ struct RoutableMacroTests {
             ],
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Does NOT warn for an enum with at least one case")
     func testRoutableDoesNotWarnOnNonEmptyEnum() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @Routable
@@ -434,8 +610,8 @@ struct RoutableMacroTests {
             enum Populated {
                 case home
 
-                public enum Cases {
-                        public static let home = CasePath<Populated, Void>(
+                internal enum Cases {
+                        internal static let home = CasePath<Populated, Void>(
                             embed: { _ in
                                 .home
                             },
@@ -448,11 +624,11 @@ struct RoutableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript<Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript<Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
@@ -463,9 +639,6 @@ struct RoutableMacroTests {
             diagnostics: [],   // no warning
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 }
 
@@ -475,7 +648,6 @@ struct RoutableMacroTests {
 struct CasePathableMacroTests {
     @Test("Basic enum expansion")
     func testCasePathableBasicEnum() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @CasePathable
@@ -489,8 +661,8 @@ struct CasePathableMacroTests {
                 case home
                 case profile(userId: String)
 
-                public enum Cases {
-                        public static let home = CasePath<Destination, Void>(
+                internal enum Cases {
+                        internal static let home = CasePath<Destination, Void>(
                             embed: { _ in
                                 .home
                             },
@@ -501,7 +673,7 @@ struct CasePathableMacroTests {
                                 return nil
                             }
                         )
-                        public static let profile = CasePath<Destination, String>(
+                        internal static let profile = CasePath<Destination, String>(
                             embed: { value in
                                 .profile(userId: value)
                             },
@@ -514,25 +686,61 @@ struct CasePathableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
             """,
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
+    }
+
+    @Test("Package enum expansion preserves package access")
+    func testCasePathablePackageAccess() throws {
+        assertMacroExpansion(
+            """
+            @CasePathable
+            package enum Destination {
+                case home
+            }
+            """,
+            expandedSource: """
+            package enum Destination {
+                case home
+
+                package enum Cases {
+                        package static let home = CasePath<Destination, Void>(
+                            embed: { _ in
+                                .home
+                            },
+                            extract: {
+                                if case .home = $0 {
+                                    return ()
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                package func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                package subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
     }
 
     @Test("Escaped keyword cases expansion")
     func testCasePathableWithEscapedKeywordCases() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @CasePathable
@@ -546,8 +754,8 @@ struct CasePathableMacroTests {
                 case `default`
                 case `switch`(id: String)
 
-                public enum Cases {
-                        public static let `default` = CasePath<Destination, Void>(
+                internal enum Cases {
+                        internal static let `default` = CasePath<Destination, Void>(
                             embed: { _ in
                                 .`default`
                             },
@@ -558,7 +766,7 @@ struct CasePathableMacroTests {
                                 return nil
                             }
                         )
-                        public static let `switch` = CasePath<Destination, String>(
+                        internal static let `switch` = CasePath<Destination, String>(
                             embed: { value in
                                 .`switch`(id: value)
                             },
@@ -571,25 +779,21 @@ struct CasePathableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
             """,
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Underscore external label expansion")
     func testCasePathableWithUnderscoreExternalLabel() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @CasePathable
@@ -601,8 +805,8 @@ struct CasePathableMacroTests {
             enum Destination {
                 case profile(_ userId: String)
 
-                public enum Cases {
-                        public static let profile = CasePath<Destination, String>(
+                internal enum Cases {
+                        internal static let profile = CasePath<Destination, String>(
                             embed: { value in
                                 .profile(value)
                             },
@@ -615,25 +819,21 @@ struct CasePathableMacroTests {
                         )
                 }
 
-                public func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
                     casePath.extract(self) != nil
                 }
 
-                public subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
                     casePath.extract(self)
                 }
             }
             """,
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Rejects non-enum declarations")
     func testCasePathableOnlyAppliesToEnum() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @CasePathable
@@ -654,14 +854,10 @@ struct CasePathableMacroTests {
             ],
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 
     @Test("Warns when applied to an enum without cases")
     func testCasePathableWarnsOnEmptyEnum() throws {
-        #if canImport(InnoRouterMacrosPlugin)
         assertMacroExpansion(
             """
             @CasePathable
@@ -682,9 +878,6 @@ struct CasePathableMacroTests {
             ],
             macros: makeTestMacros()
         )
-        #else
-        throw Skip("Macros not available")
-        #endif
     }
 }
 

@@ -79,11 +79,12 @@ relationship | memberOf | FlowStore.observe(_:) | FlowStore |  |
 relationship | memberOf | FlowStore.path | FlowStore |  |
 relationship | memberOf | FlowStore.send(_:) | FlowStore |  |
 relationship | memberOf | FlowStoreConfiguration.eventBufferingPolicy | FlowStoreConfiguration |  |
-relationship | memberOf | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:eventBufferingPolicy:) | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:eventBufferingPolicy:queueCoalescePolicy:) | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.modal | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.navigation | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.onIntentRejected | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.onPathChanged | FlowStoreConfiguration |  |
+relationship | memberOf | FlowStoreConfiguration.queueCoalescePolicy | FlowStoreConfiguration |  |
 relationship | memberOf | MiddlewareMutationEvent.Action | MiddlewareMutationEvent |  |
 relationship | memberOf | MiddlewareMutationEvent.Action.added | MiddlewareMutationEvent.Action |  |
 relationship | memberOf | MiddlewareMutationEvent.Action.inserted | MiddlewareMutationEvent.Action |  |
@@ -243,6 +244,12 @@ relationship | memberOf | NavigationStoreConfiguration.onPathMismatch | Navigati
 relationship | memberOf | NavigationStoreConfiguration.onTransactionExecuted | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.pathMismatchPolicy | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.routeStackValidator | NavigationStoreConfiguration |  |
+relationship | memberOf | QueueCoalescePolicy.Action | QueueCoalescePolicy |  |
+relationship | memberOf | QueueCoalescePolicy.Action.dropQueued | QueueCoalescePolicy.Action |  |
+relationship | memberOf | QueueCoalescePolicy.Action.preserve | QueueCoalescePolicy.Action |  |
+relationship | memberOf | QueueCoalescePolicy.custom(_:) | QueueCoalescePolicy |  |
+relationship | memberOf | QueueCoalescePolicy.dropQueued | QueueCoalescePolicy |  |
+relationship | memberOf | QueueCoalescePolicy.preserve | QueueCoalescePolicy |  |
 relationship | memberOf | SceneAnchor.body(content:) | SceneAnchor |  |
 relationship | memberOf | SceneAnchor.init(store:scenes:attachedTo:) | SceneAnchor |  |
 relationship | memberOf | SceneAnchor.init(store:scenes:attachedTo:instanceID:) | SceneAnchor |  |
@@ -384,6 +391,8 @@ symbol | swift.enum | NavigationPathMismatchEvent.Policy | NavigationPathMismatc
 symbol | swift.enum | NavigationPathMismatchEvent.Resolution | NavigationPathMismatchEvent.Resolution | enum Resolution | []
 symbol | swift.enum | NavigationPathMismatchPolicy | NavigationPathMismatchPolicy | enum NavigationPathMismatchPolicy<R> where R : Route | []
 symbol | swift.enum | NavigationPathMismatchResolution | NavigationPathMismatchResolution | enum NavigationPathMismatchResolution<R> where R : Route | []
+symbol | swift.enum | QueueCoalescePolicy | QueueCoalescePolicy | @MainActor enum QueueCoalescePolicy<R> where R : Route | []
+symbol | swift.enum | QueueCoalescePolicy.Action | QueueCoalescePolicy.Action | enum Action | []
 symbol | swift.enum | SceneDeclaration.Kind | SceneDeclaration.Kind | enum Kind | []
 symbol | swift.enum | SceneEvent | SceneEvent | enum SceneEvent<R> where R : Route | []
 symbol | swift.enum | SceneIntent | SceneIntent | enum SceneIntent<R> where R : Route | []
@@ -462,6 +471,11 @@ symbol | swift.enum.case | NavigationPathMismatchPolicy.replace | NavigationPath
 symbol | swift.enum.case | NavigationPathMismatchResolution.batch(_:) | NavigationPathMismatchResolution.batch(_:) | case batch([NavigationCommand<R>]) | []
 symbol | swift.enum.case | NavigationPathMismatchResolution.ignore | NavigationPathMismatchResolution.ignore | case ignore | []
 symbol | swift.enum.case | NavigationPathMismatchResolution.single(_:) | NavigationPathMismatchResolution.single(_:) | case single(NavigationCommand<R>) | []
+symbol | swift.enum.case | QueueCoalescePolicy.Action.dropQueued | QueueCoalescePolicy.Action.dropQueued | case dropQueued | []
+symbol | swift.enum.case | QueueCoalescePolicy.Action.preserve | QueueCoalescePolicy.Action.preserve | case preserve | []
+symbol | swift.enum.case | QueueCoalescePolicy.custom(_:) | QueueCoalescePolicy.custom(_:) | case custom(@MainActor (FlowIntent<R>, FlowRejectionReason) -> QueueCoalescePolicy<R>.Action) | []
+symbol | swift.enum.case | QueueCoalescePolicy.dropQueued | QueueCoalescePolicy.dropQueued | case dropQueued | []
+symbol | swift.enum.case | QueueCoalescePolicy.preserve | QueueCoalescePolicy.preserve | case preserve | []
 symbol | swift.enum.case | SceneDeclaration.Kind.immersive(style:) | SceneDeclaration.Kind.immersive(style:) | case immersive(style: ImmersiveStyle) | []
 symbol | swift.enum.case | SceneDeclaration.Kind.volumetric(size:) | SceneDeclaration.Kind.volumetric(size:) | case volumetric(size: VolumetricSize? = nil) | []
 symbol | swift.enum.case | SceneDeclaration.Kind.window | SceneDeclaration.Kind.window | case window | []
@@ -496,7 +510,7 @@ symbol | swift.init | EnvironmentNavigationIntent.init(_:) | init(_:) | @MainAct
 symbol | swift.init | FlowCoordinatorView.init(coordinator:showProgress:content:) | init(coordinator:showProgress:content:) | @MainActor init(coordinator: C, showProgress: Bool = true, @ViewBuilder content: @escaping (C.Step) -> Content) | []
 symbol | swift.init | FlowHost.init(store:destination:root:) | init(store:destination:root:) | @MainActor init(store: FlowStore<R>, @ViewBuilder destination: @escaping (R) -> Destination, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init()) | []
-symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:eventBufferingPolicy:) | init(navigation:modal:onPathChanged:onIntentRejected:eventBufferingPolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil, onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default) | []
+symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:onPathChanged:onIntentRejected:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation:modal:onPathChanged:onIntentRejected:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil, onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve) | []
 symbol | swift.init | MiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: MiddlewareMutationEvent<R>.Action, metadata: NavigationMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalHost.init(store:destination:content:) | init(store:destination:content:) | @MainActor init(store: ModalStore<M>, @ViewBuilder destination: @escaping (M) -> Destination, @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | ModalMiddlewareHandle.init() | init() | init() | []
@@ -634,11 +648,12 @@ symbol | swift.property | FlowStore.intentDispatcher | intentDispatcher | @MainA
 symbol | swift.property | FlowStore.modalStore | modalStore | @MainActor let modalStore: ModalStore<R> | []
 symbol | swift.property | FlowStore.navigationStore | navigationStore | @MainActor let navigationStore: NavigationStore<R> | []
 symbol | swift.property | FlowStore.path | path | @MainActor var path: [RouteStep<R>] { get set } | []
-symbol | swift.property | FlowStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | let eventBufferingPolicy: EventBufferingPolicy | []
-symbol | swift.property | FlowStoreConfiguration.modal | modal | let modal: ModalStoreConfiguration<R> | []
-symbol | swift.property | FlowStoreConfiguration.navigation | navigation | let navigation: NavigationStoreConfiguration<R> | []
-symbol | swift.property | FlowStoreConfiguration.onIntentRejected | onIntentRejected | let onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? | []
-symbol | swift.property | FlowStoreConfiguration.onPathChanged | onPathChanged | let onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? | []
+symbol | swift.property | FlowStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
+symbol | swift.property | FlowStoreConfiguration.modal | modal | var modal: ModalStoreConfiguration<R> | []
+symbol | swift.property | FlowStoreConfiguration.navigation | navigation | var navigation: NavigationStoreConfiguration<R> | []
+symbol | swift.property | FlowStoreConfiguration.onIntentRejected | onIntentRejected | var onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? | []
+symbol | swift.property | FlowStoreConfiguration.onPathChanged | onPathChanged | var onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? | []
+symbol | swift.property | FlowStoreConfiguration.queueCoalescePolicy | queueCoalescePolicy | var queueCoalescePolicy: QueueCoalescePolicy<R> | []
 symbol | swift.property | MiddlewareMutationEvent.action | action | let action: MiddlewareMutationEvent<R>.Action | []
 symbol | swift.property | MiddlewareMutationEvent.index | index | let index: Int? | []
 symbol | swift.property | MiddlewareMutationEvent.metadata | metadata | let metadata: NavigationMiddlewareMetadata | []
@@ -660,14 +675,14 @@ symbol | swift.property | ModalStore.intentDispatcher | intentDispatcher | @Main
 symbol | swift.property | ModalStore.middlewareHandles | middlewareHandles | @MainActor var middlewareHandles: [ModalMiddlewareHandle] { get } | []
 symbol | swift.property | ModalStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [ModalMiddlewareMetadata] { get } | []
 symbol | swift.property | ModalStore.queuedPresentations | queuedPresentations | @MainActor var queuedPresentations: [ModalPresentation<M>] { get set } | []
-symbol | swift.property | ModalStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | let eventBufferingPolicy: EventBufferingPolicy | []
-symbol | swift.property | ModalStoreConfiguration.logger | logger | let logger: Logger? | []
-symbol | swift.property | ModalStoreConfiguration.middlewares | middlewares | let middlewares: [ModalMiddlewareRegistration<M>] | []
-symbol | swift.property | ModalStoreConfiguration.onCommandIntercepted | onCommandIntercepted | let onCommandIntercepted: (@MainActor (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? | []
-symbol | swift.property | ModalStoreConfiguration.onDismissed | onDismissed | let onDismissed: (@MainActor (ModalPresentation<M>, ModalDismissalReason) -> Void)? | []
-symbol | swift.property | ModalStoreConfiguration.onMiddlewareMutation | onMiddlewareMutation | let onMiddlewareMutation: (@MainActor (ModalMiddlewareMutationEvent<M>) -> Void)? | []
-symbol | swift.property | ModalStoreConfiguration.onPresented | onPresented | let onPresented: (@MainActor (ModalPresentation<M>) -> Void)? | []
-symbol | swift.property | ModalStoreConfiguration.onQueueChanged | onQueueChanged | let onQueueChanged: (@MainActor ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
+symbol | swift.property | ModalStoreConfiguration.logger | logger | var logger: Logger? | []
+symbol | swift.property | ModalStoreConfiguration.middlewares | middlewares | var middlewares: [ModalMiddlewareRegistration<M>] | []
+symbol | swift.property | ModalStoreConfiguration.onCommandIntercepted | onCommandIntercepted | var onCommandIntercepted: (@MainActor (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.onDismissed | onDismissed | var onDismissed: (@MainActor (ModalPresentation<M>, ModalDismissalReason) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.onMiddlewareMutation | onMiddlewareMutation | var onMiddlewareMutation: (@MainActor (ModalMiddlewareMutationEvent<M>) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.onPresented | onPresented | var onPresented: (@MainActor (ModalPresentation<M>) -> Void)? | []
+symbol | swift.property | ModalStoreConfiguration.onQueueChanged | onQueueChanged | var onQueueChanged: (@MainActor ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? | []
 symbol | swift.property | NavigationEvent.description | description | var description: String { get } | []
 symbol | swift.property | NavigationHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | NavigationMiddlewareMetadata.debugName | debugName | let debugName: String? | []
@@ -685,17 +700,17 @@ symbol | swift.property | NavigationStore.middlewareHandles | middlewareHandles 
 symbol | swift.property | NavigationStore.middlewareMetadata | middlewareMetadata | @MainActor var middlewareMetadata: [NavigationMiddlewareMetadata] { get } | []
 symbol | swift.property | NavigationStore.pathBinding | pathBinding | @MainActor var pathBinding: Binding<[R]> { get } | []
 symbol | swift.property | NavigationStore.state | state | @MainActor var state: RouteStack<R> { get set } | []
-symbol | swift.property | NavigationStoreConfiguration.engine | engine | let engine: NavigationEngine<R> | []
-symbol | swift.property | NavigationStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | let eventBufferingPolicy: EventBufferingPolicy | []
-symbol | swift.property | NavigationStoreConfiguration.logger | logger | let logger: Logger? | []
-symbol | swift.property | NavigationStoreConfiguration.middlewares | middlewares | let middlewares: [NavigationMiddlewareRegistration<R>] | []
-symbol | swift.property | NavigationStoreConfiguration.onBatchExecuted | onBatchExecuted | let onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? | []
-symbol | swift.property | NavigationStoreConfiguration.onChange | onChange | let onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? | []
-symbol | swift.property | NavigationStoreConfiguration.onMiddlewareMutation | onMiddlewareMutation | let onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? | []
-symbol | swift.property | NavigationStoreConfiguration.onPathMismatch | onPathMismatch | let onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? | []
-symbol | swift.property | NavigationStoreConfiguration.onTransactionExecuted | onTransactionExecuted | let onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? | []
-symbol | swift.property | NavigationStoreConfiguration.pathMismatchPolicy | pathMismatchPolicy | let pathMismatchPolicy: NavigationPathMismatchPolicy<R> | []
-symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | let routeStackValidator: RouteStackValidator<R> | []
+symbol | swift.property | NavigationStoreConfiguration.engine | engine | var engine: NavigationEngine<R> | []
+symbol | swift.property | NavigationStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
+symbol | swift.property | NavigationStoreConfiguration.logger | logger | var logger: Logger? | []
+symbol | swift.property | NavigationStoreConfiguration.middlewares | middlewares | var middlewares: [NavigationMiddlewareRegistration<R>] | []
+symbol | swift.property | NavigationStoreConfiguration.onBatchExecuted | onBatchExecuted | var onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.onChange | onChange | var onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.onMiddlewareMutation | onMiddlewareMutation | var onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.onPathMismatch | onPathMismatch | var onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.onTransactionExecuted | onTransactionExecuted | var onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? | []
+symbol | swift.property | NavigationStoreConfiguration.pathMismatchPolicy | pathMismatchPolicy | var pathMismatchPolicy: NavigationPathMismatchPolicy<R> | []
+symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | var routeStackValidator: RouteStackValidator<R> | []
 symbol | swift.property | SceneDeclaration.id | id | let id: String | []
 symbol | swift.property | SceneDeclaration.kind | kind | let kind: SceneDeclaration<R>.Kind | []
 symbol | swift.property | SceneDeclaration.route | route | let route: R | []

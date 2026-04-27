@@ -179,22 +179,22 @@ checks = [
     (
         "Sources/InnoRouterSwiftUI/FlowStoreConfiguration.swift",
         [
-            "public let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?",
-            "public let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?",
+            "public var onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?",
+            "public var onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?",
         ],
     ),
     (
         "Sources/InnoRouterSwiftUI/ModalStoreConfiguration.swift",
         [
-            "public let onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)?",
-            "public let onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?",
+            "public var onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)?",
+            "public var onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?",
         ],
     ),
     (
         "Sources/InnoRouterSwiftUI/NavigationStoreConfiguration.swift",
         [
-            "public let onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)?",
-            "public let onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)?",
+            "public var onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)?",
+            "public var onPathMismatch: (@MainActor @Sendable (NavigationPathMismatchEvent<R>) -> Void)?",
         ],
     ),
     (

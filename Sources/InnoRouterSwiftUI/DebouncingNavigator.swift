@@ -1,6 +1,12 @@
 import Foundation
+import OSLog
 
 @_spi(NavigationStoreInternals) import InnoRouterCore
+
+private let debouncingNavigatorLogger = Logger(
+    subsystem: "io.innosquad.innorouter",
+    category: "debouncing-navigator"
+)
 
 /// Wraps a `Navigator` with "fire the latest command after a quiet
 /// period" semantics — the canonical debounce pattern.
@@ -92,6 +98,10 @@ public final class DebouncingNavigator<
             } catch is CancellationError {
                 return nil
             } catch {
+                let description = String(describing: error)
+                debouncingNavigatorLogger.error(
+                    "DebouncingNavigator sleep failed with non-cancellation error: \(description, privacy: .public)"
+                )
                 assertionFailure("DebouncingNavigator sleep failed with non-cancellation error: \(error)")
                 return nil
             }
