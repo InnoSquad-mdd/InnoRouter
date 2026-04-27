@@ -160,7 +160,7 @@ let package = Package(
         // is tracked by major release lines such as 602.x and 603.x.
         // The macro plugin uses SwiftSyntaxBuilder / SwiftDiagnostics
         // directly (see `MacroDiagnostic.swift`, `RoutableMacro.swift`),
-        // so this constraint allows 602.0.x patch backports while
+        // so this constraint allows 603.0.x patch backports while
         // preventing a silent jump to the next major line. Dependabot
         // opens those updates explicitly so macro fixtures and
         // public-API baselines can move alongside the bump.

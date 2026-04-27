@@ -34,14 +34,20 @@ Keep these concerns outside InnoRouter:
 - visionOS 2+
 - Swift 6.2+
 
-The iOS 18 floor and `swift-tools-version: 6.2` baseline are deliberate:
-they let every public type adopt strict concurrency and `Sendable` without
-the `@preconcurrency` / `@unchecked Sendable` escape hatches, which means
-navigation state never silently leaks off the main actor at the boundary
-between view code and the store. The cost is a smaller adoption window
-than libraries that target iOS 13–16; the benefit is a router whose
-`Sendable`/`@MainActor` discipline is checked by the compiler instead of
-documented in prose.
+The iOS 18 floor and `swift-tools-version: 6.2` package baseline are
+deliberate: they let every public type adopt strict concurrency and
+`Sendable` without the `@preconcurrency` / `@unchecked Sendable` escape
+hatches, which means navigation state never silently leaks off the main
+actor at the boundary between view code and the store. The cost is a
+smaller adoption window than libraries that target iOS 13–16; the
+benefit is a router whose `Sendable`/`@MainActor` discipline is checked
+by the compiler instead of documented in prose.
+
+The macro target currently depends on `swift-syntax` `603.0.1` with an
+`.upToNextMinor` constraint. That dependency and CI's pinned Xcode /
+Swift toolchain may validate the package with a newer Swift host build
+(for example Swift 6.3), but the supported package floor remains Swift
+6.2 until a major release explicitly raises it.
 
 | Concurrency posture | InnoRouter | TCA / FlowStacks / others on iOS 13+ |
 |---|---|---|
@@ -75,16 +81,19 @@ build it behind `#if !os(...)`.
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "3.0.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "3.0.1")
 ]
 ```
 
 ## Upgrading to 3.0.0
 
-**3.0.0 is the first public release of InnoRouter.** There is no
-public 1.x or 2.x lineage to migrate from — `3.0.0` is the baseline.
-The leading-digit `3` reflects internal milestone history, not a
-breaking change against any previously shipped public package.
+Public tags `1.0.0` and `2.0.0` exist as legacy public tags from the
+early package line. `3.0.0` is the baseline for the currently supported
+public API contract, and `3.0.1` is the latest stable patch on that
+line. New adopters should install from `3.0.1` or newer; maintainers of
+apps pinned to `1.x` / `2.x` should treat the move to `3.x` as a normal
+major-version migration and validate public API usage against the 3.x
+docs.
 
 ### SemVer commitment for the 3.x line
 
@@ -132,7 +141,7 @@ minor release:
 - Performance improvements that preserve semantics.
 - Doc-only changes.
 
-The full pre-release sweep that landed in 3.0.0 is summarized in
+The full 3.0 baseline sweep is summarized in
 [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Imports
@@ -153,7 +162,7 @@ other property-wrapper or view modifier come from `InnoRouter`, not
 from `InnoRouterMacros`.
 
 The SwiftSyntax-backed macro implementation remains in this package
-for 3.0.0. A package-traits or separate-macro-package split should be
+for the 3.x line. A package-traits or separate-macro-package split should be
 evaluated only after measuring `swift package show-traits`,
 `swift build --target InnoRouter`, and
 `swift build --target InnoRouterMacros` against the migration cost.
@@ -845,7 +854,7 @@ DocC is built per module and published to GitHub Pages.
 Published structure:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/3.0.0/`
+- `/InnoRouter/3.0.1/`
 - `/InnoRouter/` root portal
 
 ### CI
@@ -854,6 +863,7 @@ CI validates:
 
 - `swift test`
 - `principle-gates`
+- `platforms` workflow for per-platform SwiftUI coverage
 - example smoke builds
 - DocC preview build
 
@@ -861,16 +871,17 @@ CI validates:
 
 CD runs on bare semver tags only:
 
-- `3.0.0`
+- `3.0.1`
 
 Invalid tag examples:
 
 - any tag with a leading `v`
-- `release-3.0.0`
+- `release-3.0.1`
 
 Release workflow responsibilities:
 
 - rerun code/documentation gates
+- require local `./scripts/principle-gates.sh --platforms=all` or a green GitHub `platforms` workflow before tagging
 - build versioned DocC
 - update `/latest/`
 - preserve older versioned docs
@@ -1031,6 +1042,15 @@ hooks are app concerns. Errors propagate as the underlying
 `EncodingError` / `DecodingError` so callers can distinguish
 schema drift from I/O failures.
 
+`FlowPlan(steps: flowStore.path)` is a current-visible-flow snapshot:
+it stores the navigation push stack plus the active modal tail, if one
+is visible. It does not serialize the modal backlog. Queued
+presentations live in `ModalStore.queuedPresentations` as internal
+execution state and are outside the current `FlowPlan` persistence
+contract. Apps that must restore queued modal work should persist an
+app-owned queue snapshot alongside the `FlowPlan` and replay it through
+their own routing policy after launch.
+
 ## Unified observation stream
 
 Every store publishes a single `events: AsyncStream` that covers
@@ -1066,8 +1086,9 @@ the `events` stream is an additional channel, not a replacement.
 Tracked in
 [`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md).
 With the P3 polish cluster shipped, the P0 / P1 / P3 backlog is
-empty. **3.0.0 release candidate.** See
-[`CHANGELOG.md`](CHANGELOG.md) for the full 3.0.0 surface.
+empty. The current stable line starts at the 3.0 baseline and the
+latest stable patch is `3.0.1`; see [`CHANGELOG.md`](CHANGELOG.md)
+for shipped and unreleased surface changes.
 
 - [x] **P2-3 UIKit escape hatch** — declined for 3.0.0. InnoRouter
       keeps a SwiftUI-only positioning stance; teams that need
