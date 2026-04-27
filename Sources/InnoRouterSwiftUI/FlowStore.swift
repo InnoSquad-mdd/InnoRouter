@@ -621,6 +621,23 @@ public final class FlowStore<R: Route> {
     }
 
     private func withInternalMutation<T>(_ body: () -> T) -> T {
+        // The flag is *only* safe under MainActor + synchronous body
+        // execution. Every current call site (`apply(_:intent:)` and
+        // `applyQueueCoalescePolicyIfNeeded`) is synchronous, so the
+        // flag's "set → run → restore" pattern works. If a future
+        // refactor wires an async path through here without first
+        // converting the flag to a counter / actor, the reverse-sync
+        // guards (`isApplyingInternalMutation` checks in the four
+        // inner-store callbacks) silently misbehave on suspension
+        // boundaries. Catch that regression at the source instead of
+        // shipping a quiet bug — DEBUG-only so production keeps the
+        // existing zero-cost flag pattern.
+        #if DEBUG
+        assert(
+            !isApplyingInternalMutation,
+            "FlowStore.withInternalMutation is not re-entrant; nested invocation indicates a sync invariant break."
+        )
+        #endif
         let wasApplying = isApplyingInternalMutation
         isApplyingInternalMutation = true
         defer { isApplyingInternalMutation = wasApplying }
