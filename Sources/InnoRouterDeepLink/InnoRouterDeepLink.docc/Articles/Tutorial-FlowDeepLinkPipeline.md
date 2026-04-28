@@ -102,7 +102,7 @@ import SwiftUI
 import InnoRouter
 import InnoRouterDeepLinkEffects
 
-private final class SessionStore: @unchecked Sendable {
+private final class SessionStore {
     static let shared = SessionStore()
 
     private let lock = NSLock()
