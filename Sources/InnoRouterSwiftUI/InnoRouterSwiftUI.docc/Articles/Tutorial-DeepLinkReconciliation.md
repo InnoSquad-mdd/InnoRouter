@@ -16,7 +16,7 @@ URL context.
 
 ## Modeling the routes
 
-```swift
+```swift skip doc-fragment
 enum AppRoute: Route {
     case home
     case signIn
@@ -28,7 +28,7 @@ enum AppRoute: Route {
 
 `DeepLinkPipeline` owns the match-then-validate-then-authorize flow:
 
-```swift
+```swift skip doc-fragment
 let matcher = DeepLinkMatcher<AppRoute>(patterns: [
     .init(pattern: "myapp://home")                   { _ in .home },
     .init(pattern: "myapp://signin")                 { _ in .signIn },
@@ -57,7 +57,7 @@ let pipeline = DeepLinkPipeline(matcher: matcher, policy: policy)
 The `DeepLinkEffectHandler` bridges the pipeline output into
 `NavigationStore`:
 
-```swift
+```swift skip doc-fragment
 @MainActor
 final class AppCoordinator {
     let store: NavigationStore<AppRoute>
@@ -86,7 +86,7 @@ final class AppCoordinator {
 
 Once the user signs in, the handler resumes any queued deep link:
 
-```swift
+```swift skip doc-fragment
 func userDidSignIn() {
     effectHandler.resumePendingDeepLinkIfAllowed(
         isAuthenticated: true,
@@ -108,7 +108,7 @@ the user cancelled or that no longer validates) is dropped.
 path-mismatch events as a single stream, which is handy for
 diagnostics dashboards:
 
-```swift
+```swift skip doc-fragment
 Task {
     for await event in store.events {
         switch event {
@@ -134,7 +134,7 @@ Task {
 `NavigationTestStore` (in `InnoRouterTesting`) asserts the batch +
 side effects for each branch:
 
-```swift
+```swift skip doc-fragment
 @Test
 @MainActor
 func signedOutDeepLinkDefersUntilSignIn() {

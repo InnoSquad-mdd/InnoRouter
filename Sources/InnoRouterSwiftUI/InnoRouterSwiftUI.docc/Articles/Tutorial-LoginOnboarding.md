@@ -17,7 +17,7 @@ store and one `await`.
 
 ## Routes
 
-```swift
+```swift skip doc-fragment
 enum AppRoute: Route {
     case welcome
     case preAuth
@@ -31,7 +31,7 @@ enum AppRoute: Route {
 `FlowHost` composes an inner `ModalHost` over a `NavigationHost` and
 exposes both authorities through a single `FlowStore`:
 
-```swift
+```swift skip doc-fragment
 @main
 struct DemoApp: App {
     @State private var flow = FlowStore<AppRoute>(initial: [.push(.welcome)])
@@ -68,7 +68,7 @@ Views never mutate `FlowStore.path` directly; they emit
 `FlowIntent` values through the environment dispatcher so
 middleware and telemetry observe every step:
 
-```swift
+```swift skip doc-fragment
 struct WelcomeRootView: View {
     @EnvironmentFlowIntent<AppRoute> private var flow
 
@@ -92,7 +92,7 @@ progression (email → password → confirmation). The outer
 onboarding coordinator launches it via `push(child:)` and `await`s
 the final `UserID`:
 
-```swift
+```swift skip doc-fragment
 @MainActor
 final class SignUpCoordinator: ChildCoordinator {
     typealias Result = UserID
@@ -135,7 +135,7 @@ for the design rationale.
 `FlowTestStore` (in `InnoRouterTesting`) exercises the full chain
 in a unit test without mounting any SwiftUI host:
 
-```swift
+```swift skip doc-fragment
 @Test
 @MainActor
 func signUpCompletesOnboarding() {

@@ -9,7 +9,7 @@ host.
 
 Add `InnoRouterTesting` to the test target only:
 
-```swift
+```swift skip doc-fragment
 .testTarget(
     name: "AppTests",
     dependencies: [
@@ -21,7 +21,7 @@ Add `InnoRouterTesting` to the test target only:
 
 Then import both modules alongside Swift Testing:
 
-```swift
+```swift skip doc-fragment
 import Testing
 import InnoRouter
 import InnoRouterTesting
@@ -29,7 +29,7 @@ import InnoRouterTesting
 
 ## The happy path
 
-```swift
+```swift skip doc-fragment
 private enum AppRoute: Route {
     case welcome, preAuth, signup
 }
@@ -62,7 +62,7 @@ them in the order the production stores emit.
 `FlowTestStore` surfaces cancellations as first-class events, so
 tests can assert them precisely:
 
-```swift
+```swift skip doc-fragment
 @MainActor
 private func blockSheetMiddleware() -> AnyModalMiddleware<AppRoute> {
     AnyModalMiddleware(willExecute: { command, _, _ in
@@ -102,7 +102,7 @@ func sheetBlockingMiddlewareCancelsTheIntent() {
 without asserting, which is useful when a test only cares about
 events *after* a setup mutation:
 
-```swift
+```swift skip doc-fragment
 store.send(.presentSheet(.signup)) // enqueues .modal + .pathChanged
 store.skipReceivedEvents()         // we don't care about setup
 
@@ -120,7 +120,7 @@ intended intent."
 
 Opt out selectively:
 
-```swift
+```swift skip doc-fragment
 let store = FlowTestStore<AppRoute>(exhaustivity: .off)
 ```
 
@@ -129,18 +129,18 @@ check is silenced. Useful when migrating a legacy test in stages.
 
 ## Direct state inspection
 
-`FlowTestStore` exposes the underlying `FlowStore` for occasional
-direct assertions:
+`FlowTestStore` exposes the projected `path` for occasional direct
+assertions:
 
-```swift
+```swift skip doc-fragment
 #expect(store.path == [.push(.preAuth)])
-#expect(store.store.navigationStore.state.path == [.preAuth])
-#expect(store.store.modalStore.currentPresentation == nil)
 ```
 
 Prefer `receive*` for production assertions — they cover both
 state and the emission order — but escape hatches are useful for
-sanity checks.
+sanity checks. The inner `NavigationStore` / `ModalStore` behind a
+`FlowStore` are SPI in 4.0; use public flow events and `path` unless
+you are writing focused package-internal invariant tests.
 
 ## Testing middleware behaviour directly
 
@@ -150,7 +150,7 @@ correctly pass through, cancel, or rewrite commands for every input
 shape? `NavigationTestStore` + `ModalTestStore` let you do that
 without a FlowStore in the middle.
 
-```swift
+```swift skip doc-fragment
 @MainActor
 private final class RecordingMiddleware: NavigationMiddleware {
     typealias RouteType = AppRoute
@@ -215,7 +215,7 @@ to expose `SeededGenerator`, `Arbitrary`, or `FlowModelState`.
 The idiom is **Swift Testing `@Test(arguments:)` iterated over many
 seeds**, each seed driving a deterministic random intent stream:
 
-```swift
+```swift skip doc-fragment
 @Test(arguments: 0..<100)
 @MainActor
 func randomFlowIntentsPreserveInvariants(seed: UInt64) async {

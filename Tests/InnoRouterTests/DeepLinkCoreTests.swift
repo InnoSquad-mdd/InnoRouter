@@ -50,6 +50,23 @@ struct DeepLinkTests {
         #expect(parameters.firstValue(forName: "tag") == "a")
     }
 
+    @Test("DeepLinkParameters parses typed values")
+    func testDeepLinkParametersTypedValues() {
+        let uuid = UUID(uuidString: "9D5C7829-CC7F-4EB7-A701-F13DF35C8A26")!
+        let parameters = DeepLinkParameters(valuesByName: [
+            "id": ["42", "not-an-int", "7"],
+            "enabled": ["true"],
+            "uuid": [uuid.uuidString],
+            "invalidUUID": ["nope"],
+        ])
+
+        #expect(parameters.firstValue(forName: "id", as: Int.self) == 42)
+        #expect(parameters.values(forName: "id", as: Int.self) == [42, 7])
+        #expect(parameters.firstValue(forName: "enabled", as: Bool.self) == true)
+        #expect(parameters.firstValue(forName: "uuid", as: UUID.self) == uuid)
+        #expect(parameters.firstValue(forName: "invalidUUID", as: UUID.self) == nil)
+    }
+
     @Test("Path parameters take precedence when query uses same key")
     func testPatternMergeCollisionOrder() {
         let pattern = DeepLinkPattern("/products/:id")
@@ -115,9 +132,17 @@ struct DeepLinkTests {
     @Test("DeepLinkPattern matches wildcard")
     func testPatternWildcard() {
         let pattern = DeepLinkPattern("/api/*")
-        
+
         let result = pattern.match("/api/v1/users/123")
         #expect(result != nil)
+    }
+
+    @Test("DeepLinkPattern rejects non-terminal wildcard")
+    func testPatternRejectsNonTerminalWildcard() {
+        let pattern = DeepLinkPattern("/api/*/users")
+
+        #expect(pattern.match("/api/v1/users") == nil)
+        #expect(pattern.match("/api/v1/other") == nil)
     }
     
     @Test("DeepLinkMatcher finds matching route")
@@ -174,6 +199,39 @@ struct DeepLinkTests {
                     shadowedPattern: "/api/users",
                     shadowedIndex: 1
                 )
+            ]
+        )
+    }
+
+    @Test("DeepLinkMatcher surfaces non-terminal wildcard diagnostics")
+    func testMatcherNonTerminalWildcardDiagnostics() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/api/*/users") { _ in .home }
+            DeepLinkMapping("/api/users") { _ in .settings }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .nonTerminalWildcard(pattern: "/api/*/users", index: 1)
+            ]
+        )
+        #expect(matcher.match(URL(string: "myapp://app/api/v1/users")!) == nil)
+    }
+
+    @Test("DeepLinkMatcher does not layer shadow diagnostics on invalid wildcard patterns")
+    func testMatcherNonTerminalWildcardDiagnosticsDoNotCascade() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/api/*") { _ in .home }
+            DeepLinkMapping("/api/*/users") { _ in .settings }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .nonTerminalWildcard(pattern: "/api/*/users", index: 1)
             ]
         )
     }

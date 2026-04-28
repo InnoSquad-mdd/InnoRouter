@@ -16,7 +16,7 @@ store.
 
 ## Implementation
 
-```swift
+```swift skip doc-fragment
 @MainActor
 final class AnalyticsObserver: StoreObserver {
     typealias RouteType = AppRoute
@@ -46,7 +46,7 @@ default to no-ops via a protocol extension.
 
 ## Attaching
 
-```swift
+```swift skip doc-fragment
 let observer = AnalyticsObserver()
 let navSubscription = navigationStore.observe(observer)
 let modalSubscription = modalStore.observe(observer)
@@ -60,7 +60,7 @@ via `isolated deinit`.
 
 To stop observing early:
 
-```swift
+```swift skip doc-fragment
 navSubscription.cancel()
 ```
 
@@ -74,7 +74,7 @@ emissions) and routes them through the observer's matching typed
 `handle(_:)` overload. One subscription covers all three authorities
 on a flow surface.
 
-```swift
+```swift skip doc-fragment
 let flowSubscription = flowStore.observe(observer)
 // observer.handle(.navigation(.changed(…))) → observer.handle(_:NavigationEvent)
 // observer.handle(.modal(.presented(…)))    → observer.handle(_:ModalEvent)

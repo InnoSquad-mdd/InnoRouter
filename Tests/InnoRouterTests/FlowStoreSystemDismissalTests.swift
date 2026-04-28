@@ -5,7 +5,7 @@
 import Testing
 import Foundation
 import InnoRouter
-@testable import InnoRouterSwiftUI
+@_spi(FlowStoreInternals) @testable import InnoRouterSwiftUI
 
 private enum FlowSystemRoute: Route {
     case home

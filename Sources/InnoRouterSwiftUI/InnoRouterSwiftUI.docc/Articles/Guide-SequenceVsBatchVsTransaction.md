@@ -41,7 +41,7 @@ user sees no half-applied state").
 
 ### Compose a single command that drives a deep link plan
 
-```swift
+```swift skip doc-fragment
 let plan = NavigationPlan<AppRoute>(commands: [
     .replace([.home]),
     .push(.detail(id))
@@ -57,7 +57,7 @@ to flow through the same code path as a single command.
 
 ### Apply a checkout flow as one observable step
 
-```swift
+```swift skip doc-fragment
 let batch = store.executeBatch([
     .replace([.home]),
     .push(.orderConfirmation),
@@ -71,7 +71,7 @@ up in the same analytics event.
 
 ### KYC step requiring all-or-nothing
 
-```swift
+```swift skip doc-fragment
 let transaction = store.executeTransaction([
     .replace([.kycRoot]),
     .push(.kycDocumentUpload),
@@ -88,7 +88,7 @@ worse than showing a "please retry" message.
 
 ### Async debounce on a search field
 
-```swift
+```swift skip doc-fragment
 let debouncing = DebouncingNavigator(
     wrapping: store,
     interval: .milliseconds(300)

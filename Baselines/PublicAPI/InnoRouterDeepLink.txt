@@ -32,6 +32,7 @@ relationship | memberOf | DeepLinkMatcherDiagnostic.Kind.parameter | DeepLinkMat
 relationship | memberOf | DeepLinkMatcherDiagnostic.Kind.wildcard | DeepLinkMatcherDiagnostic.Kind |  |
 relationship | memberOf | DeepLinkMatcherDiagnostic.duplicatePattern(pattern:firstIndex:duplicateIndex:) | DeepLinkMatcherDiagnostic |  |
 relationship | memberOf | DeepLinkMatcherDiagnostic.message | DeepLinkMatcherDiagnostic |  |
+relationship | memberOf | DeepLinkMatcherDiagnostic.nonTerminalWildcard(pattern:index:) | DeepLinkMatcherDiagnostic |  |
 relationship | memberOf | DeepLinkMatcherDiagnostic.parameterShadowing(pattern:index:shadowedPattern:shadowedIndex:) | DeepLinkMatcherDiagnostic |  |
 relationship | memberOf | DeepLinkMatcherDiagnostic.wildcardShadowing(pattern:index:shadowedPattern:shadowedIndex:) | DeepLinkMatcherDiagnostic |  |
 relationship | memberOf | DeepLinkMatcherDiagnosticsMode.debugWarnings | DeepLinkMatcherDiagnosticsMode |  |
@@ -39,9 +40,11 @@ relationship | memberOf | DeepLinkMatcherDiagnosticsMode.disabled | DeepLinkMatc
 relationship | memberOf | DeepLinkMatcherStrictError.diagnostics | DeepLinkMatcherStrictError |  |
 relationship | memberOf | DeepLinkMatcherStrictError.init(diagnostics:) | DeepLinkMatcherStrictError |  |
 relationship | memberOf | DeepLinkParameters.firstValue(forName:) | DeepLinkParameters |  |
+relationship | memberOf | DeepLinkParameters.firstValue(forName:as:) | DeepLinkParameters |  |
 relationship | memberOf | DeepLinkParameters.firstValuesByName | DeepLinkParameters |  |
 relationship | memberOf | DeepLinkParameters.init(valuesByName:) | DeepLinkParameters |  |
 relationship | memberOf | DeepLinkParameters.values(forName:) | DeepLinkParameters |  |
+relationship | memberOf | DeepLinkParameters.values(forName:as:) | DeepLinkParameters |  |
 relationship | memberOf | DeepLinkParameters.valuesByName | DeepLinkParameters |  |
 relationship | memberOf | DeepLinkParser.ParsedURL | DeepLinkParser |  |
 relationship | memberOf | DeepLinkParser.ParsedURL.firstQueryItems | DeepLinkParser.ParsedURL |  |
@@ -105,6 +108,7 @@ relationship | memberOf | PendingDeepLink.init(url:route:plan:) | PendingDeepLin
 relationship | memberOf | PendingDeepLink.plan | PendingDeepLink |  |
 relationship | memberOf | PendingDeepLink.route | PendingDeepLink |  |
 relationship | memberOf | PendingDeepLink.url | PendingDeepLink |  |
+relationship | requirementOf | DeepLinkParameterValue.parseDeepLinkParameter(_:) | DeepLinkParameterValue |  |
 relationship | requirementOf | DeepLinkable.deepLinkPath | DeepLinkable |  |
 relationship | requirementOf | DeepLinkable.route(from:) | DeepLinkable |  |
 symbol | swift.enum | DeepLinkAuthenticationPolicy | DeepLinkAuthenticationPolicy | enum DeepLinkAuthenticationPolicy<R> where R : Route | []
@@ -129,6 +133,7 @@ symbol | swift.enum.case | DeepLinkDecision.unhandled(url:) | DeepLinkDecision.u
 symbol | swift.enum.case | DeepLinkMatcherDiagnostic.Kind.parameter | DeepLinkMatcherDiagnostic.Kind.parameter | case parameter | []
 symbol | swift.enum.case | DeepLinkMatcherDiagnostic.Kind.wildcard | DeepLinkMatcherDiagnostic.Kind.wildcard | case wildcard | []
 symbol | swift.enum.case | DeepLinkMatcherDiagnostic.duplicatePattern(pattern:firstIndex:duplicateIndex:) | DeepLinkMatcherDiagnostic.duplicatePattern(pattern:firstIndex:duplicateIndex:) | case duplicatePattern(pattern: String, firstIndex: Int, duplicateIndex: Int) | []
+symbol | swift.enum.case | DeepLinkMatcherDiagnostic.nonTerminalWildcard(pattern:index:) | DeepLinkMatcherDiagnostic.nonTerminalWildcard(pattern:index:) | case nonTerminalWildcard(pattern: String, index: Int) | []
 symbol | swift.enum.case | DeepLinkMatcherDiagnostic.parameterShadowing(pattern:index:shadowedPattern:shadowedIndex:) | DeepLinkMatcherDiagnostic.parameterShadowing(pattern:index:shadowedPattern:shadowedIndex:) | case parameterShadowing(pattern: String, index: Int, shadowedPattern: String, shadowedIndex: Int) | []
 symbol | swift.enum.case | DeepLinkMatcherDiagnostic.wildcardShadowing(pattern:index:shadowedPattern:shadowedIndex:) | DeepLinkMatcherDiagnostic.wildcardShadowing(pattern:index:shadowedPattern:shadowedIndex:) | case wildcardShadowing(pattern: String, index: Int, shadowedPattern: String, shadowedIndex: Int) | []
 symbol | swift.enum.case | DeepLinkMatcherDiagnosticsMode.debugWarnings | DeepLinkMatcherDiagnosticsMode.debugWarnings | case debugWarnings | []
@@ -163,7 +168,9 @@ symbol | swift.init | PendingDeepLink.init(url:route:plan:) | init(url:route:pla
 symbol | swift.method | DeepLinkMatcher.match(_:) | match(_:) | func match(_ url: URL) -> R? | []
 symbol | swift.method | DeepLinkMatcher.match(_:) | match(_:) | func match(_ urlString: String) -> R? | []
 symbol | swift.method | DeepLinkParameters.firstValue(forName:) | firstValue(forName:) | func firstValue(forName name: String) -> String? | []
+symbol | swift.method | DeepLinkParameters.firstValue(forName:as:) | firstValue(forName:as:) | func firstValue<Value>(forName name: String, as type: Value.Type = Value.self) -> Value? where Value : DeepLinkParameterValue | []
 symbol | swift.method | DeepLinkParameters.values(forName:) | values(forName:) | func values(forName name: String) -> [String] | []
+symbol | swift.method | DeepLinkParameters.values(forName:as:) | values(forName:as:) | func values<Value>(forName name: String, as type: Value.Type = Value.self) -> [Value] where Value : DeepLinkParameterValue | []
 symbol | swift.method | DeepLinkPattern.match(_:) | match(_:) | func match(_ parsed: DeepLinkParser.ParsedURL) -> DeepLinkPattern.MatchResult? | []
 symbol | swift.method | DeepLinkPattern.match(_:) | match(_:) | func match(_ path: String) -> DeepLinkPattern.MatchResult? | []
 symbol | swift.method | DeepLinkPipeline.decide(for:) | decide(for:) | func decide(for url: URL) -> DeepLinkDecision<R> | []
@@ -206,6 +213,7 @@ symbol | swift.property | NavigationPlan.commands | commands | var commands: [Na
 symbol | swift.property | PendingDeepLink.plan | plan | let plan: NavigationPlan<R> | []
 symbol | swift.property | PendingDeepLink.route | route | let route: R | []
 symbol | swift.property | PendingDeepLink.url | url | let url: URL | []
+symbol | swift.protocol | DeepLinkParameterValue | DeepLinkParameterValue | protocol DeepLinkParameterValue : Sendable | []
 symbol | swift.protocol | DeepLinkable | DeepLinkable | protocol DeepLinkable : Route | []
 symbol | swift.struct | DeepLinkMapping | DeepLinkMapping | struct DeepLinkMapping<R> where R : Route | []
 symbol | swift.struct | DeepLinkMappingBuilder | DeepLinkMappingBuilder | @resultBuilder struct DeepLinkMappingBuilder<R> where R : Route | []
@@ -226,21 +234,37 @@ symbol | swift.struct | FlowPendingDeepLink | FlowPendingDeepLink | struct FlowP
 symbol | swift.struct | FlowPendingDeepLinkPersistence | FlowPendingDeepLinkPersistence | struct FlowPendingDeepLinkPersistence<R> where R : Route, R : Decodable, R : Encodable | []
 symbol | swift.struct | NavigationPlan | NavigationPlan | struct NavigationPlan<R> where R : Route | []
 symbol | swift.struct | PendingDeepLink | PendingDeepLink | struct PendingDeepLink<R> where R : Route | []
+symbol | swift.type.method | Bool.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Bool? | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildArray(_:) | buildArray(_:) | static func buildArray(_ components: [[DeepLinkMapping<R>]]) -> [DeepLinkMapping<R>] | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildBlock(_:) | buildBlock(_:) | static func buildBlock(_ components: DeepLinkMapping<R>...) -> [DeepLinkMapping<R>] | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildEither(first:) | buildEither(first:) | static func buildEither(first component: [DeepLinkMapping<R>]) -> [DeepLinkMapping<R>] | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildEither(second:) | buildEither(second:) | static func buildEither(second component: [DeepLinkMapping<R>]) -> [DeepLinkMapping<R>] | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildExpression(_:) | buildExpression(_:) | static func buildExpression(_ expression: DeepLinkMapping<R>) -> DeepLinkMapping<R> | []
 symbol | swift.type.method | DeepLinkMappingBuilder.buildOptional(_:) | buildOptional(_:) | static func buildOptional(_ component: [DeepLinkMapping<R>]?) -> [DeepLinkMapping<R>] | []
+symbol | swift.type.method | DeepLinkParameterValue.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Self? | []
 symbol | swift.type.method | DeepLinkParser.parse(_:) | parse(_:) | static func parse(_ url: URL) -> DeepLinkParser.ParsedURL | []
 symbol | swift.type.method | DeepLinkParser.parse(_:) | parse(_:) | static func parse(_ urlString: String) -> DeepLinkParser.ParsedURL? | []
 symbol | swift.type.method | DeepLinkable.route(from:) | route(from:) | static func route(from url: URL) -> Self? | []
+symbol | swift.type.method | Double.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Double? | []
+symbol | swift.type.method | Float.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Float? | []
 symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildArray(_:) | buildArray(_:) | static func buildArray(_ components: [[FlowDeepLinkMapping<R>]]) -> [FlowDeepLinkMapping<R>] | []
 symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildBlock(_:) | buildBlock(_:) | static func buildBlock(_ components: FlowDeepLinkMapping<R>...) -> [FlowDeepLinkMapping<R>] | []
 symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildEither(first:) | buildEither(first:) | static func buildEither(first component: [FlowDeepLinkMapping<R>]) -> [FlowDeepLinkMapping<R>] | []
 symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildEither(second:) | buildEither(second:) | static func buildEither(second component: [FlowDeepLinkMapping<R>]) -> [FlowDeepLinkMapping<R>] | []
 symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildExpression(_:) | buildExpression(_:) | static func buildExpression(_ expression: FlowDeepLinkMapping<R>) -> FlowDeepLinkMapping<R> | []
 symbol | swift.type.method | FlowDeepLinkMappingBuilder.buildOptional(_:) | buildOptional(_:) | static func buildOptional(_ component: [FlowDeepLinkMapping<R>]?) -> [FlowDeepLinkMapping<R>] | []
+symbol | swift.type.method | Int.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int? | []
+symbol | swift.type.method | Int16.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int16? | []
+symbol | swift.type.method | Int32.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int32? | []
+symbol | swift.type.method | Int64.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int64? | []
+symbol | swift.type.method | Int8.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> Int8? | []
+symbol | swift.type.method | String.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> String? | []
+symbol | swift.type.method | UInt.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> UInt? | []
+symbol | swift.type.method | UInt16.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> UInt16? | []
+symbol | swift.type.method | UInt32.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> UInt32? | []
+symbol | swift.type.method | UInt64.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> UInt64? | []
+symbol | swift.type.method | UInt8.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> UInt8? | []
+symbol | swift.type.method | UUID.parseDeepLinkParameter(_:) | parseDeepLinkParameter(_:) | static func parseDeepLinkParameter(_ value: String) -> UUID? | []
 symbol | swift.type.property | DeepLinkMatcherConfiguration.default | default | static var `default`: DeepLinkMatcherConfiguration { get } | []
 symbol | swift.type.property | DeepLinkPattern.MatchResult.noMatch | noMatch | static let noMatch: DeepLinkPattern.MatchResult | []
 symbol | swift.typealias | DeepLinkPipeline.Planner | DeepLinkPipeline.Planner | typealias Planner = (R) -> NavigationPlan<R> | []

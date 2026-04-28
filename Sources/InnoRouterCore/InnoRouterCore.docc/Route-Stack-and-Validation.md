@@ -32,7 +32,7 @@ Built-in validators:
 
 Validators compose through `RouteStackValidator.combined(with:)`. This gives you a simple way to express app-specific rules without putting those rules into the core engine.
 
-```swift
+```swift skip doc-fragment
 let validator = RouteStackValidator<MyRoute>
     .nonEmpty
     .combined(with: .rooted(at: .home))

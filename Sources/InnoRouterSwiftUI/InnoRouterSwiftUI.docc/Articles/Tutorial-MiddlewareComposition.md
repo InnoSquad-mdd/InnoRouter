@@ -15,7 +15,7 @@ participated in the `willExecute` decision.
 
 ## Modeling routes
 
-```swift
+```swift skip doc-fragment
 enum AppRoute: Route {
     case home
     case premiumDetail
@@ -29,7 +29,7 @@ Reuse the `AnyNavigationMiddleware` / `AnyModalMiddleware`
 closure initializers so a minimal shared logger composes without
 boilerplate:
 
-```swift
+```swift skip doc-fragment
 @MainActor
 func loggingNavigationMiddleware() -> AnyNavigationMiddleware<AppRoute> {
     AnyNavigationMiddleware(
@@ -63,7 +63,7 @@ func loggingModalMiddleware() -> AnyModalMiddleware<AppRoute> {
 The gate is itself a middleware; denying a command is just
 returning `.cancel(reason)`:
 
-```swift
+```swift skip doc-fragment
 @MainActor
 func entitlementGateNavigation(hasPremium: @escaping @MainActor () -> Bool) -> AnyNavigationMiddleware<AppRoute> {
     AnyNavigationMiddleware(willExecute: { command, _ in
@@ -82,7 +82,7 @@ when used from `FlowStore`.
 
 ## Wiring it all
 
-```swift
+```swift skip doc-fragment
 let navStore = NavigationStore<AppRoute>(
     configuration: .init(
         middlewares: [
@@ -123,7 +123,7 @@ direct cancellation. For a `FlowStore` in particular,
 `FlowStore.events` wraps both in `.navigation(...)` / `.modal(...)`
 cases so one subscriber sees the whole picture.
 
-```swift
+```swift skip doc-fragment
 Task {
     for await event in flowStore.events {
         if case .modal(.commandIntercepted(_, .cancelled(let reason))) = event {
@@ -141,7 +141,7 @@ Task {
 `FlowTestStore` (in `InnoRouterTesting`) asserts the cancellation
 chain without mounting SwiftUI:
 
-```swift
+```swift skip doc-fragment
 @Test
 @MainActor
 func entitlementGateBlocksPremiumPush() {

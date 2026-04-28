@@ -1,6 +1,6 @@
 # Competitive Analysis and Improvement Roadmap
 
-_Last updated: 2026-04-21 · Maintainer snapshot after PR #18 execution-model, spec-test, and performance groundwork_
+_Last updated: 2026-04-27 · Maintainer snapshot after the 4.0.0 unreleased quality and adoption sweep_
 
 This document positions InnoRouter against comparable SwiftUI navigation
 libraries and derives a prioritised improvement backlog from the gaps.
@@ -81,9 +81,10 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
   `ChildCoordinator` + `parent.push(child:) -> Task<Result?, Never>`
   (#14) now provides child → parent finish chaining with inline
   `await` on the child result.
-- **Lag (narrowed)**: "back to root across coordinators" still
-  requires manual cleanup. Remaining P3 item: `Task` cancellation
-  propagation parent → child.
+- **Former lag (closed)**: "back to root across coordinators" remains
+  app-owned cleanup, but parent `Task` cancellation now propagates
+  through `ChildCoordinator.parentDidCancel` and
+  `ChildCoordinatorTaskTracker`.
 
 ### vs Stinsen — 960★ (legacy)
 - **Lead**: every axis. NavigationStack-era, Observation, Sendable,
@@ -162,9 +163,9 @@ Shape (landed):
   succeeds, so a mid-flight middleware cancellation cannot leave the
   composite in a torn state.
 
-Unlocks: flow-level deep links, restoration, replay. Next gap is
-serialisation (Codable `RouteStep` / `FlowPlan`) and pipeline
-integration — tracked under P0-3 and P2-2.
+Unlocks: flow-level deep links, restoration, replay. Follow-up
+work is now adoption proof (examples, case studies, and app
+migrations), not missing core value semantics.
 
 #### P0-3 Deep-link path rehydration + `FlowPlan` integration — **Shipped**
 
@@ -219,8 +220,8 @@ Shape (landed):
   parent's `await`), avoiding a `@MainActor` re-entrancy deadlock.
 - Design rationale in `Docs/design-child-coordinator-handoff.md`.
 
-Remaining gap (tracked as P3): `Task` cancellation propagation from
-parent → child.
+The P3 cancellation follow-up is now closed by
+`ChildCoordinator.parentDidCancel` and `ChildCoordinatorTaskTracker`.
 
 #### P1-2 Typed destination bindings — **Shipped (#14)**
 
@@ -383,18 +384,18 @@ Shape (landed):
 - **P3-3 Macro diagnostics** — `@Routable` and `@CasePathable`
   now share a `MacroDiagnostic` layer. Misapplication to a struct
   or class attaches a Swift FixIt offering to change the keyword
-  to `enum`. Empty enums produce a warning instead of silently
+  to `enum`. Empty enums now produce an error instead of silently
   expanding to nothing.
-- **P3-4 Command algebra extensions (partial)** —
+- **P3-4 Command algebra extensions** —
   `.whenCancelled(NavigationCommand<R>, fallback:)` adds a
   synchronous fallback case to `NavigationCommand`, handled both
   by `NavigationEngine` (engine-level failures) and
   `NavigationStore` (middleware-driven cancellation).
   `ThrottleNavigationMiddleware<R, C>` adds a
   generic-over-Clock middleware for rate-limiting with
-  deterministic test-clock injection. `.debounce` remains open —
-  it needs a timer + cancellable Task infrastructure outside the
-  synchronous engine contract.
+  deterministic test-clock injection. Debounce semantics shipped
+  in 4.0.0 as `DebouncingNavigator`, keeping timer-driven delayed
+  execution outside the synchronous `NavigationCommand` algebra.
 - **P3-5 StoreObserver protocol adapter** — replaces a full
   `NavigationPlugin` surface (which would have duplicated the
   `events: AsyncStream` channel). `StoreObserver` is a thin
@@ -426,10 +427,11 @@ Shape (landed):
   stays non-Codable because `NavigationPlan` is runtime-only
   by design.
 
-#### Still open
+#### Superseded or declined
 
-- **`.debounce` NavigationCommand** — deferred; needs Clock
-  injection + deferred Task infrastructure.
+- **`.debounce` as a `NavigationCommand` case** — superseded by
+  `DebouncingNavigator`. The engine remains synchronous and the
+  debounce window lives in an async wrapper with `Clock` injection.
 - **Full `NavigationPlugin` surface** — superseded by
   `StoreObserver` for the observability use case. A
   plugin-style lifecycle sub-framework is not currently
@@ -453,7 +455,7 @@ Shape (landed):
 | P3 | Parent Task cancellation (`parentDidCancel`) | coordinator UX polish | small | **shipped** |
 | P3 | FlowIntent named-intent parity (`.replaceStack`/`.backOrPush`/`.pushUniqueRoot`) | ergonomics parity | small | **shipped** |
 | P3 | Macro diagnostics + FixIts | DX polish | small | **shipped** |
-| P3 | Command algebra: `.whenCancelled` + `ThrottleNavigationMiddleware` | UX polish | small | **shipped** (debounce deferred) |
+| P3 | Command algebra: `.whenCancelled` + throttling + debouncing wrapper | UX polish | small | **shipped** |
 | P3 | `StoreObserver` protocol adapter | observability ergonomics | small | **shipped** |
 | P3 | Property-based tests (Swift Testing `@Test(arguments:)`) | invariant coverage | small | **shipped** |
 | P3 | FlowIntent modal-aware variants | ergonomics | small | **shipped** |
@@ -464,40 +466,34 @@ Shape (landed):
 ## 6. Suggested next work
 
 With the P3 polish cluster shipped (macro FixIts, `.whenCancelled`,
-`ThrottleNavigationMiddleware`, `StoreObserver`, property-based
-tests, modal-aware FlowIntent variants, `ChildCoordinatorTaskTracker`,
+`ThrottleNavigationMiddleware`, `DebouncingNavigator`,
+`StoreObserver`, property-based tests, modal-aware FlowIntent
+variants, `ChildCoordinatorTaskTracker`,
 `FlowPendingDeepLinkPersistence`) **and the all-platform /
 visionOS-spatial extension** (`ScenePresentation`, `SceneDeclaration`,
 `SceneRegistry`, `SceneStore`, `SceneHost`, `innoRouterOrnament`,
-per-platform CI), the
-P0 / P1 / P3 backlog is **empty** and SwiftUI-only is the final
-positioning stance. **3.0.0 release candidate.**
+per-platform CI), the P0 / P1 / P3 backlog is **empty** and
+SwiftUI-only is the final positioning stance.
 
-Two deferred items remain, plus one closed positioning decision:
+Current investment direction: **finish the 4.0.0 unreleased quality
+and adoption sweep, refresh public examples/docs from the source
+contract, then tag 4.0.0**.
 
 - **P2-3 UIKit escape hatch** — declined. SwiftUI-only positioning
   is now explicit in the roadmap and in the README platform-support
   matrix. Teams that need UIKit / AppKit adapters can compose
   swift-navigation for those surfaces alongside InnoRouter for
   stack / modal / flow authority.
-- **`.debounce` NavigationCommand** — deferred from P3-4; still
-  wants a Clock-injection + deferred-Task design pass. Blocks
-  nothing.
 - **Macro dependency cost spike** — keep `InnoRouterMacros` in this
-  package for 3.0.0. Before introducing package traits or a separate
+  package for 4.0.0. Before introducing package traits or a separate
   macro package, compare `swift package show-traits`,
   `swift build --target InnoRouter`, and
   `swift build --target InnoRouterMacros` against the migration cost
   for existing `import InnoRouterMacros` users.
 
-Primary investment direction from here: **tag 3.0.0, ship the
-release notes, refresh public examples, and shift to
-evangelism** (case studies, migration guides for apps coming from
-TCA / FlowStacks / SwiftfulRouting, visionOS ornament-driven apps).
-
 ## 7. Sources
 
-- InnoRouter repo, `main @ 5a6c3549` + feat/p3-polish-cluster (2026-04-21).
+- InnoRouter repo, `main @ 5808d8f` + 4.0.0 unreleased sweep (2026-04-27).
 - [pointfreeco/swift-composable-architecture](https://github.com/pointfreeco/swift-composable-architecture)
 - [pointfreeco/swift-navigation](https://github.com/pointfreeco/swift-navigation)
 - [johnpatrickmorgan/FlowStacks](https://github.com/johnpatrickmorgan/FlowStacks)

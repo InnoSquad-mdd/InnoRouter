@@ -13,7 +13,9 @@ import Foundation
 /// Subscribers receive their own `AsyncStream` via `stream()`, and the
 /// broadcaster cleans up per-subscriber state through
 /// `AsyncStream.Continuation.onTermination` so cancelled `for await`
-/// loops do not leak continuations.
+/// loops do not leak continuations. Termination callbacks are nonisolated, so
+/// cleanup hops back to the main actor and `subscriberCount` is intentionally
+/// an eventually-consistent test probe immediately after cancellation.
 ///
 /// `@MainActor` isolation matches the authority of every store that
 /// owns an instance. `isolated deinit` (SE-0371 / Swift 6.2) lets the
@@ -64,6 +66,10 @@ package final class EventBroadcaster<Event: Sendable> {
     }
 
     /// Number of live subscribers — exposed for test observability.
+    ///
+    /// Cancellation cleanup is scheduled from `AsyncStream` termination back
+    /// onto the main actor, so this value may include a just-terminated stream
+    /// until that cleanup task drains.
     package var subscriberCount: Int {
         continuations.count
     }

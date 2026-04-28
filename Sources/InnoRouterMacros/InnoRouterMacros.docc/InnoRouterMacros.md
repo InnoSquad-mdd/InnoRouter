@@ -30,7 +30,7 @@ That means **different imports pull different surfaces into scope**:
 
 A file that uses both macros and runtime symbols imports both:
 
-```swift
+```swift skip doc-fragment
 import InnoRouter
 import InnoRouterMacros
 

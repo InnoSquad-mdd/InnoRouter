@@ -162,6 +162,23 @@ struct FlowDeepLinkMatcherTests {
         )
     }
 
+    @Test("FlowDeepLinkMatcher surfaces non-terminal wildcard diagnostics")
+    func nonTerminalWildcardDiagnostics() {
+        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            FlowDeepLinkMapping("/api/*/users") { _ in FlowPlan(steps: [.push(.home)]) }
+            FlowDeepLinkMapping("/api/users") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .nonTerminalWildcard(pattern: "/api/*/users", index: 1)
+            ]
+        )
+        #expect(matcher.match("myapp://app/api/v1/users") == nil)
+    }
+
     @Test("FlowDeepLinkMatcher surfaces parameter shadowing diagnostics")
     func parameterShadowingDiagnostics() {
         let matcher = FlowDeepLinkMatcher<MatcherRoute>(

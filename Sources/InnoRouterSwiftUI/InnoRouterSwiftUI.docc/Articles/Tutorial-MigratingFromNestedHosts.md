@@ -10,7 +10,7 @@ unlocking a serializable `[RouteStep<R>]` path and
 
 An app that shipped before `FlowStore` landed typically has:
 
-```swift
+```swift skip doc-fragment
 @main
 struct LegacyApp: App {
     @State private var nav = NavigationStore<AppRoute>()
@@ -34,7 +34,7 @@ inside a presented sheet" without hand-serializing both halves.
 
 ## Target shape
 
-```swift
+```swift skip doc-fragment
 @main
 struct MigratedApp: App {
     @State private var flow = FlowStore<AppRoute>()
@@ -68,13 +68,13 @@ environment.
 ### 2. Route view intents through `FlowIntent`
 
 Old:
-```swift
+```swift skip doc-fragment
 navigationStore.send(.go(.detail))
 modalStore.present(.sheet, style: .sheet)
 ```
 
 New:
-```swift
+```swift skip doc-fragment
 @EnvironmentFlowIntent<AppRoute> private var flow
 // ...
 flow.send(.push(.detail))
@@ -90,7 +90,7 @@ or telemetry attached to those stores continues to run.
 `FlowStoreConfiguration` composes `NavigationStoreConfiguration` +
 `ModalStoreConfiguration`, so existing configs port 1:1:
 
-```swift
+```swift skip doc-fragment
 let flow = FlowStore<AppRoute>(
     configuration: .init(
         navigation: legacyNavigationConfiguration,
@@ -122,13 +122,13 @@ app in subtle ways.
 `FlowPlan<R>.steps` is `[RouteStep<R>]`, so once your routes opt
 into `Codable`:
 
-```swift
+```swift skip doc-fragment
 extension AppRoute: Codable {}
 ```
 
 `StatePersistence<AppRoute>` round-trips the whole flow state:
 
-```swift
+```swift skip doc-fragment
 let persistence = StatePersistence<AppRoute>()
 
 // On app background

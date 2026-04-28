@@ -15,7 +15,7 @@ enough for state restoration, deep-link payloads, and offline replay.
 `StatePersistence<R>` bundles a `JSONEncoder` and `JSONDecoder` so
 call sites don't have to redeclare them:
 
-```swift
+```swift skip doc-fragment
 let persistence = StatePersistence<AppRoute>()
 
 // At checkpoint time (e.g. scene will deactivate):
@@ -71,7 +71,7 @@ Any `JSONEncoder` and `JSONDecoder` are acceptable inputs. Pass a
 preconfigured pair to the initializer for deterministic output, date
 strategies, or custom key coding:
 
-```swift
+```swift skip doc-fragment
 let encoder = JSONEncoder()
 encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
 

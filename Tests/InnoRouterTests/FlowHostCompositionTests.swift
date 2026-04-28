@@ -5,7 +5,7 @@
 import Testing
 import SwiftUI
 import InnoRouter
-@testable import InnoRouterSwiftUI
+@_spi(FlowStoreInternals) @testable import InnoRouterSwiftUI
 
 private enum FlowHostRoute: Route {
     case landing

@@ -16,6 +16,19 @@ Patterns support:
 
 This keeps matching simple and predictable for app routing.
 
+Wildcards are terminal-only. A pattern like `/api/*/users` is invalid:
+it produces a `.nonTerminalWildcard(pattern:index:)` diagnostic and does
+not match runtime paths.
+
+Captured values stay available as strings through `firstValue(forName:)`
+and `values(forName:)`. For common scalar types, use the typed overloads:
+
+```swift skip doc-fragment
+let id = parameters.firstValue(forName: "id", as: UUID.self)
+let page = parameters.firstValue(forName: "page", as: Int.self)
+let selectedTags = parameters.values(forName: "tag", as: String.self)
+```
+
 ## Match precedence
 
 Match precedence remains declaration-order based.
@@ -32,6 +45,7 @@ That means:
 
 - duplicate patterns
 - wildcard shadowing
+- non-terminal wildcards
 - parameter-heavy patterns that subsume more specific later patterns
 
 Diagnostics are available on both push-only and flow matchers. They

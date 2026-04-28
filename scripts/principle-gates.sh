@@ -64,6 +64,9 @@ echo "[principle-gates] Checking public API baselines"
 echo "[principle-gates] Checking maintainer docs consistency"
 ./scripts/check-docs-consistency.sh
 
+echo "[principle-gates] Checking documentation Swift code blocks"
+./scripts/check-docs-code-blocks.sh
+
 echo "[principle-gates] Checking Examples↔ExamplesSmoke parity"
 ./scripts/check-examples-parity.sh
 

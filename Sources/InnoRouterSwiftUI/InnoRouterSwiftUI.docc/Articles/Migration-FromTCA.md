@@ -27,7 +27,7 @@ into `StackState` mutations.
 
 A canonical TCA navigation feature looks like this:
 
-```swift
+```swift skip doc-fragment
 @Reducer
 struct AppFeature {
     @ObservableState
@@ -74,7 +74,7 @@ struct AppView: View {
 
 After migration:
 
-```swift
+```swift skip doc-fragment
 @Routable
 enum AppRoute: Route {
     case detail(DetailFeature.State.ID)
@@ -124,7 +124,7 @@ Three things changed:
 TCA's `@Presents` is conceptually equivalent to a `ModalStore`
 slot. Replace:
 
-```swift
+```swift skip doc-fragment
 @ObservableState
 struct State {
     @Presents var sheet: SheetFeature.State?
@@ -140,7 +140,7 @@ enum Action {
 
 with:
 
-```swift
+```swift skip doc-fragment
 // State + Action no longer carry the modal slot.
 
 // View
@@ -166,14 +166,14 @@ deep-link rehydration and state restoration.
 `InnoRouterTesting` ships host-less test stores that mirror
 TCA's strict-exhaustivity ergonomics. Swap:
 
-```swift
+```swift skip doc-fragment
 let testStore = TestStore(initialState: AppFeature.State()) { AppFeature() }
 await testStore.send(.path(.push(id: 0, state: .detail(...))))
 ```
 
 with:
 
-```swift
+```swift skip doc-fragment
 let test = NavigationTestStore<AppRoute>()
 test.execute(.push(.detail(id)))
 test.expect(state: [.detail(id)])

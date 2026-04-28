@@ -37,7 +37,7 @@ itself.
 `FlowCoordinator` to drive *which step* a wizard is on, and a
 `FlowStore` to drive *how that step's screens* render:
 
-```swift
+```swift skip doc-fragment
 @Observable @MainActor
 final class SignUpCoordinator: FlowCoordinator {
     enum Step: Int, FlowStep {

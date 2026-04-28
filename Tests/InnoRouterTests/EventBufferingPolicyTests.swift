@@ -5,7 +5,7 @@
 import Testing
 import Foundation
 import InnoRouter
-import InnoRouterSwiftUI
+@_spi(FlowStoreInternals) import InnoRouterSwiftUI
 @testable import InnoRouterCore
 
 private enum BufferRoute: Route {

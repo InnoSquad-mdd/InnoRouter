@@ -81,10 +81,24 @@ platform; build it behind `#if !os(...)`.
 
 ## Installation
 
-```swift
+```swift skip package-manifest-fragment
 dependencies: [
     .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "3.0.1")
 ]
+```
+
+The documentation gate also keeps at least one complete Swift snippet
+typechecked against the package:
+
+```swift compile
+import InnoRouter
+
+enum CompileCheckedRoute: Route {
+    case home
+}
+
+let compileCheckedStack = RouteStack<CompileCheckedRoute>()
+_ = compileCheckedStack.path
 ```
 
 ## Upgrading to 3.0.0
@@ -154,7 +168,7 @@ macros product. `@Routable` / `@CasePathable` require an explicit
 re-export so non-macro files don't pay the macro-plugin resolution
 cost:
 
-```swift
+```swift skip doc-fragment
 import InnoRouter            // stores, hosts, intents, deep links, scenes
 import InnoRouterMacros      // only in files that use @Routable / @CasePathable
 ```
@@ -298,7 +312,7 @@ flowchart LR
 
 Without macros:
 
-```swift
+```swift skip doc-fragment
 import InnoRouter
 
 enum HomeRoute: Route {
@@ -310,7 +324,7 @@ enum HomeRoute: Route {
 
 With macros:
 
-```swift
+```swift skip doc-fragment
 import InnoRouter
 import InnoRouterMacros
 
@@ -324,7 +338,7 @@ enum HomeRoute {
 
 ### 2. Create a `NavigationStore`
 
-```swift
+```swift skip doc-fragment
 import InnoRouter
 import OSLog
 
@@ -339,7 +353,7 @@ let store = try NavigationStore<HomeRoute>(
 
 ### 3. Host it in SwiftUI
 
-```swift
+```swift skip doc-fragment
 import SwiftUI
 import InnoRouter
 
@@ -367,7 +381,7 @@ struct AppRoot: View {
 
 ### 4. Emit intent from a child view
 
-```swift
+```swift skip doc-fragment
 struct HomeListView: View {
     @EnvironmentNavigationIntent(HomeRoute.self) private var navigationIntent
 
@@ -501,7 +515,7 @@ Use:
 
 Example:
 
-```swift
+```swift skip doc-fragment
 @Routable
 enum AppModalRoute {
     case profile
@@ -608,7 +622,7 @@ Recommended division:
 `ChildCoordinator` lets a parent coordinator await a finish value inline
 through `parent.push(child:) -> Task<Child.Result?, Never>`:
 
-```swift
+```swift skip doc-fragment
 let signupResult = await parentCoordinator.push(child: SignUpCoordinator())
 if let user = signupResult {
     parentCoordinator.handle(.go(.home(user)))
@@ -626,7 +640,7 @@ it to tear down transient state — dismiss sheets, cancel in-flight
 requests, release temporary stores — when the parent view is
 dismissed:
 
-```swift
+```swift skip doc-fragment
 final class SignUpCoordinator: ChildCoordinator {
     typealias Result = UserID
     var onFinish: (@MainActor @Sendable (UserID) -> Void)?
@@ -663,7 +677,7 @@ calls.
 `NavigationStore` and `ModalStore` expose `binding(case:)` helpers keyed
 by the `CasePath` emitted by `@Routable` / `@CasePathable`:
 
-```swift
+```swift skip doc-fragment
 struct DetailSheet: View {
     @Environment(\.navigationStore) private var store: NavigationStore<AppRoute>
 
@@ -717,7 +731,7 @@ Diagnostics do not change declaration-order precedence. They help catch authorin
 can rehydrate a push prefix **plus** a modal terminal step in one
 atomic `FlowStore.apply(_:)`:
 
-```swift
+```swift skip doc-fragment
 let matcher = FlowDeepLinkMatcher<AppRoute> {
     FlowDeepLinkMapping("/home/detail/:id") { params in
         guard let id = params.firstValue(forName: "id") else { return nil }
@@ -805,10 +819,14 @@ Rules:
 
 Available mismatch policies:
 
-- `.replace`
-- `.assertAndReplace`
-- `.ignore`
-- `.custom`
+- `.replace` — default production stance; accept SwiftUI's non-prefix path
+  rewrite and emit a mismatch event.
+- `.assertAndReplace` — debug / pre-release stance; assert, then recover
+  with the same replacement semantics.
+- `.ignore` — store-authoritative stance; observe the rewrite but keep the
+  current stack unchanged.
+- `.custom` — domain repair stance; map the old/new paths to one command,
+  a batch, or no-op.
 
 When `NavigationStoreConfiguration.logger` is set, mismatch handling emits structured telemetry.
 
@@ -946,9 +964,14 @@ single array of `RouteStep<R>` values. It owns an inner
 enforcing invariants (one trailing modal at most, modal always at the
 tail, middleware rollbacks reconcile the path).
 
+Those inner stores are `@_spi(FlowStoreInternals)` in 4.0. App code
+should treat `FlowStore.path`, `send(_:)`, `apply(_:)`, `events`, and
+`intentDispatcher` as the public authority surface; direct inner-store
+mutation is reserved for hosts and focused invariant tests.
+
 Typical usage:
 
-```swift
+```swift skip doc-fragment
 let flow = FlowStore<AppRoute>()
 
 flow.send(.push(.home))
@@ -978,7 +1001,7 @@ TCA-style `receive(...)` calls.
 
 Add the product to the test target only:
 
-```swift
+```swift skip doc-fragment
 // Package.swift
 .testTarget(
     name: "AppTests",
@@ -991,7 +1014,7 @@ Add the product to the test target only:
 
 Then author tests against the production intents:
 
-```swift
+```swift skip doc-fragment
 import Testing
 import InnoRouter
 import InnoRouterTesting
@@ -1035,7 +1058,7 @@ migrations from legacy test fixtures.
 Routes that opt into `Codable` get round-trippable `RouteStack`,
 `RouteStep`, and `FlowPlan` values for free:
 
-```swift
+```swift skip doc-fragment
 enum AppRoute: Route, Codable {
     case home
     case detail(String)
@@ -1079,7 +1102,7 @@ middleware-registry mutations, modal present / dismiss / queue
 updates, command interceptions, and flow-level path or
 intent-rejection signals.
 
-```swift
+```swift skip doc-fragment
 Task {
     for await event in flowStore.events {
         switch event {
@@ -1113,9 +1136,10 @@ for shipped and unreleased surface changes.
       keeps a SwiftUI-only positioning stance; teams that need
       UIKit / AppKit adapters can compose those surfaces outside
       InnoRouter.
-- [ ] **`.debounce` NavigationCommand** — deferred from P3-4;
-      needs Clock injection + deferred Task infrastructure
-      outside the synchronous engine contract.
+- [x] **Debounce semantics** — shipped in 4.0.0 as
+      `DebouncingNavigator`, a `Clock`-injectable wrapper around a
+      `NavigationCommandExecutor`. The synchronous
+      `NavigationCommand` algebra stays timer-free.
 
 ## Adopters
 

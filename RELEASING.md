@@ -77,11 +77,14 @@ graph still count).
 
 ### Toolchain pin
 
-`xcode-version` in `.github/workflows/principle-gates.yml` and
-`.github/workflows/platforms.yml` is pinned to a specific Xcode
-release rather than `latest-stable` so CI is reproducible across
-the lifetime of a release. **When cutting a new release, audit and
-optionally bump that pin** — see the release checklist below.
+`xcode-version` in `.github/workflows/principle-gates.yml`,
+`.github/workflows/platforms.yml`, `.github/workflows/release.yml`,
+`.github/workflows/docs-ci.yml`, and
+`.github/workflows/performance-smoke.yml` is pinned to a specific
+Xcode release rather than `latest-stable` so CI, release tags, DocC
+publishing, and performance smoke validation all exercise the same
+toolchain family. **When cutting a new release, audit and optionally
+bump that pin everywhere** — see the release checklist below.
 
 `swift-tools-version: 6.2` is the package floor. The macro target
 currently pins `swift-syntax` with `.upToNextMinor(from: "603.0.1")`,
@@ -180,7 +183,8 @@ Migration guides are intentionally not part of this release process.
   local `./scripts/principle-gates.sh --platforms=all` has passed.
 - `NavigationStore`, `ModalStore`, deep-link, effect, and macro docs reflect current symbols.
 - Release notes links point to the current README, RELEASING guide, and DocC portal.
-- `xcode-version` in `principle-gates.yml` and `platforms.yml` is
+- `xcode-version` in `principle-gates.yml`, `platforms.yml`,
+  `release.yml`, `docs-ci.yml`, and `performance-smoke.yml` is
   current — bump to the latest stable Xcode release at release time
   if it has drifted, and re-run `principle-gates.sh` locally with
   the same toolchain.
