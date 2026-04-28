@@ -42,7 +42,7 @@ jobs:
       # per-platform SwiftUI / availability regressions on a fixed
       # Xcode toolchain.
       #
-      # Xcode is pinned (rather than `latest-stable`) so the platform
+      # Xcode is pinned (rather than a floating latest channel) so the platform
       # matrix stays reproducible across the lifetime of a release.
       # Swift 6.2 is the floor declared in Package.swift; the pinned
       # Xcode below satisfies that. Bump this pin from RELEASING.md's

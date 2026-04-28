@@ -57,7 +57,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      # Xcode is pinned (rather than `latest-stable`) so runs of this
+      # Xcode is pinned (rather than a floating latest channel) so runs of this
       # workflow are reproducible across the lifetime of a release.
       # Swift 6.2 is the floor declared in Package.swift; the pinned
       # Xcode below satisfies that. Bump this pin from RELEASING.md's

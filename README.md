@@ -83,7 +83,7 @@ platform; build it behind `#if !os(...)`.
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "3.0.1")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.0.0")
 ]
 ```
 
@@ -101,41 +101,40 @@ let compileCheckedStack = RouteStack<CompileCheckedRoute>()
 _ = compileCheckedStack.path
 ```
 
-## Upgrading to 3.0.0
+## 4.0.0 OSS release contract
 
-Public tags `1.0.0` and `2.0.0` exist as legacy public tags from the
-early package line. `3.0.0` is the baseline for the currently supported
-public API contract, and `3.0.1` is the latest stable patch on that
-line. New adopters should install from `3.0.1` or newer; maintainers of
-apps pinned to `1.x` / `2.x` should treat the move to `3.x` as a normal
-major-version migration and validate public API usage against the 3.x
-docs.
+`4.0.0` is InnoRouter's first OSS release and the first version
+covered by the public SemVer contract. New adopters should install
+from `4.0.0` or newer. Earlier private/internal package snapshots are
+not part of the OSS compatibility line; teams that tested them should
+validate public API usage against the 4.x docs as a one-time source
+migration.
 
-### SemVer commitment for the 3.x line
+### SemVer commitment for the 4.x line
 
-Within `3.x.y` releases, InnoRouter follows
+Within `4.x.y` releases, InnoRouter follows
 [Semantic Versioning](https://semver.org/) strictly:
 
-- **`3.x.y` → `3.x.(y+1)`** patch releases: bug fixes only. No
+- **`4.x.y` → `4.x.(y+1)`** patch releases: bug fixes only. No
   public-API signature changes. No observable behavior changes other
   than fixing the documented bug.
-- **`3.x.y` → `3.(x+1).0`** minor releases: additive only. New types,
+- **`4.x.y` → `4.(x+1).0`** minor releases: additive only. New types,
   new methods, new cases, new configuration options. Existing
   signatures keep their shape and existing call sites keep compiling
   unmodified.
-- **`3.x.y` → `4.0.0`** major releases: anything that breaks source
+- **`4.x.y` → `5.0.0`** major releases: anything that breaks source
   compatibility, removes a public symbol, narrows a generic
   constraint, or changes documented runtime behavior in a way that
   can surprise existing call sites.
 
-Pre-release tags use the `3.1.0-rc.1` / `3.2.0-beta.2` form. The
+Pre-release tags use the `4.1.0-rc.1` / `4.2.0-beta.2` form. The
 release workflow's `^[0-9]+\.[0-9]+\.[0-9]+$` regex only accepts
 final tags; pre-release tags ship through a separate manual flow
 documented in [`RELEASING.md`](RELEASING.md).
 
 ### What counts as a breaking change
 
-For the purposes of the 3.x SemVer commitment, a *breaking change*
+For the purposes of the 4.x SemVer commitment, a *breaking change*
 means any of:
 
 - Removing or renaming a public symbol (type, method, property,
@@ -178,7 +177,7 @@ other property-wrapper or view modifier come from `InnoRouter`, not
 from `InnoRouterMacros`.
 
 The SwiftSyntax-backed macro implementation remains in this package
-for the 3.x line. A package-traits or separate-macro-package split should be
+for the 4.x line. A package-traits or separate-macro-package split should be
 evaluated only after measuring `swift package show-traits`,
 `swift build --target InnoRouter`, and
 `swift build --target InnoRouterMacros` against the migration cost.
@@ -891,7 +890,7 @@ DocC is built per module and published to GitHub Pages.
 Published structure:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/3.0.1/`
+- `/InnoRouter/4.0.0/`
 - `/InnoRouter/` root portal
 
 ### CI
@@ -908,12 +907,12 @@ CI validates:
 
 CD runs on bare semver tags only:
 
-- `3.0.1`
+- `4.0.0`
 
 Invalid tag examples:
 
 - any tag with a leading `v`
-- `release-3.0.1`
+- `release-4.0.0`
 
 Release workflow responsibilities:
 
@@ -1128,14 +1127,13 @@ the `events` stream is an additional channel, not a replacement.
 Tracked in
 [`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md).
 With the P3 polish cluster shipped, the P0 / P1 / P3 backlog is
-empty. The current stable line starts at the 3.0 baseline and the
-latest stable patch is `3.0.1`; see [`CHANGELOG.md`](CHANGELOG.md)
-for shipped and unreleased surface changes.
+empty. The public OSS line starts at the 4.0 baseline; see
+[`CHANGELOG.md`](CHANGELOG.md) for shipped surface changes.
 
-- [x] **P2-3 UIKit escape hatch** — declined for 3.0.0. InnoRouter
-      keeps a SwiftUI-only positioning stance; teams that need
-      UIKit / AppKit adapters can compose those surfaces outside
-      InnoRouter.
+- [x] **P2-3 UIKit escape hatch** — declined for the 4.0.0 OSS
+      release. InnoRouter keeps a SwiftUI-only positioning stance;
+      teams that need UIKit / AppKit adapters can compose those
+      surfaces outside InnoRouter.
 - [x] **Debounce semantics** — shipped in 4.0.0 as
       `DebouncingNavigator`, a `Clock`-injectable wrapper around a
       `NavigationCommandExecutor`. The synchronous

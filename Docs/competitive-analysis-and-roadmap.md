@@ -1,6 +1,6 @@
 # Competitive Analysis and Improvement Roadmap
 
-_Last updated: 2026-04-27 · Maintainer snapshot after the 4.0.0 unreleased quality and adoption sweep_
+_Last updated: 2026-04-28 · Maintainer snapshot after the 4.0.0 GA quality and adoption sweep_
 
 This document positions InnoRouter against comparable SwiftUI navigation
 libraries and derives a prioritised improvement backlog from the gaps.
@@ -329,12 +329,12 @@ Shape (landed):
 - Unblocks P0-3: `FlowDeepLinkPipeline` can now carry a
   `FlowPlan<R>` across URL / `Codable` boundaries.
 
-#### P2-3 UIKit escape hatch — **Declined for 3.0.0**
+#### P2-3 UIKit escape hatch — **Declined for 4.0.0 OSS release**
 
-InnoRouter keeps a SwiftUI-only positioning stance for 3.0.0. A
-minimal UIKit module would broaden the public surface and dilute the
-store / flow / scene story at release time. Teams that need UIKit /
-AppKit adapters can compose those surfaces outside InnoRouter.
+InnoRouter keeps a SwiftUI-only positioning stance for the first OSS
+release. A minimal UIKit module would broaden the public surface and
+dilute the store / flow / scene story at release time. Teams that need
+UIKit / AppKit adapters can compose those surfaces outside InnoRouter.
 
 #### P2-4 DocC walkthroughs — **Shipped**
 
@@ -450,7 +450,7 @@ Shape (landed):
 | P1 | ModalStore middleware | symmetry | small | **shipped (#12)** |
 | P2 | Unified telemetry stream (`store.events: AsyncStream`) | analytics unification | small | **shipped** |
 | P2 | `Codable` (`RouteStack` / `RouteStep` / `FlowPlan`) + `StatePersistence` | real-app requirement | medium | **shipped** |
-| P2 | UIKit escape hatch | adoption path | large | declined for 3.0.0 |
+| P2 | UIKit escape hatch | adoption path | large | declined for 4.0.0 |
 | P2 | DocC walkthroughs (5 tutorial articles) | learning curve | small–medium | **shipped** |
 | P3 | Parent Task cancellation (`parentDidCancel`) | coordinator UX polish | small | **shipped** |
 | P3 | FlowIntent named-intent parity (`.replaceStack`/`.backOrPush`/`.pushUniqueRoot`) | ergonomics parity | small | **shipped** |
@@ -475,9 +475,9 @@ visionOS-spatial extension** (`ScenePresentation`, `SceneDeclaration`,
 per-platform CI), the P0 / P1 / P3 backlog is **empty** and
 SwiftUI-only is the final positioning stance.
 
-Current investment direction: **finish the 4.0.0 unreleased quality
-and adoption sweep, refresh public examples/docs from the source
-contract, then tag 4.0.0**.
+Current investment direction: **carry the 4.0.0 GA contract forward
+with adoption evidence, consumer feedback, and measured macro
+dependency cost before considering packaging changes**.
 
 - **P2-3 UIKit escape hatch** — declined. SwiftUI-only positioning
   is now explicit in the roadmap and in the README platform-support
@@ -493,7 +493,7 @@ contract, then tag 4.0.0**.
 
 ## 7. Sources
 
-- InnoRouter repo, `main @ 5808d8f` + 4.0.0 unreleased sweep (2026-04-27).
+- InnoRouter repo, 4.0.0 GA release-prep snapshot (2026-04-28).
 - [pointfreeco/swift-composable-architecture](https://github.com/pointfreeco/swift-composable-architecture)
 - [pointfreeco/swift-navigation](https://github.com/pointfreeco/swift-navigation)
 - [johnpatrickmorgan/FlowStacks](https://github.com/johnpatrickmorgan/FlowStacks)

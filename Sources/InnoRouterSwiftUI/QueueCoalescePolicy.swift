@@ -14,8 +14,8 @@ import InnoRouterCore
 ///
 /// - ``preserve``: keep `ModalStore.queuedPresentations` exactly as
 ///   they were before the cancelled command. This is the default and
-///   matches the v3.x observable behaviour — appropriate when a
-///   queued sheet should outlive a cancelled navigation prefix.
+///   matches the initial 4.0 OSS observable behaviour — appropriate
+///   when a queued sheet should outlive a cancelled navigation prefix.
 /// - ``dropQueued``: dismiss every entry from the queue and the active
 ///   modal (effectively `modalStore.dismissAll`) so a cancelled
 ///   navigation prefix does not leave a stale modal carry-over.
@@ -27,7 +27,7 @@ import InnoRouterCore
 @MainActor
 public enum QueueCoalescePolicy<R: Route>: Sendable {
     /// Keep the modal queue intact when a navigation middleware
-    /// cancels a flow-level command. The pre-4.0 behaviour.
+    /// cancels a flow-level command. The default 4.0 behaviour.
     case preserve
     /// Dismiss the active modal and drop every queued presentation
     /// when a navigation middleware cancels a flow-level command.
