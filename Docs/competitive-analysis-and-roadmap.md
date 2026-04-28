@@ -81,9 +81,10 @@ Legend: ✅ first-class · ⚠ partial / opt-in · ❌ absent.
   `ChildCoordinator` + `parent.push(child:) -> Task<Result?, Never>`
   (#14) now provides child → parent finish chaining with inline
   `await` on the child result.
-- **Lag (narrowed)**: "back to root across coordinators" still
-  requires manual cleanup. Remaining P3 item: `Task` cancellation
-  propagation parent → child.
+- **Former lag (closed)**: "back to root across coordinators" remains
+  app-owned cleanup, but parent `Task` cancellation now propagates
+  through `ChildCoordinator.parentDidCancel` and
+  `ChildCoordinatorTaskTracker`.
 
 ### vs Stinsen — 960★ (legacy)
 - **Lead**: every axis. NavigationStack-era, Observation, Sendable,

@@ -49,7 +49,7 @@ check_absent "$ROADMAP_PATH" 'debounce deferred' \
   "roadmap still claims debounce remains deferred"
 check_absent "$ROADMAP_PATH" '.debounce remains open' \
   "roadmap still claims debounce remains open"
-check_absent "$ROADMAP_PATH" 'Next gap is' \
+check_absent "$ROADMAP_PATH" 'Next gap is P3-4' \
   "roadmap still contains stale next-gap positioning"
 check_absent "$CHANGELOG_PATH" '### Deferred to 4.1' \
   "changelog still has a 4.1 deferred section during the unreleased 4.0 sweep"

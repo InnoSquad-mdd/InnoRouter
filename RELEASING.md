@@ -183,7 +183,8 @@ Migration guides are intentionally not part of this release process.
   local `./scripts/principle-gates.sh --platforms=all` has passed.
 - `NavigationStore`, `ModalStore`, deep-link, effect, and macro docs reflect current symbols.
 - Release notes links point to the current README, RELEASING guide, and DocC portal.
-- `xcode-version` in `principle-gates.yml` and `platforms.yml` is
+- `xcode-version` in `principle-gates.yml`, `platforms.yml`,
+  `release.yml`, `docs-ci.yml`, and `performance-smoke.yml` is
   current — bump to the latest stable Xcode release at release time
   if it has drifted, and re-run `principle-gates.sh` locally with
   the same toolchain.

@@ -111,18 +111,21 @@ for file_path in "${DOC_FILES[@]}"; do
     line_number=$((line_number + 1))
 
     if [[ "$in_swift_block" -eq 0 ]]; then
-      if [[ "$line" =~ ^\`\`\`swift($|[[:space:]]+(.*)$) ]]; then
+      if [[ "$line" =~ ^[[:space:]]{0,3}\`\`\`swift($|[[:space:]]+(.*)$) ]]; then
         info="$(trim "${BASH_REMATCH[2]:-}")"
         block_start_line="$line_number"
         block_body=""
 
-        if [[ " $info " == *" compile "* || "$info" == "compile" ]]; then
+        if [[ "$info" == "compile" ]]; then
           block_mode="compile"
-        elif [[ " $info " == *" skip "* || "$info" == skip* ]]; then
-          reason="${info#skip}"
+        elif [[ "$info" =~ ^skip[[:space:]]+(.+)$ ]]; then
+          reason="${BASH_REMATCH[1]}"
           if [[ -z "$(trim "$reason")" ]]; then
             record_failure "$file_path:$line_number uses 'swift skip' without a reason"
           fi
+          block_mode="skip"
+        elif [[ "$info" == "skip" ]]; then
+          record_failure "$file_path:$line_number uses 'swift skip' without a reason"
           block_mode="skip"
         else
           record_failure "$file_path:$line_number Swift fence must be annotated as 'swift compile' or 'swift skip <reason>'"
@@ -134,7 +137,7 @@ for file_path in "${DOC_FILES[@]}"; do
       continue
     fi
 
-    if [[ "$line" =~ ^\`\`\`[[:space:]]*$ ]]; then
+    if [[ "$line" =~ ^[[:space:]]{0,3}\`\`\`[[:space:]]*$ ]]; then
       if [[ "$block_mode" == "compile" ]]; then
         write_compile_snippet "$file_path" "$block_start_line" "$block_body"
       fi

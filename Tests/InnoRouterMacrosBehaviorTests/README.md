@@ -12,7 +12,7 @@ plugins are built host-only and require SwiftSyntax host-plugin support;
 on Apple platforms that means **macOS only**. As a result:
 
 - `Package.swift` gates the dependency:
-  ```swift
+  ```swift skip package-manifest-fragment
   .target(
       name: "InnoRouterMacros",
       condition: .when(platforms: [.macOS])

@@ -133,10 +133,11 @@ are errors, and non-terminal deep-link wildcards are invalid.
   `prerelease` inputs so `<version>-(rc|beta).<n>` tags can be
   published as GitHub pre-releases.
 - `scripts/check-docs-code-blocks.sh` requires every Swift fenced
-  block in README / Docs / DocC catalogs to declare either
+  block in repository Markdown files (`*.md`) to declare either
   `swift compile` or `swift skip <reason>`. Compile-marked snippets
   are typechecked against the local package through a temporary
-  SwiftPM target, and `principle-gates.sh` now runs the check.
+  SwiftPM target, and `principle-gates.sh` now runs the repo-wide
+  check.
 - `Docs/macro-dependency-cost.md`, `Examples/SampleAppExample.swift`,
   `ExamplesSmoke/SampleAppSmoke.swift`, the sequence/batch/transaction
   DocC guide, and OSS metadata files (`CONTRIBUTING.md`,

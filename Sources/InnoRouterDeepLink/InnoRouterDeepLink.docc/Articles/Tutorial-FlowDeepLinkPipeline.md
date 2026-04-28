@@ -95,23 +95,52 @@ policy closure entirely.
 `FlowPlanApplier`. `FlowStore` already conforms:
 
 ```swift skip doc-fragment
+import SwiftUI
+import InnoRouter
+import InnoRouterDeepLinkEffects
+
 @main
 struct DemoApp: App {
     @State private var flow = FlowStore<AppRoute>()
-    let handler: FlowDeepLinkEffectHandler<AppRoute>
-
-    init() {
-        self.handler = FlowDeepLinkEffectHandler(
-            pipeline: pipeline,
-            applier: flow
-        )
-    }
 
     var body: some Scene {
         WindowGroup {
-            FlowHost(store: flow, destination: destination) {
-                RootView()
+            let matcher = FlowDeepLinkMatcher<AppRoute> {
+                FlowDeepLinkMapping("/home") { _ in
+                    FlowPlan(steps: [.push(.home)])
+                }
+                FlowDeepLinkMapping("/onboarding/privacy") { _ in
+                    FlowPlan(steps: [.sheet(.privacyPolicy)])
+                }
             }
+            let pipeline = FlowDeepLinkPipeline(
+                allowedSchemes: ["myapp"],
+                allowedHosts: ["app"],
+                matcher: matcher
+            )
+            let handler = FlowDeepLinkEffectHandler(
+                pipeline: pipeline,
+                applier: flow
+            )
+
+            FlowHost(
+                store: flow,
+                destination: { route in
+                    switch route {
+                    case .home:
+                        Text("Home")
+                    case .detail(let id):
+                        Text("Detail \(id)")
+                    case .comments(let id):
+                        Text("Comments \(id)")
+                    case .privacyPolicy:
+                        Text("Privacy")
+                    case .secure:
+                        Text("Secure")
+                    }
+                },
+                root: { Text("Root") }
+            )
             .onOpenURL { url in
                 _ = handler.handle(url)
             }
