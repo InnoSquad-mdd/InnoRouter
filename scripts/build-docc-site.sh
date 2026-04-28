@@ -444,7 +444,7 @@ render_root_portal() {
     <div class="hero">
       <div class="tag">InnoRouter DocC Portal</div>
       <h1>InnoRouter Documentation</h1>
-      <p>Detailed guides and API reference for the current latest-stable InnoRouter surface. The repository README stays focused on overview and quick start, while this DocC site holds the module-level reference set.</p>
+      <p>Detailed guides and API reference for the latest released InnoRouter surface. The repository README stays focused on overview and quick start, while this DocC site holds the module-level reference set.</p>
       <div class="cta-row">
         ${primary_docs_link}
         <a class="button" href="$REPO_URL">GitHub repository</a>

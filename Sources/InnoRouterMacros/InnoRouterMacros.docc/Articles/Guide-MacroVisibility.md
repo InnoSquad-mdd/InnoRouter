@@ -30,9 +30,10 @@ attribute attached to the enum case, so a case gated on an OS
 version no longer produces a CasePath member with a wider
 availability than the underlying case.
 
-## Migration from v3.x
+## Compatibility for pre-OSS snapshots
 
-The pre-4.0 macros always emitted `public`. Three migration
+Before the 4.0.0 OSS release, internal macro snapshots always emitted
+`public`. Teams that tested those snapshots should check three
 patterns:
 
 1. **Enum and CasePath usage already match.** No action — the
@@ -41,8 +42,8 @@ patterns:
    compiling because it was within the same module already.
 2. **Enum is not `public` but a sibling module reads the
    generated CasePath members.** Mark the enum `public`. The
-   v3.x behaviour was effectively widening the surface for you;
-   v4.0 makes the boundary explicit.
+   pre-OSS behaviour was effectively widening the surface for you;
+   4.0.0 makes the boundary explicit.
 3. **Enum cases are gated on `@available(...)`.** The generated
    CasePath members now carry the same availability. If a
    downstream call site compiled under a wider availability

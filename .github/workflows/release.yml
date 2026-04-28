@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish, for example 3.1.0-rc.1"
+        description: "Release tag to publish, for example 4.1.0-rc.1"
         required: true
         type: string
       prerelease:
@@ -70,11 +70,11 @@ jobs:
               exit 1
             fi
             if [[ ! "$TAG" =~ $PRERELEASE_REGEX ]]; then
-              echo "Pre-release tags must use <major>.<minor>.<patch>-(rc|beta).<n> (for example 3.1.0-rc.1)." >&2
+              echo "Pre-release tags must use <major>.<minor>.<patch>-(rc|beta).<n> (for example 4.1.0-rc.1)." >&2
               exit 1
             fi
           elif [[ ! "$TAG" =~ $GA_REGEX ]]; then
-            echo "GA release tags must use bare semantic versioning (for example 1.0.0)." >&2
+            echo "GA release tags must use bare semantic versioning (for example 4.0.0)." >&2
             exit 1
           fi
 
@@ -166,7 +166,7 @@ jobs:
           body: |
             Documentation
             - Release: https://innosquadcorp.github.io/InnoRouter/${{ needs.build.outputs.version }}/
-            - Latest stable: https://innosquadcorp.github.io/InnoRouter/latest/
+            - Latest release docs: https://innosquadcorp.github.io/InnoRouter/latest/
 
             Repository references
             - README: https://github.com/InnoSquadCorp/InnoRouter/blob/${{ needs.build.outputs.version }}/README.md

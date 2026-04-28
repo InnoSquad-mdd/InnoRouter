@@ -9,7 +9,7 @@ set -euo pipefail
 #
 # Comparison range: defaults to `origin/main..HEAD`. Override with
 # `BASE_REF` for fork PRs or release branches:
-#   BASE_REF=origin/release/3.x ./scripts/check-changelog-sync.sh
+#   BASE_REF=origin/release/4.x ./scripts/check-changelog-sync.sh
 #
 # CI usage: run this after `actions/checkout@v4` with
 # `fetch-depth: 0` so the base ref is reachable.
@@ -36,7 +36,7 @@ if echo "$CHANGED_FILES" | grep -qE '^Baselines/PublicAPI/.*\.txt$'; then
   echo "[check-changelog-sync]"
   echo "[check-changelog-sync] A public-API baseline change is, by definition, an"
   echo "[check-changelog-sync] observable surface change. Document it in the matching"
-  echo "[check-changelog-sync] '## 3.x.y (unreleased)' section before merging."
+  echo "[check-changelog-sync] CHANGELOG release section before merging."
   echo "[check-changelog-sync]"
   echo "[check-changelog-sync] Files in the diff that triggered this check:"
   echo "$CHANGED_FILES" | grep -E '^Baselines/PublicAPI/.*\.txt$' | sed 's/^/[check-changelog-sync]   - /'

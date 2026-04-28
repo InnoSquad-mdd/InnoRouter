@@ -6,12 +6,12 @@ This repository ships a Swift Package, versioned DocC documentation, and GitHub 
 
 Allowed tag format:
 
-- `3.0.1`
+- `4.0.0`
 
 Disallowed tag format:
 
 - any tag with a leading `v`
-- `release-3.0.1`
+- `release-4.0.0`
 
 The release workflow validates `GITHUB_REF_NAME` with `^[0-9]+\.[0-9]+\.[0-9]+$` and fails on anything else.
 
@@ -20,8 +20,8 @@ The release workflow validates `GITHUB_REF_NAME` with `^[0-9]+\.[0-9]+\.[0-9]+$`
 Release-candidate and beta channels use the
 `<major>.<minor>.<patch>-<channel>.<n>` form:
 
-- `3.1.0-rc.1` (release candidate)
-- `3.2.0-beta.2` (beta)
+- `4.1.0-rc.1` (release candidate)
+- `4.2.0-beta.2` (beta)
 
 Pre-release tags do **not** match the GA regex above. Publish them
 from the same `release.yml` workflow by first creating and pushing
@@ -29,8 +29,8 @@ the tag, then manually dispatching the workflow with
 `tag=<pre-release-tag>` and `prerelease=true`:
 
 ```bash
-git tag 3.1.0-rc.1
-git push origin 3.1.0-rc.1
+git tag 4.1.0-rc.1
+git push origin 4.1.0-rc.1
 ```
 
 A pre-release tag push may start the workflow because the tag glob is
@@ -41,14 +41,14 @@ a DocC subtree under `/InnoRouter/<tag>/`, but does **not** update
 
 ## SemVer commitment
 
-InnoRouter 3.x follows [Semantic Versioning](https://semver.org/)
+InnoRouter 4.x follows [Semantic Versioning](https://semver.org/)
 strictly. The public commitment lives in
-[`README.md`](README.md#upgrading-to-300); this section documents
+[`README.md`](README.md#400-oss-release-contract); this section documents
 the maintainer-side rules.
 
 ### What counts as a breaking change
 
-Within the 3.x line, treating any of the following as in-scope for
+Within the 4.x line, treating any of the following as in-scope for
 a *minor* release is a release-process bug:
 
 - Removing or renaming a public symbol.
@@ -59,7 +59,7 @@ a *minor* release is a release-process bug:
   that flips the observable outcome for an existing correct caller.
 - Raising the minimum supported Swift toolchain or platform floor.
 
-Anything in that list goes to a `4.0.0` cycle. The
+Anything in that list goes to a `5.0.0` cycle. The
 `Baselines/PublicAPI` symbol-graph baseline gate is the
 machine-checked half of this contract; reviewer judgment is the
 other half (behavior changes that don't show up in the symbol
@@ -81,7 +81,7 @@ graph still count).
 `.github/workflows/platforms.yml`, `.github/workflows/release.yml`,
 `.github/workflows/docs-ci.yml`, and
 `.github/workflows/performance-smoke.yml` is pinned to a specific
-Xcode release rather than `latest-stable` so CI, release tags, DocC
+Xcode release rather than a floating Xcode channel so CI, release tags, DocC
 publishing, and performance smoke validation all exercise the same
 toolchain family. **When cutting a new release, audit and optionally
 bump that pin everywhere** — see the release checklist below.
@@ -185,7 +185,7 @@ Migration guides are intentionally not part of this release process.
 - Release notes links point to the current README, RELEASING guide, and DocC portal.
 - `xcode-version` in `principle-gates.yml`, `platforms.yml`,
   `release.yml`, `docs-ci.yml`, and `performance-smoke.yml` is
-  current — bump to the latest stable Xcode release at release time
+  current — bump to the current release Xcode at release time
   if it has drifted, and re-run `principle-gates.sh` locally with
   the same toolchain.
 - Macro tests (`Tests/InnoRouterMacrosTests`,
