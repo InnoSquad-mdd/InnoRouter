@@ -79,12 +79,6 @@ write_compile_snippet() {
   cat >"$snippet_file" <<EOF
 import Foundation
 import SwiftUI
-import InnoRouter
-import InnoRouterCore
-import InnoRouterSwiftUI
-import InnoRouterDeepLink
-import InnoRouterMacros
-import InnoRouterTesting
 
 // Source: $source_file:$start_line
 $body

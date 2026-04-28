@@ -91,6 +91,8 @@ The documentation gate also keeps at least one complete Swift snippet
 typechecked against the package:
 
 ```swift compile
+import InnoRouter
+
 enum CompileCheckedRoute: Route {
     case home
 }

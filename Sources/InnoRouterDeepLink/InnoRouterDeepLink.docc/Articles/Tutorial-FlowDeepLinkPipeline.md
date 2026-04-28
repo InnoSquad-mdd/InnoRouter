@@ -92,39 +92,85 @@ policy closure entirely.
 ## Applying through FlowStore
 
 `FlowDeepLinkEffectHandler` bridges the pipeline output into any
-`FlowPlanApplier`. `FlowStore` already conforms:
+`FlowPlanApplier`. It also owns the pending slot, so keep the handler
+in a stable owner rather than rebuilding it inside a SwiftUI body.
+`FlowStore` already conforms:
 
 ```swift skip doc-fragment
+import Foundation
 import SwiftUI
 import InnoRouter
 import InnoRouterDeepLinkEffects
 
+private final class SessionStore: @unchecked Sendable {
+    static let shared = SessionStore()
+
+    private let lock = NSLock()
+    private var signedIn = false
+
+    var isAuthenticated: Bool {
+        lock.withLock { signedIn }
+    }
+
+    func markAuthenticated() {
+        lock.withLock { signedIn = true }
+    }
+}
+
+@MainActor
+private final class DeepLinkCoordinator {
+    let flow: FlowStore<AppRoute>
+    let handler: FlowDeepLinkEffectHandler<AppRoute>
+    private let session: SessionStore
+
+    init(session: SessionStore = .shared) {
+        self.session = session
+        let flow = FlowStore<AppRoute>()
+        self.flow = flow
+
+        let matcher = FlowDeepLinkMatcher<AppRoute> {
+            FlowDeepLinkMapping("/home") { _ in
+                FlowPlan(steps: [.push(.home)])
+            }
+            FlowDeepLinkMapping("/onboarding/privacy") { _ in
+                FlowPlan(steps: [.sheet(.privacyPolicy)])
+            }
+            FlowDeepLinkMapping("/secure") { _ in
+                FlowPlan(steps: [.push(.secure)])
+            }
+        }
+        let pipeline = FlowDeepLinkPipeline(
+            allowedSchemes: ["myapp"],
+            allowedHosts: ["app"],
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { route in
+                    if case .secure = route { return true }
+                    return false
+                },
+                isAuthenticated: { session.isAuthenticated }
+            )
+        )
+        self.handler = FlowDeepLinkEffectHandler(
+            pipeline: pipeline,
+            applier: flow
+        )
+    }
+
+    func userDidSignIn() {
+        session.markAuthenticated()
+        _ = handler.resumePendingDeepLink()
+    }
+}
+
 @main
 struct DemoApp: App {
-    @State private var flow = FlowStore<AppRoute>()
+    @State private var coordinator = DeepLinkCoordinator()
 
     var body: some Scene {
         WindowGroup {
-            let matcher = FlowDeepLinkMatcher<AppRoute> {
-                FlowDeepLinkMapping("/home") { _ in
-                    FlowPlan(steps: [.push(.home)])
-                }
-                FlowDeepLinkMapping("/onboarding/privacy") { _ in
-                    FlowPlan(steps: [.sheet(.privacyPolicy)])
-                }
-            }
-            let pipeline = FlowDeepLinkPipeline(
-                allowedSchemes: ["myapp"],
-                allowedHosts: ["app"],
-                matcher: matcher
-            )
-            let handler = FlowDeepLinkEffectHandler(
-                pipeline: pipeline,
-                applier: flow
-            )
-
             FlowHost(
-                store: flow,
+                store: coordinator.flow,
                 destination: { route in
                     switch route {
                     case .home:
@@ -142,7 +188,7 @@ struct DemoApp: App {
                 root: { Text("Root") }
             )
             .onOpenURL { url in
-                _ = handler.handle(url)
+                _ = coordinator.handler.handle(url)
             }
         }
     }
@@ -164,7 +210,7 @@ Once the user signs in, resume the pending deep link:
 
 ```swift skip doc-fragment
 func userDidSignIn() {
-    _ = handler.resumePendingDeepLink()
+    coordinator.userDidSignIn()
 }
 ```
 
@@ -173,7 +219,7 @@ The handler re-consults the authentication policy (now returning
 For an async gate (e.g. token refresh), use:
 
 ```swift skip doc-fragment
-await handler.resumePendingDeepLinkIfAllowed { pending in
+await coordinator.handler.resumePendingDeepLinkIfAllowed { pending in
     // Return true once the refresh has produced a live session.
     await AuthService.shared.refreshTokenIfNeeded()
 }
