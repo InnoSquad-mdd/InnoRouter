@@ -19,7 +19,7 @@ the navigation prefix and the tail sheet/cover.
 
 ## Routes
 
-```swift
+```swift skip doc-fragment
 enum AppRoute: Route {
     case home
     case detail(id: String)
@@ -35,8 +35,10 @@ enum AppRoute: Route {
 multi-segment URLs expand atomically. Pattern syntax matches
 `DeepLinkMapping`: `:parameter` for captures, terminal `*` wildcard,
 path-only (host and scheme are filtered separately by the pipeline).
+Non-terminal wildcards such as `/store/*/receipt` are invalid and
+surface diagnostics instead of matching.
 
-```swift
+```swift skip doc-fragment
 let matcher = FlowDeepLinkMatcher<AppRoute> {
     FlowDeepLinkMapping("/home") { _ in
         FlowPlan(steps: [.push(.home)])
@@ -69,7 +71,7 @@ let matcher = FlowDeepLinkMatcher<AppRoute> {
 `DeepLinkAuthenticationPolicy` (reused from the push-only surface),
 and the matcher:
 
-```swift
+```swift skip doc-fragment
 let pipeline = FlowDeepLinkPipeline<AppRoute>(
     allowedSchemes: ["myapp"],
     allowedHosts: ["app"],
@@ -92,7 +94,7 @@ policy closure entirely.
 `FlowDeepLinkEffectHandler` bridges the pipeline output into any
 `FlowPlanApplier`. `FlowStore` already conforms:
 
-```swift
+```swift skip doc-fragment
 @main
 struct DemoApp: App {
     @State private var flow = FlowStore<AppRoute>()
@@ -131,7 +133,7 @@ A single `handler.handle(url)` call:
 
 Once the user signs in, resume the pending deep link:
 
-```swift
+```swift skip doc-fragment
 func userDidSignIn() {
     _ = handler.resumePendingDeepLink()
 }
@@ -141,7 +143,7 @@ The handler re-consults the authentication policy (now returning
 `true`), drops the pending reference, and applies the plan atomically.
 For an async gate (e.g. token refresh), use:
 
-```swift
+```swift skip doc-fragment
 await handler.resumePendingDeepLinkIfAllowed { pending in
     // Return true once the refresh has produced a live session.
     await AuthService.shared.refreshTokenIfNeeded()
@@ -160,12 +162,12 @@ The handler keeps a single pending slot:
 All three authorities surface on `FlowStore.events` as one
 `AsyncStream`. A single subscriber sees the batch execution on the
 navigation store, the modal presentation (if any), and the
-settled FlowStore-level event as one merged chain. `FlowStore`
-fans inner authorities into its own stream asynchronously, so
-callers should treat this as a unified merged stream rather than a
-strict total order across authorities.
+settled FlowStore-level event as one chain. `FlowStore` wraps inner
+navigation / modal callbacks synchronously before emitting the
+flow-level event, so one subscriber can assert the same ordering the
+matching configuration callbacks observe.
 
-```swift
+```swift skip doc-fragment
 Task {
     for await event in flow.events {
         switch event {
@@ -192,7 +194,7 @@ Task {
 
 `FlowTestStore` wraps the same `flowStore.apply` path:
 
-```swift
+```swift skip doc-fragment
 @Test
 @MainActor
 func multiSegmentURLRehydrates() {

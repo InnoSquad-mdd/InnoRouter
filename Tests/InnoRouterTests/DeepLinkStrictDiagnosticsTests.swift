@@ -52,6 +52,20 @@ struct DeepLinkStrictDiagnosticsTests {
         }
     }
 
+    @Test("Strict init throws on non-terminal wildcard")
+    func testStrictThrowsOnNonTerminalWildcard() {
+        do {
+            _ = try DeepLinkMatcher<StrictRoute>(strict: ()) {
+                DeepLinkMapping("/api/*/detail") { _ in .home }
+            }
+            Issue.record("Expected DeepLinkMatcherStrictError")
+        } catch let error as DeepLinkMatcherStrictError {
+            #expect(error.diagnostics == [.nonTerminalWildcard(pattern: "/api/*/detail", index: 1)])
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
     @Test("Strict init succeeds when no diagnostics are produced")
     func testStrictSucceedsWithCleanMappings() throws {
         let matcher = try DeepLinkMatcher<StrictRoute>(strict: ()) {

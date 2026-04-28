@@ -6,7 +6,7 @@ import Testing
 import Foundation
 import InnoRouter
 import InnoRouterCore
-@testable import InnoRouterSwiftUI
+@_spi(FlowStoreInternals) @testable import InnoRouterSwiftUI
 
 private enum PersistRoute: String, Route, Codable {
     case root

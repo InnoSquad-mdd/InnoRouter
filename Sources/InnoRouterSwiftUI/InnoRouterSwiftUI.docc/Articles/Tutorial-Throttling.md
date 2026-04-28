@@ -13,7 +13,7 @@ into every button is noise — middleware is the right layer.
 
 ## Installation
 
-```swift
+```swift skip doc-fragment
 let store = NavigationStore<AppRoute>(
     configuration: NavigationStoreConfiguration(
         middlewares: [
@@ -40,7 +40,7 @@ reason becomes `.cancelled(.middleware(debugName: "throttle", command: …))`.
 
 Group throttle windows by the command's identity or shape:
 
-```swift
+```swift skip doc-fragment
 AnyNavigationMiddleware(
     ThrottleNavigationMiddleware<AppRoute>(interval: .milliseconds(300)) { command in
         if case .push(let route) = command {
@@ -58,7 +58,7 @@ Return `nil` to opt a command out of throttling entirely.
 The middleware is generic over `Clock`, so tests can drive time
 deterministically:
 
-```swift
+```swift skip doc-fragment
 let clock = TestClock()
 let throttle = ThrottleNavigationMiddleware<AppRoute, TestClock>(
     interval: .milliseconds(300),
@@ -81,7 +81,7 @@ A throttle cancel surfaces as `.cancelled`, so
 `.whenCancelled(primary, fallback:)` treats a throttled command the
 same as any other cancelled command:
 
-```swift
+```swift skip doc-fragment
 store.execute(
     .whenCancelled(
         .push(.detail),
@@ -98,10 +98,12 @@ inside the same throttle window.
 
 ## Debounce?
 
-`.debounce` semantics — "wait N ms, then fire the latest" — require
-a timer + cancellable `Task` and are tracked as a separate, deferred
-item. For now, throttle + `.whenCancelled` covers the most common
-"rate-limit + graceful fallback" pattern.
+Debounce semantics — "wait N ms, then fire the latest" — live in
+`DebouncingNavigator`, not in `NavigationCommand`. That keeps the
+engine synchronous while the async wrapper owns the timer,
+cancellation, and `Clock` injection needed for deterministic tests.
+Use throttle middleware for synchronous "reject too soon" behavior
+and `DebouncingNavigator` for delayed "latest wins" behavior.
 
 ## Next steps
 

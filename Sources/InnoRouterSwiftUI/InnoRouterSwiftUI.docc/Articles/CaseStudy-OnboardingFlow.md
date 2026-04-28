@@ -41,7 +41,7 @@ Constraints:
 
 ## The composition
 
-```swift
+```swift skip doc-fragment
 @Routable
 enum OnboardingRoute: Route, Codable {
     case launch
@@ -66,7 +66,7 @@ drive modal presentation. Because the single route type is
 `Codable`, the entire flow state is serializable to a
 `FlowPlan`.
 
-```swift
+```swift skip doc-fragment
 store.send(.presentSheet(.smsVerification(phoneNumber: phoneNumber)))
 
 let rehydrationPlan: FlowPlan<OnboardingRoute> = .init(steps: [
@@ -78,7 +78,7 @@ let rehydrationPlan: FlowPlan<OnboardingRoute> = .init(steps: [
 
 ## The driver
 
-```swift
+```swift skip doc-fragment
 @MainActor
 final class OnboardingDriver: ChildCoordinator {
     typealias Route = OnboardingRoute
@@ -126,7 +126,7 @@ final class OnboardingDriver: ChildCoordinator {
 `ChildCoordinator` returns an `OnboardingResult` to the parent
 when the flow finishes:
 
-```swift
+```swift skip doc-fragment
 enum OnboardingResult {
     case completed(profile: Profile)
     case abandoned(at: OnboardingRoute)
@@ -161,7 +161,7 @@ analytics layer can correlate with the same span ID.
 
 A deep link `inno://onboarding/profile` deserializes into:
 
-```swift
+```swift skip doc-fragment
 let plan: FlowPlan<OnboardingRoute> = .init(
     steps: [
         .push(.launch),
@@ -187,7 +187,7 @@ authority sees them.
 
 ## What `InnoRouterTesting` earns
 
-```swift
+```swift skip doc-fragment
 @Test
 func onboardingResumesFromProfile() async throws {
     let auth = AuthClient.signedIn(region: .us)

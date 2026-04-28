@@ -4,7 +4,7 @@
 
 import Testing
 import InnoRouter
-import InnoRouterSwiftUI
+@_spi(FlowStoreInternals) import InnoRouterSwiftUI
 import InnoRouterTesting
 
 private enum FlowRoute: Route {

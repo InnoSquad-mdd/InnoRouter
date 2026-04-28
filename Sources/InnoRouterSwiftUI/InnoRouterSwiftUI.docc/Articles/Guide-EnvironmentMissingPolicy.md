@@ -38,14 +38,14 @@ Use the `innoRouterEnvironmentMissingPolicy(_:)` view modifier at
 the boundary where the policy applies — usually one level above
 the offending view tree.
 
-```swift
+```swift skip doc-fragment
 #Preview {
     SettingsView()
         .innoRouterEnvironmentMissingPolicy(.logAndDegrade)
 }
 ```
 
-```swift
+```swift skip doc-fragment
 @main
 struct AppEntry: App {
     var body: some Scene {

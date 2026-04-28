@@ -73,8 +73,6 @@ relationship | memberOf | FlowStore.apply(_:) | FlowStore |  |
 relationship | memberOf | FlowStore.events | FlowStore |  |
 relationship | memberOf | FlowStore.init(initial:configuration:) | FlowStore |  |
 relationship | memberOf | FlowStore.intentDispatcher | FlowStore |  |
-relationship | memberOf | FlowStore.modalStore | FlowStore |  |
-relationship | memberOf | FlowStore.navigationStore | FlowStore |  |
 relationship | memberOf | FlowStore.observe(_:) | FlowStore |  |
 relationship | memberOf | FlowStore.path | FlowStore |  |
 relationship | memberOf | FlowStore.send(_:) | FlowStore |  |
@@ -645,8 +643,6 @@ symbol | swift.property | FlowNavigating.flowStore | flowStore | @MainActor var 
 symbol | swift.property | FlowStep.index | index | var index: Int { get } | []
 symbol | swift.property | FlowStore.events | events | @MainActor var events: AsyncStream<FlowEvent<R>> { get } | []
 symbol | swift.property | FlowStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: AnyFlowIntentDispatcher<R> { get } | []
-symbol | swift.property | FlowStore.modalStore | modalStore | @MainActor let modalStore: ModalStore<R> | []
-symbol | swift.property | FlowStore.navigationStore | navigationStore | @MainActor let navigationStore: NavigationStore<R> | []
 symbol | swift.property | FlowStore.path | path | @MainActor var path: [RouteStep<R>] { get set } | []
 symbol | swift.property | FlowStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
 symbol | swift.property | FlowStoreConfiguration.modal | modal | var modal: ModalStoreConfiguration<R> | []

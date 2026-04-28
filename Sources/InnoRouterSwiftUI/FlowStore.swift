@@ -34,10 +34,20 @@ public final class FlowStore<R: Route> {
     public private(set) var path: [RouteStep<R>]
 
     /// Inner navigation store that owns stack state for `.push` steps.
-    public let navigationStore: NavigationStore<R>
+    ///
+    /// This is SPI for hosts, examples, and focused tests that must compose
+    /// the projected flow authority with the underlying `NavigationHost`.
+    /// App code should use `path`, `send(_:)`, `apply(_:)`, and `events`
+    /// instead of bypassing FlowStore invariants through this inner store.
+    @_spi(FlowStoreInternals) public let navigationStore: NavigationStore<R>
 
     /// Inner modal store that owns presentation state for the tail modal step.
-    public let modalStore: ModalStore<R>
+    ///
+    /// This is SPI for hosts, examples, and focused tests that must compose
+    /// the projected flow authority with the underlying `ModalHost`. App code
+    /// should use `path`, `send(_:)`, `apply(_:)`, and `events` instead of
+    /// bypassing FlowStore invariants through this inner store.
+    @_spi(FlowStoreInternals) public let modalStore: ModalStore<R>
 
     private let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
     private let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?

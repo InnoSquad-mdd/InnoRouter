@@ -8,11 +8,13 @@ are bare semver (no leading `v`).
 
 4.0.0 is a quality + adoption sweep that cleans up macro-generated
 visibility, ships an opt-in queue-coalesce policy, exposes
-configuration mutables, and lands two adoption-focused docs (TCA
-migration + onboarding case study) plus minor observability
-fixes. One BREAKING change: macro-generated CasePath members now
-match the enclosing enum's access level instead of always
-emitting `public`.
+configuration mutables, closes the deferred debounce and documentation
+gate work, and lands adoption-focused docs (TCA migration +
+onboarding case study) plus minor observability fixes. Breaking
+changes are kept inside this unreleased 4.0 cycle: macro-generated
+CasePath members now match the enclosing enum's access level,
+FlowStore inner stores move behind SPI, empty-enum macro diagnostics
+are errors, and non-terminal deep-link wildcards are invalid.
 
 ### BREAKING
 
@@ -39,6 +41,17 @@ emitting `public`.
   `init(configuration:mappings:)` previously trapped at runtime
   via `preconditionFailure`. The case removal makes the misuse
   unrepresentable. `.disabled` and `.debugWarnings` remain.
+- `FlowStore.navigationStore` and `FlowStore.modalStore` are now
+  `@_spi(FlowStoreInternals)` instead of public API. `FlowHost`,
+  focused internal tests, and examples that must compose the inner
+  hosts can opt into the SPI import; app code should route through
+  `FlowStore.path`, `send(_:)`, `apply(_:)`, `events`, and
+  `intentDispatcher` so FlowStore invariants cannot be bypassed.
+- `DeepLinkPattern` now treats `*` as terminal-only. Patterns such
+  as `/api/*/users` no longer match as "wildcard from here to the
+  end"; matchers surface `.nonTerminalWildcard(pattern:index:)` in
+  debug / strict diagnostics so ambiguous authoring fails before
+  release.
 - Middleware-mutation-during-willExecute semantics: when a
   middleware calls `registry.add(_:)` / `remove(_:)` from its own
   `willExecute`, the same set of middlewares that ran `willExecute`
@@ -83,6 +96,15 @@ emitting `public`.
   navigator: `debouncedExecute(_:)` schedules the latest command
   after a quiet window and cancels superseded ones. Generic over
   `Clock` for deterministic test injection.
+- `DeepLinkParameterValue` and typed `DeepLinkParameters`
+  accessors: `firstValue(forName:as:)` and `values(forName:as:)`
+  parse captured path / query values into `String`, integer and
+  floating-point numeric types, `Bool`, and `UUID`. Invalid values
+  return `nil` or are skipped from the typed array, leaving the
+  existing string accessors unchanged.
+- `DeepLinkMatcherDiagnostic.nonTerminalWildcard(pattern:index:)`
+  is emitted by both push-only and flow deep-link matchers when a
+  wildcard is not the final pattern segment.
 - `NavigationStoreConfiguration` / `ModalStoreConfiguration` /
   `FlowStoreConfiguration` stored properties are now
   `public var` so call sites can patch individual callbacks
@@ -110,6 +132,11 @@ emitting `public`.
 - `release.yml` accepts `workflow_dispatch` with `tag` and
   `prerelease` inputs so `<version>-(rc|beta).<n>` tags can be
   published as GitHub pre-releases.
+- `scripts/check-docs-code-blocks.sh` requires every Swift fenced
+  block in README / Docs / DocC catalogs to declare either
+  `swift compile` or `swift skip <reason>`. Compile-marked snippets
+  are typechecked against the local package through a temporary
+  SwiftPM target, and `principle-gates.sh` now runs the check.
 - `Docs/macro-dependency-cost.md`, `Examples/SampleAppExample.swift`,
   `ExamplesSmoke/SampleAppSmoke.swift`, the sequence/batch/transaction
   DocC guide, and OSS metadata files (`CONTRIBUTING.md`,
@@ -148,6 +175,10 @@ emitting `public`.
   `os_log` `debouncing-navigator` category before tripping
   `assertionFailure`, so Release builds leave an audit trail
   even when the trap is compiled out.
+- `release.yml`, `docs-ci.yml`, and `performance-smoke.yml` now use
+  the same pinned Xcode setup path as `principle-gates.yml` and
+  `platforms.yml`, keeping tag validation, DocC builds, and
+  performance smoke checks on the gated CI toolchain.
 - `README.md` reframes the iOS 18+ / Swift 6.2 floor as the
   Sendable / strict-concurrency feature it actually buys, with
   a posture comparison against peers shipping on iOS 13+ that
@@ -169,6 +200,14 @@ emitting `public`.
   `FlowEnvironmentStorage` setters now distinguish a benign same-owner
   environment update from a different-owner overwrite at the same
   route-type slot, surfacing duplicate host registration mistakes.
+- `NavigationPathMismatchPolicy` and
+  `NavigationStoreConfiguration.pathMismatchPolicy` source docs now
+  spell out the default `.replace` operating stance and when to use
+  `.assertAndReplace`, `.ignore`, or `.custom`.
+- `EventBroadcaster.subscriberCount` is documented as an
+  eventually-consistent test probe after stream cancellation because
+  `AsyncStream.Continuation.onTermination` hops cleanup back to the
+  main actor.
 
 ### Fixed
 
@@ -201,12 +240,11 @@ emitting `public`.
   reverse-sync guards. Production keeps the existing zero-cost flag
   behaviour.
 
-### Deferred to 4.1
+### Future backlog
 
-The following items from the same review backlog are intentionally
-held for the 4.1 minor release. Each is independent of the 4.0.0
-release surface and has a published intent in
-`Docs/competitive-analysis-and-roadmap.md`:
+The following review items remain intentionally outside the 4.0 GA
+surface. They are internal or low-priority follow-ups without a
+promised release version:
 
 - `MiddlewareRegistryCore` generic extraction — DRY refactor of the
   decalcomania across `NavigationMiddlewareRegistry` and
@@ -216,12 +254,6 @@ release surface and has a published intent in
 - `FlowStore` decomposition into `FlowDispatcher` / `FlowProjection`
   / `FlowReverseSync` — internal SRP cleanup; the public facade
   (`send` / `apply` / `events` / `intentDispatcher`) remains.
-- `@_spi(FlowStoreInternals)` gate on `FlowStore.navigationStore` /
-  `modalStore` — closes the invariant-bypass surface for external
-  callers while preserving test/Examples access through a one-line
-  SPI import.
-- `Tests/InnoRouterDocCompileTests` — extracts every ` ```swift `
-  code block from the seven DocC catalogs and compiles them in CI.
 - `Package.swift` example boilerplate cleanup via SPM 5.9+ resource
   enumeration (low priority — current `exampleTarget(...)` helper
   already collapses adds to two edits).

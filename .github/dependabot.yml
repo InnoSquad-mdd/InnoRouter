@@ -5,7 +5,8 @@
 #   `Package.swift`) so the macro plugin and public-API baselines
 #   can be regenerated alongside the bump.
 # - GitHub Actions updates surface workflow action bumps so the
-#   pinned `xcode-version` / `setup-swift` chains stay current.
+#   pinned `maxim-lobanov/setup-xcode` / `xcode-version` chain stays
+#   current.
 #
 # Weekly cadence keeps PR pressure manageable; bump to daily only
 # after the principle-gates baseline regeneration story is fully

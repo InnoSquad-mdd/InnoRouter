@@ -15,7 +15,7 @@ enum MacroDiagnostic: DiagnosticMessage {
     /// Declaration that the macro was attached to is not an enum.
     case requiresEnum(macroName: String)
     /// Declaration is an enum but has no cases — expansion produces
-    /// nothing useful; surfaced as a warning, not an error.
+    /// nothing useful; surfaced as an error in 4.0.
     case emptyEnum(macroName: String)
     /// Declaration is a generic enum. The generated `CasePath<Self, T>`
     /// members cannot propagate the parent's generic parameters into a
@@ -119,7 +119,7 @@ func emitRequiresEnumDiagnostic(
     )
 }
 
-/// Emits the empty-enum warning.
+/// Emits the empty-enum error.
 func emitEmptyEnumDiagnostic(
     macroName: String,
     node: AttributeSyntax,

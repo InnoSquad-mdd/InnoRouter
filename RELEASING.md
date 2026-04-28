@@ -77,11 +77,14 @@ graph still count).
 
 ### Toolchain pin
 
-`xcode-version` in `.github/workflows/principle-gates.yml` and
-`.github/workflows/platforms.yml` is pinned to a specific Xcode
-release rather than `latest-stable` so CI is reproducible across
-the lifetime of a release. **When cutting a new release, audit and
-optionally bump that pin** — see the release checklist below.
+`xcode-version` in `.github/workflows/principle-gates.yml`,
+`.github/workflows/platforms.yml`, `.github/workflows/release.yml`,
+`.github/workflows/docs-ci.yml`, and
+`.github/workflows/performance-smoke.yml` is pinned to a specific
+Xcode release rather than `latest-stable` so CI, release tags, DocC
+publishing, and performance smoke validation all exercise the same
+toolchain family. **When cutting a new release, audit and optionally
+bump that pin everywhere** — see the release checklist below.
 
 `swift-tools-version: 6.2` is the package floor. The macro target
 currently pins `swift-syntax` with `.upToNextMinor(from: "603.0.1")`,

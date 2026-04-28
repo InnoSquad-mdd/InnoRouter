@@ -92,7 +92,8 @@ Are you in a SwiftUI view that doesn't hold the store?
    Direct inner-store mutation bypasses FlowStore-level invariants
    such as the modal-tail block on `push` while a sheet is up. Use
    the FlowStore surface (`apply` / `send` with a `FlowIntent`) in
-   flow scenarios.
+   flow scenarios. In 4.0 the inner stores are SPI so this bypass is
+   reserved for `FlowHost` and focused package-internal invariant tests.
 2. **Don't pick `NavigationCommand.replace([])` to "reset".** An
    empty replace clears the stack but is a single command; a clear
    reset of an in-flight flow is `flowStore.send(.reset)`.

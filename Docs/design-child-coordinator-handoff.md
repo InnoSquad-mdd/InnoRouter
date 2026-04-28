@@ -89,7 +89,7 @@ store layer:
 
 ## Implementation sketch
 
-```swift
+```swift skip doc-fragment
 @MainActor
 public protocol ChildCoordinator: AnyObject {
     associatedtype Result: Sendable

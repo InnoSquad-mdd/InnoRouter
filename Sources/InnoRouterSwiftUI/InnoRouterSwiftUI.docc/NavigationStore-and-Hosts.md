@@ -40,3 +40,10 @@ When SwiftUI changes the path, InnoRouter translates that change back into seman
 - mismatch -> `NavigationPathMismatchPolicy`
 
 This preserves command meaning instead of treating every path change as a blind replacement.
+
+`NavigationStoreConfiguration` defaults to `.replace`, which treats the
+SwiftUI binding as the source of truth for a non-prefix rewrite and emits
+a `NavigationPathMismatchEvent`. For debug or pre-release builds, use
+`.assertAndReplace` to make unexpected rewrites loud while still
+recovering. Use `.ignore` only when the store must remain the sole
+authority, and `.custom` when a host has domain-specific repair rules.

@@ -62,6 +62,13 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
     /// Validator used for externally supplied route stack snapshots.
     public var routeStackValidator: RouteStackValidator<R>
     /// Policy used when a SwiftUI path update cannot be reconciled structurally.
+    ///
+    /// Defaults to ``NavigationPathMismatchPolicy/replace``, which treats the
+    /// SwiftUI binding as the source of truth for non-prefix rewrites while
+    /// still emitting `onPathMismatch` / `events` telemetry. Debug builds that
+    /// want to catch every unexpected rewrite can opt into
+    /// ``NavigationPathMismatchPolicy/assertAndReplace`` without changing the
+    /// production default.
     public var pathMismatchPolicy: NavigationPathMismatchPolicy<R>
     /// Optional logger used for runtime telemetry.
     public var logger: Logger?

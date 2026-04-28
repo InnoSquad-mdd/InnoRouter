@@ -39,7 +39,7 @@ That split keeps public-facing docs modern without making CI depend on every mac
 Both `@Routable` and `@CasePathable` reject generic enum declarations with an
 explicit compiler error:
 
-```swift
+```swift skip doc-fragment
 @Routable
 enum Generic<T> { case detail(T) } // ❌ error: @Routable does not support generic enum declarations
 ```
@@ -53,7 +53,7 @@ parameter clause.
 If you need a generic shape, separate the generic case into a non-generic
 wrapper:
 
-```swift
+```swift skip doc-fragment
 @Routable
 enum AppRoute: Route {
     case home

@@ -43,6 +43,18 @@ check_absent "$CHANGELOG_PATH" 'awaiting product decision' \
   "changelog still claims the UIKit escape hatch is awaiting product decision"
 check_absent "$CHANGELOG_PATH" 'remains open behind' \
   "changelog still claims the UIKit escape hatch remains open"
+check_absent "$ROADMAP_PATH" '3.0.0 release candidate' \
+  "roadmap still claims 3.0.0 is the release candidate"
+check_absent "$ROADMAP_PATH" 'debounce deferred' \
+  "roadmap still claims debounce remains deferred"
+check_absent "$ROADMAP_PATH" '.debounce remains open' \
+  "roadmap still claims debounce remains open"
+check_absent "$ROADMAP_PATH" 'Next gap is' \
+  "roadmap still contains stale next-gap positioning"
+check_absent "$CHANGELOG_PATH" '### Deferred to 4.1' \
+  "changelog still has a 4.1 deferred section during the unreleased 4.0 sweep"
+check_absent "$README_PATH" 'deferred from P3-4' \
+  "README still claims debounce is deferred from P3-4"
 
 if [[ "$failures" -ne 0 ]]; then
   exit 1

@@ -570,8 +570,8 @@ struct RoutableMacroTests {
         )
     }
 
-    @Test("Warns when applied to an enum without cases")
-    func testRoutableWarnsOnEmptyEnum() throws {
+    @Test("Errors when applied to an enum without cases")
+    func testRoutableErrorsOnEmptyEnum() throws {
         assertMacroExpansion(
             """
             @Routable
@@ -590,15 +590,15 @@ struct RoutableMacroTests {
                     message: "@Routable applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro",
                     line: 1,
                     column: 1,
-                    severity: .warning
+                    severity: .error
                 )
             ],
             macros: makeTestMacros()
         )
     }
 
-    @Test("Does NOT warn for an enum with at least one case")
-    func testRoutableDoesNotWarnOnNonEmptyEnum() throws {
+    @Test("Does NOT error for an enum with at least one case")
+    func testRoutableDoesNotErrorOnNonEmptyEnum() throws {
         assertMacroExpansion(
             """
             @Routable
@@ -636,7 +636,7 @@ struct RoutableMacroTests {
             extension Populated: Route {
             }
             """,
-            diagnostics: [],   // no warning
+            diagnostics: [],
             macros: makeTestMacros()
         )
     }
@@ -856,8 +856,8 @@ struct CasePathableMacroTests {
         )
     }
 
-    @Test("Warns when applied to an enum without cases")
-    func testCasePathableWarnsOnEmptyEnum() throws {
+    @Test("Errors when applied to an enum without cases")
+    func testCasePathableErrorsOnEmptyEnum() throws {
         assertMacroExpansion(
             """
             @CasePathable
@@ -873,7 +873,7 @@ struct CasePathableMacroTests {
                     message: "@CasePathable applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro",
                     line: 1,
                     column: 1,
-                    severity: .warning
+                    severity: .error
                 )
             ],
             macros: makeTestMacros()

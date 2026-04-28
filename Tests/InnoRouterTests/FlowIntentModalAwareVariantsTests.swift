@@ -6,7 +6,7 @@ import Testing
 import Foundation
 import Synchronization
 import InnoRouter
-import InnoRouterSwiftUI
+@_spi(FlowStoreInternals) import InnoRouterSwiftUI
 
 private enum MARoute: Route {
     case home

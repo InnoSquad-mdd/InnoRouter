@@ -127,7 +127,7 @@ Every store exposes an `events: AsyncStream<Event>` where rejection
 cases arrive alongside successful transitions. A single analytics
 listener can cover the full surface:
 
-```swift
+```swift skip doc-fragment
 let navigationResult = navigationStore.execute(.push(.profile))
 if case .cancelled(let reason) = navigationResult {
     analytics.record("nav-cancel", reason: reason)
@@ -163,7 +163,7 @@ Deep-link outcomes surface through `DeepLinkEffectHandler.handle(_:)`'s
 return value rather than a stream, so wrap the call at the
 scene-phase boundary:
 
-```swift
+```swift skip doc-fragment
 let outcome = await deepLinkHandler.handle(url)
 switch outcome {
 case .executed, .pending, .noPendingDeepLink:

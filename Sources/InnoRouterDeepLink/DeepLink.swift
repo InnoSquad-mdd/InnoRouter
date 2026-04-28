@@ -33,6 +33,8 @@ public struct DeepLinkMatcherStrictError: Error, Sendable, Equatable {
 
 /// Describes a structural issue detected while building a `DeepLinkMatcher`.
 public enum DeepLinkMatcherDiagnostic: Sendable, Equatable {
+    /// Indicates that a `*` wildcard appears before the final path segment.
+    case nonTerminalWildcard(pattern: String, index: Int)
     /// Indicates that the same normalized pattern was declared more than once.
     case duplicatePattern(pattern: String, firstIndex: Int, duplicateIndex: Int)
     /// Indicates that an earlier wildcard pattern shadows a later mapping.
@@ -53,6 +55,8 @@ public enum DeepLinkMatcherDiagnostic: Sendable, Equatable {
     /// A human-readable diagnostic message suitable for logs or debug output.
     public var message: String {
         switch self {
+        case .nonTerminalWildcard(let pattern, let index):
+            return "DeepLinkMatcher pattern '\(pattern)' declares a wildcard at segment \(index), but wildcards must be terminal."
         case .duplicatePattern(let pattern, let firstIndex, let duplicateIndex):
             return "DeepLinkMatcher duplicate pattern '\(pattern)' at indices \(firstIndex) and \(duplicateIndex)."
         case .wildcardShadowing(let pattern, let index, let shadowedPattern, let shadowedIndex):
@@ -86,6 +90,103 @@ public struct DeepLinkMatcherConfiguration: Sendable {
     #endif
 }
 
+/// Parses a string captured from a deep-link path or query item into a typed value.
+public protocol DeepLinkParameterValue: Sendable {
+    /// Returns a typed value for a raw deep-link parameter string, or `nil`
+    /// when the value cannot be represented by the conforming type.
+    static func parseDeepLinkParameter(_ value: String) -> Self?
+}
+
+extension String: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> String? {
+        value
+    }
+}
+
+extension Int: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> Int? {
+        Int(value)
+    }
+}
+
+extension Int8: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> Int8? {
+        Int8(value)
+    }
+}
+
+extension Int16: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> Int16? {
+        Int16(value)
+    }
+}
+
+extension Int32: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> Int32? {
+        Int32(value)
+    }
+}
+
+extension Int64: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> Int64? {
+        Int64(value)
+    }
+}
+
+extension UInt: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> UInt? {
+        UInt(value)
+    }
+}
+
+extension UInt8: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> UInt8? {
+        UInt8(value)
+    }
+}
+
+extension UInt16: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> UInt16? {
+        UInt16(value)
+    }
+}
+
+extension UInt32: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> UInt32? {
+        UInt32(value)
+    }
+}
+
+extension UInt64: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> UInt64? {
+        UInt64(value)
+    }
+}
+
+extension Double: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> Double? {
+        Double(value)
+    }
+}
+
+extension Float: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> Float? {
+        Float(value)
+    }
+}
+
+extension Bool: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> Bool? {
+        Bool(value)
+    }
+}
+
+extension UUID: DeepLinkParameterValue {
+    public static func parseDeepLinkParameter(_ value: String) -> UUID? {
+        UUID(uuidString: value)
+    }
+}
+
 public struct DeepLinkParameters: Sendable, Equatable {
     public let valuesByName: [String: [String]]
 
@@ -101,8 +202,23 @@ public struct DeepLinkParameters: Sendable, Equatable {
         valuesByName[name]?.first
     }
 
+    public func firstValue<Value: DeepLinkParameterValue>(
+        forName name: String,
+        as type: Value.Type = Value.self
+    ) -> Value? {
+        guard let value = firstValue(forName: name) else { return nil }
+        return Value.parseDeepLinkParameter(value)
+    }
+
     public func values(forName name: String) -> [String] {
         valuesByName[name] ?? []
+    }
+
+    public func values<Value: DeepLinkParameterValue>(
+        forName name: String,
+        as type: Value.Type = Value.self
+    ) -> [Value] {
+        values(forName: name).compactMap(Value.parseDeepLinkParameter)
     }
 }
 
@@ -212,6 +328,8 @@ public struct DeepLinkPattern: Sendable {
     }
 
     public func match(_ path: String) -> MatchResult? {
+        guard nonTerminalWildcardIndex == nil else { return nil }
+
         let pathParts = path.split(separator: "/").map(String.init)
 
         let hasWildcard = patternParts.contains { part in
@@ -275,7 +393,18 @@ public struct DeepLinkPattern: Sendable {
         patternParts.firstIndex(of: .wildcard)
     }
 
+    fileprivate var nonTerminalWildcardIndex: Int? {
+        guard let wildcardIndex, wildcardIndex != patternParts.index(before: patternParts.endIndex) else {
+            return nil
+        }
+        return wildcardIndex
+    }
+
     fileprivate func shadows(_ other: DeepLinkPattern) -> DeepLinkMatcherDiagnostic.Kind? {
+        guard nonTerminalWildcardIndex == nil else {
+            return nil
+        }
+
         if let wildcardIndex {
             guard prefixStructurallyCovers(other.patternParts, prefixLength: wildcardIndex) else {
                 return nil
@@ -326,10 +455,28 @@ public struct DeepLinkPattern: Sendable {
     ) -> [DeepLinkMatcherDiagnostic] {
         var diagnostics: [DeepLinkMatcherDiagnostic] = []
 
+        for index in patterns.indices {
+            let pattern = patterns[index]
+            if let wildcardIndex = pattern.nonTerminalWildcardIndex {
+                diagnostics.append(
+                    .nonTerminalWildcard(
+                        pattern: pattern.normalizedPattern,
+                        index: wildcardIndex
+                    )
+                )
+            }
+        }
+
         for earlierIndex in patterns.indices {
             let earlier = patterns[earlierIndex]
+            guard earlier.nonTerminalWildcardIndex == nil else {
+                continue
+            }
             for laterIndex in patterns.indices where laterIndex > earlierIndex {
                 let later = patterns[laterIndex]
+                guard later.nonTerminalWildcardIndex == nil else {
+                    continue
+                }
 
                 if earlier.normalizedPattern == later.normalizedPattern {
                     diagnostics.append(

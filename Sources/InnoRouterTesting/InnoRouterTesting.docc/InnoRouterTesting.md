@@ -10,13 +10,15 @@ Host-less, Swift-Testing native assertion harness for InnoRouter's navigation, m
 - `ModalTestStore` — asserts `ModalStore` events (present/dismiss/queue/intercept/middleware mutation).
 - `FlowTestStore` — asserts `FlowStore` intents end-to-end, including the inner navigation and modal emissions.
 
-No `@testable import` is required. The harness uses only public API on `InnoRouterSwiftUI`.
+No `@testable import` is required. The harness itself avoids app-side access
+to FlowStore internals; configure inner navigation / modal behavior through
+`FlowStoreConfiguration`.
 
 ### Event queue model
 
 Each test store owns a FIFO queue. Every time the underlying store emits an observation callback, the corresponding event is appended. Tests consume events in order via `receive(...)` or its typed helpers (`receiveChange`, `receivePresented`, `receiveIntentRejected`, and so on). A strict-mode test store fails via Swift Testing `Issue.record` if any events are left unasserted at deinit.
 
-```swift
+```swift skip doc-fragment
 import Testing
 import InnoRouterTesting
 
@@ -44,10 +46,19 @@ When you pass a production `NavigationStoreConfiguration`, `ModalStoreConfigurat
 
 `FlowTestStore` subscribes to the inner `NavigationStore` and `ModalStore`'s full observation surface and wraps those emissions into `.navigation(...)` / `.modal(...)` events on a single queue. This lets a test assert the complete chain triggered by one `FlowIntent` — for instance, that a sheet-blocking middleware prevents the inner navigation store from seeing any command:
 
-```swift
-let store = FlowTestStore<AppRoute>()
-store.store.modalStore.addMiddleware(BlockSheetMiddleware(), debugName: "BlockSheet")
-store.skipReceivedEvents()  // drop middleware-mutation events
+```swift skip doc-fragment
+let store = FlowTestStore<AppRoute>(
+    configuration: FlowStoreConfiguration(
+        modal: ModalStoreConfiguration(
+            middlewares: [
+                ModalMiddlewareRegistration(
+                    middleware: BlockSheetMiddleware(),
+                    debugName: "BlockSheet"
+                )
+            ]
+        )
+    )
+)
 
 store.send(.presentSheet(.onboarding))
 store.receiveIntentRejected(

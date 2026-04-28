@@ -29,7 +29,7 @@ that mirrors the `NavigationStore` / `NavigationHost` discipline:
 
 ## Declaring scenes in your App
 
-```swift
+```swift skip doc-fragment
 import SwiftUI
 
 import InnoRouter
@@ -112,7 +112,7 @@ overloads.
 
 From anywhere that holds a reference to the store:
 
-```swift
+```swift skip doc-fragment
 // In the main window:
 let mainWindow = sceneStore.openWindow(.main)
 sceneStore.openImmersive(.theatre, style: .mixed)
@@ -151,7 +151,7 @@ preferred host scene is gone.
 `SceneStore.events` is an `AsyncStream<SceneEvent<R>>` that mirrors
 the `events` channel shipped by `NavigationStore` and `ModalStore`:
 
-```swift
+```swift skip doc-fragment
 Task {
     for await event in sceneStore.events {
         analytics.record(event)
@@ -173,7 +173,7 @@ visionOS (delegating to SwiftUI's
 degrades to a no-op on every other platform. That keeps call sites
 unconditional:
 
-```swift
+```swift skip doc-fragment
 ContentView()
     .innoRouterOrnament(OrnamentAnchor(anchor: .bottom, alignment: .center)) {
         ControlBar()

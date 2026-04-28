@@ -47,7 +47,7 @@ middleware.
   inspect the cancelled intent + rejection reason and feed that
   decision back to telemetry without writing extra middleware.
 
-```swift
+```swift skip doc-fragment
 let config = FlowStoreConfiguration<AppRoute>(
     queueCoalescePolicy: .custom { intent, reason in
         analytics.recordCancellation(intent: intent, reason: reason)
