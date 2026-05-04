@@ -7,9 +7,10 @@ import InnoRouterCore
 ///
 /// Strict-mode diagnostic promotion is intentionally not a case on this
 /// enum; promotion is only available through the throwing
-/// ``DeepLinkMatcher/init(strict:logger:mappings:)`` initializer, which
-/// validates without going through `DeepLinkMatcherConfiguration` at
-/// all. Splitting the diagnostics surface this way removes a previous
+/// ``DeepLinkMatcher/init(strict:logger:inputLimits:mappings:)``
+/// initializer, which validates without going through
+/// `DeepLinkMatcherConfiguration` at all. Splitting the diagnostics
+/// surface this way removes a previous
 /// release-crash trap where a non-throwing init paired with a `.strict`
 /// configuration would `preconditionFailure` at runtime.
 public enum DeepLinkMatcherDiagnosticsMode: Sendable, Equatable {
@@ -674,6 +675,7 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
     public init(
         strict: Void = (),
         logger: Logger? = nil,
+        inputLimits: DeepLinkInputLimits = .default,
         @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]
     ) throws {
         let resolvedMappings = mappings()
@@ -689,7 +691,7 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
             throw DeepLinkMatcherStrictError(diagnostics: resolvedDiagnostics)
         }
         self.mappings = resolvedMappings
-        self.inputLimits = .unlimited
+        self.inputLimits = inputLimits
         self.diagnostics = resolvedDiagnostics
     }
 

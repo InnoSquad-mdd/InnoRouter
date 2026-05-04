@@ -58,7 +58,16 @@ public final class StateRestorationAdapter<R: Route & Codable> {
     ) -> Bool {
         do {
             let stack = try persistence.decodeStack(data)
-            _ = store.execute(.replace(stack.path))
+            let result = store.execute(.replace(stack.path))
+            guard result.isSuccess else {
+                onRestorationFailure(
+                    StateRestorationFailure(
+                        target: .navigationStack,
+                        message: "Decoded RouteStack was rejected by the store: \(result)."
+                    )
+                )
+                return false
+            }
             return true
         } catch {
             reportFailure(target: .navigationStack, error: error)

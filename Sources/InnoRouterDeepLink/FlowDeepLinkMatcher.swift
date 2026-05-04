@@ -104,9 +104,15 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
     public init(
         strict: Void = (),
         logger: Logger? = nil,
+        inputLimits: DeepLinkInputLimits = .default,
         @FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]
     ) throws {
-        try self.init(strict: strict, logger: logger, mappings: mappings())
+        try self.init(
+            strict: strict,
+            logger: logger,
+            inputLimits: inputLimits,
+            mappings: mappings()
+        )
     }
 
     /// Creates a flow matcher from a mapping array and promotes any
@@ -114,6 +120,7 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
     public init(
         strict: Void = (),
         logger: Logger? = nil,
+        inputLimits: DeepLinkInputLimits = .default,
         mappings: [FlowDeepLinkMapping<R>]
     ) throws {
         let resolvedDiagnostics = DeepLinkPattern.makeDiagnostics(
@@ -126,7 +133,7 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
             throw DeepLinkMatcherStrictError(diagnostics: resolvedDiagnostics)
         }
         self.mappings = mappings
-        self.inputLimits = .unlimited
+        self.inputLimits = inputLimits
         self.diagnostics = resolvedDiagnostics
     }
 

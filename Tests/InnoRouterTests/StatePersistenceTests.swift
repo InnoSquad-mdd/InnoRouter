@@ -131,6 +131,38 @@ struct StatePersistenceTests {
         #expect(failures.withLock { $0.map(\.target) } == [.navigationStack])
     }
 
+    @Test("StateRestorationAdapter reports navigation apply rejection")
+    @MainActor
+    func adapterReportsNavigationApplyRejection() throws {
+        let failures = Mutex<[StateRestorationFailure]>([])
+        let adapter = StateRestorationAdapter<PersistRoute> { failure in
+            failures.withLock { $0.append(failure) }
+        }
+        let source = try NavigationStore<PersistRoute>(initialPath: [.root, .profile])
+        let rejectingStore = try NavigationStore<PersistRoute>(
+            initialPath: [.settings],
+            configuration: NavigationStoreConfiguration(
+                middlewares: [
+                    .init(
+                        middleware: AnyNavigationMiddleware(
+                            willExecute: { command, _ in
+                                .cancel(.middleware(debugName: "restore-blocker", command: command))
+                            }
+                        ),
+                        debugName: "restore-blocker"
+                    )
+                ]
+            )
+        )
+
+        let data = try adapter.snapshotNavigationStack(from: source)
+        let restored = adapter.restoreNavigationStack(from: data, into: rejectingStore)
+
+        #expect(!restored)
+        #expect(rejectingStore.state.path == [.settings])
+        #expect(failures.withLock { $0.map(\.target) } == [.navigationStack])
+    }
+
     @Test("StateRestorationAdapter restores a FlowPlan snapshot")
     @MainActor
     func adapterRestoresFlowPlan() throws {

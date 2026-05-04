@@ -93,6 +93,32 @@ struct DeepLinkStrictDiagnosticsTests {
         #expect(matcher.diagnostics.isEmpty)
     }
 
+    @Test("Strict push matcher keeps configured input limits")
+    func testStrictPushMatcherKeepsInputLimits() throws {
+        let matcher = try DeepLinkMatcher<StrictRoute>(
+            strict: (),
+            inputLimits: .init(maxURLLength: 18, maxPathSegments: nil, maxQueryItems: nil)
+        ) {
+            DeepLinkMapping("/home") { _ in .home }
+        }
+
+        #expect(matcher.match("myapp://app/home") == .home)
+        #expect(matcher.match("myapp://app/home?token=too-long") == nil)
+    }
+
+    @Test("Strict flow matcher keeps configured input limits")
+    func testStrictFlowMatcherKeepsInputLimits() throws {
+        let matcher = try FlowDeepLinkMatcher<StrictRoute>(
+            strict: (),
+            inputLimits: .init(maxURLLength: 18, maxPathSegments: nil, maxQueryItems: nil)
+        ) {
+            FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
+        }
+
+        #expect(matcher.match("myapp://app/home") == FlowPlan(steps: [.push(.home)]))
+        #expect(matcher.match("myapp://app/home?token=too-long") == nil)
+    }
+
     @Test("Strict mode aggregates every diagnostic into the thrown error")
     func testStrictAggregatesAllDiagnostics() {
         do {

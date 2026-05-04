@@ -33,7 +33,7 @@ relationship | memberOf | DeepLinkMappingBuilder.buildOptional(_:) | DeepLinkMap
 relationship | memberOf | DeepLinkMatcher.diagnostics | DeepLinkMatcher |  |
 relationship | memberOf | DeepLinkMatcher.init(configuration:mappings:) | DeepLinkMatcher |  |
 relationship | memberOf | DeepLinkMatcher.init(mappings:) | DeepLinkMatcher |  |
-relationship | memberOf | DeepLinkMatcher.init(strict:logger:mappings:) | DeepLinkMatcher |  |
+relationship | memberOf | DeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | DeepLinkMatcher |  |
 relationship | memberOf | DeepLinkMatcher.match(_:) | DeepLinkMatcher |  |
 relationship | memberOf | DeepLinkMatcherConfiguration.default | DeepLinkMatcherConfiguration |  |
 relationship | memberOf | DeepLinkMatcherConfiguration.diagnosticsMode | DeepLinkMatcherConfiguration |  |
@@ -105,7 +105,7 @@ relationship | memberOf | FlowDeepLinkMappingBuilder.buildOptional(_:) | FlowDee
 relationship | memberOf | FlowDeepLinkMatcher.diagnostics | FlowDeepLinkMatcher |  |
 relationship | memberOf | FlowDeepLinkMatcher.init(configuration:mappings:) | FlowDeepLinkMatcher |  |
 relationship | memberOf | FlowDeepLinkMatcher.init(mappings:) | FlowDeepLinkMatcher |  |
-relationship | memberOf | FlowDeepLinkMatcher.init(strict:logger:mappings:) | FlowDeepLinkMatcher |  |
+relationship | memberOf | FlowDeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | FlowDeepLinkMatcher |  |
 relationship | memberOf | FlowDeepLinkMatcher.match(_:) | FlowDeepLinkMatcher |  |
 relationship | memberOf | FlowDeepLinkPipeline.allowedHosts | FlowDeepLinkPipeline |  |
 relationship | memberOf | FlowDeepLinkPipeline.allowedSchemes | FlowDeepLinkPipeline |  |
@@ -180,7 +180,7 @@ symbol | swift.init | DeepLinkInputLimits.init(maxURLLength:maxPathSegments:maxQ
 symbol | swift.init | DeepLinkMapping.init(_:handler:) | init(_:handler:) | init(_ pattern: String, handler: @escaping (DeepLinkParameters) -> R?) | []
 symbol | swift.init | DeepLinkMatcher.init(configuration:mappings:) | init(configuration:mappings:) | init(configuration: DeepLinkMatcherConfiguration = .default, @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) | []
 symbol | swift.init | DeepLinkMatcher.init(mappings:) | init(mappings:) | init(@DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) | []
-symbol | swift.init | DeepLinkMatcher.init(strict:logger:mappings:) | init(strict:logger:mappings:) | init(strict: Void = (), logger: Logger? = nil, @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) throws | []
+symbol | swift.init | DeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | init(strict:logger:inputLimits:mappings:) | init(strict: Void = (), logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default, @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) throws | []
 symbol | swift.init | DeepLinkMatcherConfiguration.init(diagnosticsMode:logger:inputLimits:) | init(diagnosticsMode:logger:inputLimits:) | init(diagnosticsMode: DeepLinkMatcherDiagnosticsMode, logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default) | []
 symbol | swift.init | DeepLinkMatcherStrictError.init(diagnostics:) | init(diagnostics:) | init(diagnostics: [DeepLinkMatcherDiagnostic]) | []
 symbol | swift.init | DeepLinkParameters.init(valuesByName:) | init(valuesByName:) | init(valuesByName: [String : [String]] = [:]) | []
@@ -193,8 +193,8 @@ symbol | swift.init | FlowDeepLinkMatcher.init(configuration:mappings:) | init(c
 symbol | swift.init | FlowDeepLinkMatcher.init(configuration:mappings:) | init(configuration:mappings:) | init(configuration: DeepLinkMatcherConfiguration = .default, mappings: [FlowDeepLinkMapping<R>]) | []
 symbol | swift.init | FlowDeepLinkMatcher.init(mappings:) | init(mappings:) | init(@FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) | []
 symbol | swift.init | FlowDeepLinkMatcher.init(mappings:) | init(mappings:) | init(mappings: [FlowDeepLinkMapping<R>]) | []
-symbol | swift.init | FlowDeepLinkMatcher.init(strict:logger:mappings:) | init(strict:logger:mappings:) | init(strict: Void = (), logger: Logger? = nil, @FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) throws | []
-symbol | swift.init | FlowDeepLinkMatcher.init(strict:logger:mappings:) | init(strict:logger:mappings:) | init(strict: Void = (), logger: Logger? = nil, mappings: [FlowDeepLinkMapping<R>]) throws | []
+symbol | swift.init | FlowDeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | init(strict:logger:inputLimits:mappings:) | init(strict: Void = (), logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default, @FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) throws | []
+symbol | swift.init | FlowDeepLinkMatcher.init(strict:logger:inputLimits:mappings:) | init(strict:logger:inputLimits:mappings:) | init(strict: Void = (), logger: Logger? = nil, inputLimits: DeepLinkInputLimits = .default, mappings: [FlowDeepLinkMapping<R>]) throws | []
 symbol | swift.init | FlowDeepLinkPipeline.init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:) | init(allowedSchemes:allowedHosts:matcher:authenticationPolicy:inputLimits:) | init(allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, matcher: FlowDeepLinkMatcher<R>, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default) | []
 symbol | swift.init | FlowPendingDeepLink.init(url:gatedRoute:plan:) | init(url:gatedRoute:plan:) | init(url: URL, gatedRoute: R, plan: FlowPlan<R>) | []
 symbol | swift.init | FlowPendingDeepLinkPersistence.init(encoder:decoder:) | init(encoder:decoder:) | init(encoder: JSONEncoder = JSONEncoder(), decoder: JSONDecoder = JSONDecoder()) | []

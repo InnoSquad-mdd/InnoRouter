@@ -58,13 +58,16 @@ For release-readiness gates, use the throwing strict initializers:
 `DeepLinkMatcher(strict:)` for push-only mappings and
 `FlowDeepLinkMatcher(strict:)` for mappings that expand into a
 `FlowPlan`. Strict initializers throw `DeepLinkMatcherStrictError` with
-the full diagnostic list instead of only logging warnings.
+the full diagnostic list instead of only logging warnings, and accept
+the same `DeepLinkInputLimits` guardrails used by non-strict matchers.
 
 ## Input limits
 
 `DeepLinkInputLimits` guards runtime URLs before matching. Configure it
 on `DeepLinkMatcherConfiguration`, `DeepLinkPipeline`, or
 `FlowDeepLinkPipeline` to cap absolute URL length, path segment count,
-and query item count. Limit violations surface as typed
-`DeepLinkRejectionReason.inputLimitExceeded` rejections, not as silent
+and query item count. Direct matcher calls still return `nil` because
+their public contract is optional. Pipeline and effect-handler paths
+surface limit violations as typed
+`DeepLinkRejectionReason.inputLimitExceeded` rejections instead of
 "no match" outcomes.

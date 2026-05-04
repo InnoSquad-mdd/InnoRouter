@@ -21,7 +21,7 @@ stricter, and restoration/telemetry surfaces are explicit.
 - `FlowStore.init(validating:configuration:)` validates initial
   `[RouteStep]` input and throws `FlowPlanValidationError` instead of
   relying on the compatibility initializer's empty-path fallback.
-- `FlowDeepLinkMatcher.init(strict:logger:mappings:)` now matches
+- `FlowDeepLinkMatcher.init(strict:logger:inputLimits:mappings:)` now matches
   `DeepLinkMatcher` strict diagnostics parity for both builder and
   array-based flow mapping construction.
 - Deep-link pattern diagnostics now reject invalid parameter names
@@ -140,7 +140,7 @@ details that matter for teams that tested pre-OSS snapshots.
   with "add a case or remove the macro" guidance.
 - `DeepLinkMatcherDiagnosticsMode.strict` is removed. The strict
   diagnostic-promotion path was always reachable only through the
-  throwing `DeepLinkMatcher.init(strict:logger:mappings:)`
+  throwing `DeepLinkMatcher.init(strict:logger:inputLimits:mappings:)`
   initializer; configuring `.strict` on the non-throwing
   `init(configuration:mappings:)` previously trapped at runtime
   via `preconditionFailure`. The case removal makes the misuse
