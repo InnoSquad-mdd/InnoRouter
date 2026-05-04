@@ -10,6 +10,7 @@
 
 A pipeline can:
 
+- reject a URL when configured input limits are exceeded
 - reject a URL by scheme or host
 - leave it unhandled
 - resolve it into a route
@@ -36,3 +37,8 @@ Authentication checks the routes referenced by the produced
 `NavigationPlan`, including nested sequences and fallback commands.
 If a custom planner returns no route-bearing commands, the pipeline
 falls back to the originally resolved route.
+
+Effect handlers and coordinator bridges validate a produced
+`NavigationPlan` against the current `RouteStack` before executing it.
+Plans that are obviously impossible, such as `.pop` on an empty stack,
+surface as typed application rejections instead of partially running.

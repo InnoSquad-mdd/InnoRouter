@@ -33,9 +33,9 @@ This keeps view code declarative:
 
 Each `NavigationHost` / `ModalHost` / `FlowHost` owns its own
 `*EnvironmentStorage` instance through `@State`, so SwiftUI scopes the
-dispatcher table to the host's view subtree. Re-registering the
+handler table to the host's view subtree. Re-registering the
 same routing authority is allowed across SwiftUI updates, even when
-the dispatcher wrapper is freshly allocated. A sibling host with a
+the forwarding closure is freshly allocated. A sibling host with a
 different authority that registers against the same `Route` type in
 the same environment scope is treated as a wiring bug: in Debug
 builds the storage setter traps with `assertionFailure`, and in
@@ -48,7 +48,7 @@ either give them distinct `Route` types or scope them with separate
 environment subtrees so each host gets its own storage.
 
 Low-level tests or custom integrations that write directly into an
-environment storage should either assign a dispatcher once per storage
+environment storage should either assign a handler once per storage
 instance, or call the explicit owner registration helper with a stable
 store / coordinator identity. The host modifiers do this for normal
 `NavigationHost`, `ModalHost`, and `FlowHost` usage.

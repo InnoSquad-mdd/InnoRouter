@@ -4,6 +4,96 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## 4.1.0 - 2026-05-04
+
+4.1.0 is a breaking pre-adoption cleanup release. It keeps the
+`4.0.0` tag available as the first OSS snapshot, but new apps should
+start from this line: unused dispatcher-object APIs are removed,
+effect observation moves to event streams, deep-link admission is
+stricter, and restoration/telemetry surfaces are explicit.
+
+### Added
+
+- `DeepLinkInputLimits` caps absolute URL length, path segment count,
+  and query item count before matching. Push-only and flow pipelines
+  now surface limit violations as
+  `DeepLinkRejectionReason.inputLimitExceeded`.
+- `FlowStore.init(validating:configuration:)` validates initial
+  `[RouteStep]` input and throws `FlowPlanValidationError` instead of
+  relying on the compatibility initializer's empty-path fallback.
+- `FlowDeepLinkMatcher.init(strict:logger:mappings:)` now matches
+  `DeepLinkMatcher` strict diagnostics parity for both builder and
+  array-based flow mapping construction.
+- Deep-link pattern diagnostics now reject invalid parameter names
+  (`^[A-Za-z_][A-Za-z0-9_]*$`) in both push-only and flow strict
+  matchers.
+- `NavigationPlan.validationFailure(on:)` / `canExecute(on:)` let
+  push-only effect and coordinator boundaries dry-run a plan before
+  execution.
+- `ModalEvent.replaced(old:new:)` and `ModalStoreConfiguration.onReplaced`
+  expose first-class modal replacement lifecycle semantics.
+- `NavigationEffectHandler.events` emits command, batch, and
+  transaction outcomes through `AsyncStream`.
+- `resumePendingDeepLinkIfAllowed` has throwing async overloads for
+  auth probes that can fail before producing a boolean decision.
+- Public localized description surfaces were added to user-visible
+  rejection and cancellation reason enums.
+- `AnyNavigationTelemetrySink`, `AnyModalTelemetrySink`, and
+  `AnyFlowTelemetrySink` provide structured telemetry adapters;
+  OSLog-backed sinks remain available as defaults when a `Logger` is
+  supplied.
+- `StateRestorationAdapter` snapshots and restores navigation stacks
+  and flow plans while reporting decode/apply failures instead of
+  silently falling back to an empty state.
+- Macro snapshot coverage now locks down keyword associated-value
+  labels, availability propagation, and empty-enum diagnostics.
+- The performance smoke report now includes resident memory footprint
+  when the platform can provide it.
+
+### Changed
+
+- Local and CI DocC preview checks now pass `--skip-latest` so preview
+  validation does not spend work generating the release-only `latest/`
+  alias.
+- `DeepLinkMatcherConfiguration` emits diagnostics in Release when a
+  logger is installed, so duplicate, shadowing, non-terminal wildcard,
+  and invalid-parameter diagnostics are visible in release gates.
+- `@EnvironmentNavigationIntent`, `@EnvironmentModalIntent`, and
+  `@EnvironmentFlowIntent` now expose `@MainActor @Sendable` intent
+  closures rather than public dispatcher objects.
+- `NavigationStoreConfiguration`, `ModalStoreConfiguration`, and
+  `FlowStoreConfiguration` now accept structured telemetry sinks
+  directly. `logger` remains as the default OSLog adapter input and
+  internal trace logger.
+- Core middleware remains a synchronous-only contract; async policy
+  checks belong in effect handlers such as `executeGuarded` and
+  pending deep-link replay guards.
+- `swiftformat` and `swiftlint` are wired as check-only source gates
+  when those tools are present locally or in CI.
+
+### Fixed
+
+- `DeepLinkMatcherStrictError.init(diagnostics:)` no longer traps when
+  called with an empty diagnostics array. Strict matcher initializers
+  still only throw it after producing diagnostics, but the public error
+  type is now safe for custom validators and focused tests to construct.
+- Push-only deep-link handlers and coordinator bridges no longer
+  execute obviously invalid `NavigationPlan`s.
+- Flow modal replacement now emits `.replaced` before the replacement
+  command interception and before the projected flow path update.
+- `@CasePathable` generation is more stable for labeled associated
+  values that use Swift keywords.
+
+### Removed
+
+- `NavigationIntent.resetTo` is removed. Use
+  `NavigationIntent.replaceStack` for full-stack replacement.
+- `AnyNavigationIntentDispatcher`, `AnyModalIntentDispatcher`,
+  `AnyFlowIntentDispatcher`, and their public dispatching protocols
+  are removed. Environment intent wrappers now return direct closures.
+- `NavigationEffectHandler.lastResult` and `lastBatchResult` are
+  removed. Subscribe to `NavigationEffectHandler.events` instead.
+
 ## 4.0.0 - 2026-04-28
 
 4.0.0 is InnoRouter's first OSS release and the start of the public
