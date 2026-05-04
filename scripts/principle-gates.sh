@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
+SWIFTPM_JOBS="${SWIFTPM_JOBS:-2}"
+XCODEBUILD_JOBS="${XCODEBUILD_JOBS:-2}"
 
 if ! command -v rg >/dev/null 2>&1; then
   echo "[principle-gates] Failed: ripgrep (rg) is required but was not found in PATH"
@@ -53,10 +55,10 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
 fi
 
 echo "[principle-gates] Running swift test"
-swift test
+swift test --jobs "$SWIFTPM_JOBS"
 
 echo "[principle-gates] Building DocC preview site"
-./scripts/build-docc-site.sh --version preview
+./scripts/build-docc-site.sh --version preview --skip-latest
 
 echo "[principle-gates] Checking public API baselines"
 ./scripts/check-public-api.sh
@@ -71,21 +73,21 @@ echo "[principle-gates] Checking Examples↔ExamplesSmoke parity"
 ./scripts/check-examples-parity.sh
 
 echo "[principle-gates] Building example smoke targets"
-swift build --target InnoRouterExamplesSmoke
-swift build --target InnoRouterStandaloneExampleSmoke
-swift build --target InnoRouterCoordinatorExampleSmoke
-swift build --target InnoRouterNavigationEffects
-swift build --target InnoRouterDeepLinkEffects
-swift build --target InnoRouterEffects
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterExamplesSmoke
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterStandaloneExampleSmoke
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterCoordinatorExampleSmoke
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterNavigationEffects
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterDeepLinkEffects
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterEffects
 
 echo "[principle-gates] Building human-facing example targets"
-swift build --target InnoRouterStandaloneExample
-swift build --target InnoRouterCoordinatorExample
-swift build --target InnoRouterDeepLinkExample
-swift build --target InnoRouterSplitCoordinatorExample
-swift build --target InnoRouterAppShellExample
-swift build --target InnoRouterMultiPlatformExample
-swift build --target InnoRouterVisionOSImmersiveExample
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterStandaloneExample
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterCoordinatorExample
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterDeepLinkExample
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterSplitCoordinatorExample
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterAppShellExample
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMultiPlatformExample
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterVisionOSImmersiveExample
 
 echo "[principle-gates] Running performance smoke"
 ./scripts/performance-smoke.sh
@@ -96,7 +98,7 @@ echo "[principle-gates] Running source-level lint gates"
 echo "[principle-gates] Checking fail-fast probe (missing NavigationEnvironmentStorage)"
 PROBE_OUTPUT_FILE="$(mktemp)"
 set +e
-swift run NavigationEnvironmentFailFastProbe >"$PROBE_OUTPUT_FILE" 2>&1
+swift run --jobs "$SWIFTPM_JOBS" NavigationEnvironmentFailFastProbe >"$PROBE_OUTPUT_FILE" 2>&1
 PROBE_EXIT_CODE=$?
 set -e
 
@@ -168,6 +170,7 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     xcodebuild build \
       -scheme InnoRouterSwiftUI \
       -destination "$dest" \
+      -jobs "$XCODEBUILD_JOBS" \
       -quiet
   done
 

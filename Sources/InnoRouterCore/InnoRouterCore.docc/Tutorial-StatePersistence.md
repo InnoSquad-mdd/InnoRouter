@@ -30,6 +30,23 @@ if let data = try? Data(contentsOf: restorationURL) {
 }
 ```
 
+SwiftUI apps can wrap the value-level helper with
+`StateRestorationAdapter` from `InnoRouterSwiftUI`:
+
+```swift skip doc-fragment
+let adapter = StateRestorationAdapter<AppRoute> { failure in
+    diagnostics.record(failure)
+}
+
+try adapter.snapshotNavigationStack(from: navigationStore)
+_ = adapter.restoreFlowPlan(from: data, into: flowStore)
+```
+
+The adapter supports navigation-stack and flow-plan snapshots. Decode
+or apply failures are reported through the restoration failure callback
+and leave the existing store state untouched instead of falling back to
+an empty path.
+
 ## Validation on decode
 
 A `FlowPlan` always satisfies the FlowStore invariants:

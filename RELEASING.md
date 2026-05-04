@@ -123,7 +123,7 @@ Run these before tagging:
 swift test
 ./scripts/principle-gates.sh
 ./scripts/principle-gates.sh --platforms=all
-./scripts/build-docc-site.sh --version preview
+./scripts/build-docc-site.sh --version preview --skip-latest
 ```
 
 If you regenerate `Baselines/PublicAPI`, do it with the same pinned

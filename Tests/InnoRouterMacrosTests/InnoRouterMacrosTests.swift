@@ -792,6 +792,46 @@ struct CasePathableMacroTests {
         )
     }
 
+    @Test("Escaped keyword associated label expansion")
+    func testCasePathableWithEscapedKeywordAssociatedLabel() throws {
+        assertMacroExpansion(
+            """
+            @CasePathable
+            enum Destination {
+                case credential(`class`: String)
+            }
+            """,
+            expandedSource: """
+            enum Destination {
+                case credential(`class`: String)
+
+                internal enum Cases {
+                        internal static let credential = CasePath<Destination, String>(
+                            embed: { value in
+                                .credential(`class`: value)
+                            },
+                            extract: {
+                                if case .credential(let `class`) = $0 {
+                                    return `class`
+                                };
+                                return nil
+                            }
+                        )
+                }
+
+                internal func `is`<Value>(_ casePath: CasePath<Self, Value>) -> Bool {
+                    casePath.extract(self) != nil
+                }
+
+                internal subscript <Value>(case casePath: CasePath<Self, Value>) -> Value? {
+                    casePath.extract(self)
+                }
+            }
+            """,
+            macros: makeTestMacros()
+        )
+    }
+
     @Test("Underscore external label expansion")
     func testCasePathableWithUnderscoreExternalLabel() throws {
         assertMacroExpansion(
