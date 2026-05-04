@@ -57,6 +57,25 @@ final class ModalStoreTelemetrySink<M: Route> {
         )
     }
 
+    func recordReplaced(
+        old oldPresentation: ModalPresentation<M>,
+        new newPresentation: ModalPresentation<M>
+    ) {
+        recorder?(.replaced(old: oldPresentation, new: newPresentation))
+
+        guard let logger else { return }
+        logger.notice(
+            """
+            modal replaced \
+            oldID=\(oldPresentation.id.uuidString, privacy: .private) \
+            newID=\(newPresentation.id.uuidString, privacy: .private) \
+            oldRoute=\(Self.routeSummary(for: oldPresentation.route), privacy: .public) \
+            newRoute=\(Self.routeSummary(for: newPresentation.route), privacy: .public) \
+            style=\(String(describing: newPresentation.style), privacy: .public)
+            """
+        )
+    }
+
     func recordQueued(_ presentation: ModalPresentation<M>) {
         recorder?(.queued(presentation))
 

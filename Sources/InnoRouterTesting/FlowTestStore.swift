@@ -586,6 +586,7 @@ public final class FlowTestStore<R: Route> {
         switch event {
         case .presented: return ".presented"
         case .dismissed: return ".dismissed"
+        case .replaced: return ".replaced"
         case .queueChanged: return ".queueChanged"
         case .commandIntercepted: return ".commandIntercepted"
         case .middlewareMutation: return ".middlewareMutation"

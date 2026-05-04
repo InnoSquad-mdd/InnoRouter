@@ -97,7 +97,7 @@ struct CoordinatorTests {
     func testNavigationIntentDispatcher() {
         let coordinator = TestCoordinator()
 
-        coordinator.navigationIntentDispatcher.send(.go(.home))
+        coordinator.navigationIntentDispatcher(.go(.home))
 
         #expect(coordinator.handleCount == 1)
         #expect(coordinator.store.state.path == [.home])
@@ -121,7 +121,7 @@ struct CoordinatorTests {
             routeType: TestRoute.self
         )
 
-        storage[TestRoute.self]?.send(.go(.home))
+        storage[TestRoute.self]?(.go(.home))
 
         #expect(coordinator.handleCount == 1)
         #expect(coordinator.store.state.path == [.home])

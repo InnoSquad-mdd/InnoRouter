@@ -15,6 +15,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private let onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)?
     private let onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)?
     private let telemetrySink: NavigationStoreTelemetrySink<R>
+    private let observationTelemetrySink: AnyNavigationTelemetrySink<R>?
     private let middlewareRegistry: NavigationMiddlewareRegistry<R>
     private let pathReconciler: NavigationPathReconciler<R>
     private let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
@@ -23,25 +24,25 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private let traceLogger: Logger?
     private var traceRecorder: InternalExecutionTraceRecorder?
     private var cachedEffectiveTraceRecorder: InternalExecutionTraceRecorder?
-    /// Cached intent dispatcher that lives for the lifetime of this store.
+    /// Cached intent closure that lives for the lifetime of this store.
     /// Built on first access by ``intentDispatcher`` so SwiftUI hosts do
     /// not allocate a fresh closure on every render.
     @ObservationIgnored
-    private var cachedIntentDispatcher: AnyNavigationIntentDispatcher<R>?
+    private var cachedIntentDispatcher: NavigationIntentHandler<R>?
 
-    /// A type-erased dispatcher that forwards `NavigationIntent` values to
-    /// this store's ``send(_:)`` entry point.
+    /// A closure that forwards `NavigationIntent` values to this store's
+    /// ``send(_:)`` entry point.
     ///
     /// Hosts publish this through the SwiftUI environment so descendants can
     /// use ``EnvironmentNavigationIntent`` to dispatch view-layer intents
     /// without holding a direct store reference. The dispatcher is created
     /// on first access and reused for the lifetime of the store, so a
     /// SwiftUI host does not allocate a fresh closure on every render.
-    public var intentDispatcher: AnyNavigationIntentDispatcher<R> {
+    public var intentDispatcher: @MainActor @Sendable (NavigationIntent<R>) -> Void {
         if let cachedIntentDispatcher {
             return cachedIntentDispatcher
         }
-        let dispatcher = AnyNavigationIntentDispatcher<R> { [weak self] intent in
+        let dispatcher: NavigationIntentHandler<R> = { [weak self] intent in
             self?.send(intent)
         }
         cachedIntentDispatcher = dispatcher
@@ -78,14 +79,21 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         let broadcaster = EventBroadcaster<NavigationEvent<R>>(
             bufferingPolicy: configuration.eventBufferingPolicy
         )
+        let observationTelemetrySink = Self.defaultTelemetrySink(for: configuration)
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation,
             onPathMismatch: configuration.onPathMismatch
         )
+        let telemetrySinkRecorder = Self.makeTelemetrySinkRecorder(
+            telemetrySink: observationTelemetrySink
+        )
         let broadcastRecorder = Self.makeBroadcastRecorder(broadcaster: broadcaster)
         let telemetrySink = NavigationStoreTelemetrySink<R>(
-            logger: configuration.logger,
-            recorder: Self.combineRecorders(publicRecorder, broadcastRecorder)
+            logger: nil,
+            recorder: Self.combineRecorders(
+                Self.combineRecorders(publicRecorder, telemetrySinkRecorder),
+                broadcastRecorder
+            )
         )
         let middlewareRegistry = NavigationMiddlewareRegistry(
             registrations: configuration.middlewares,
@@ -99,6 +107,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.pathMismatchPolicy = configuration.pathMismatchPolicy
         self.pathMismatchAssertionHandler = Self.defaultPathMismatchAssertionHandler
         self.telemetrySink = telemetrySink
+        self.observationTelemetrySink = observationTelemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.pathReconciler = NavigationPathReconciler()
         self.broadcaster = broadcaster
@@ -125,17 +134,24 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         let broadcaster = EventBroadcaster<NavigationEvent<R>>(
             bufferingPolicy: configuration.eventBufferingPolicy
         )
+        let observationTelemetrySink = Self.defaultTelemetrySink(for: configuration)
         let publicRecorder = Self.makePublicTelemetryRecorder(
             onMiddlewareMutation: configuration.onMiddlewareMutation,
             onPathMismatch: configuration.onPathMismatch
         )
+        let telemetrySinkRecorder = Self.makeTelemetrySinkRecorder(
+            telemetrySink: observationTelemetrySink
+        )
         let broadcastRecorder = Self.makeBroadcastRecorder(broadcaster: broadcaster)
         let combinedRecorder = Self.combineRecorders(
-            Self.combineRecorders(telemetryRecorder, publicRecorder),
+            Self.combineRecorders(
+                Self.combineRecorders(telemetryRecorder, publicRecorder),
+                telemetrySinkRecorder
+            ),
             broadcastRecorder
         )
         let telemetrySink = NavigationStoreTelemetrySink(
-            logger: configuration.logger,
+            logger: nil,
             recorder: combinedRecorder
         )
         let middlewareRegistry = NavigationMiddlewareRegistry(
@@ -150,6 +166,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.pathMismatchPolicy = configuration.pathMismatchPolicy
         self.pathMismatchAssertionHandler = nonPrefixAssertionHandler
         self.telemetrySink = telemetrySink
+        self.observationTelemetrySink = observationTelemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.pathReconciler = NavigationPathReconciler()
         self.broadcaster = broadcaster
@@ -303,7 +320,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             let stateAfter = state
             if stateAfter != stateBefore {
                 onChange?(stateBefore, stateAfter)
-                broadcaster.broadcast(.changed(from: stateBefore, to: stateAfter))
+                emitObservationEvent(.changed(from: stateBefore, to: stateAfter))
             }
 
             let batch = NavigationBatchResult(
@@ -315,7 +332,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 hasStoppedOnFailure: hasStoppedOnFailure
             )
             onBatchExecuted?(batch)
-            broadcaster.broadcast(.batchExecuted(batch))
+            emitObservationEvent(.batchExecuted(batch))
             return batch
         } outcome: { batch in
             batch.isSuccess ? "success" : "failure"
@@ -363,7 +380,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 results = journals.map { $0.finalizeCommittedTransaction(using: middlewareRegistry) }
                 if state != stateBefore {
                     onChange?(stateBefore, state)
-                    broadcaster.broadcast(.changed(from: stateBefore, to: state))
+                    emitObservationEvent(.changed(from: stateBefore, to: state))
                 }
             } else {
                 journals
@@ -382,7 +399,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
                 isCommitted: isCommitted
             )
             onTransactionExecuted?(transaction)
-            broadcaster.broadcast(.transactionExecuted(transaction))
+            emitObservationEvent(.transactionExecuted(transaction))
             return transaction
         } outcome: { transaction in
             transaction.isCommitted ? "committed" : "rolledBack"
@@ -414,8 +431,6 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
             _ = execute(.popTo(route))
         case .backToRoot:
             _ = execute(.popToRoot)
-        case .resetTo(let routes):
-            _ = execute(.replace(routes))
         case .replaceStack(let routes):
             _ = execute(.replace(routes))
         case .backOrPush(let route):
@@ -503,7 +518,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
             if state != committedStateBefore {
                 onChange?(committedStateBefore, state)
-                broadcaster.broadcast(.changed(from: committedStateBefore, to: state))
+                emitObservationEvent(.changed(from: committedStateBefore, to: state))
             }
 
             return finalResult
@@ -688,7 +703,12 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     ) {
         guard shouldNotifyOnChange, newState != oldState else { return }
         onChange?(oldState, newState)
-        broadcaster.broadcast(.changed(from: oldState, to: newState))
+        emitObservationEvent(.changed(from: oldState, to: newState))
+    }
+
+    private func emitObservationEvent(_ event: NavigationEvent<R>) {
+        observationTelemetrySink?.record(event)
+        broadcaster.broadcast(event)
     }
 
     private static var defaultPathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void {

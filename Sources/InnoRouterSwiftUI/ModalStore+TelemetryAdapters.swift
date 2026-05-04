@@ -26,7 +26,7 @@ extension ModalStore {
                         index: index
                     )
                 )
-            case .presented, .dismissed, .queued, .queueChanged, .commandIntercepted:
+            case .presented, .dismissed, .replaced, .queued, .queueChanged, .commandIntercepted:
                 break
             }
         }
@@ -41,6 +41,8 @@ extension ModalStore {
                 broadcaster.broadcast(.presented(presentation))
             case .dismissed(let presentation, let reason):
                 broadcaster.broadcast(.dismissed(presentation, reason: reason))
+            case .replaced(let oldPresentation, let newPresentation):
+                broadcaster.broadcast(.replaced(old: oldPresentation, new: newPresentation))
             case .queueChanged(let oldQueue, let newQueue):
                 broadcaster.broadcast(.queueChanged(old: oldQueue, new: newQueue))
             case .middlewareMutation(let action, let metadata, let index):
@@ -66,6 +68,43 @@ extension ModalStore {
                 // .queued is an internal side-signal emitted alongside
                 // .queueChanged; the public ModalEvent surface folds
                 // queueing into queueChanged, so we skip it here.
+                break
+            }
+        }
+    }
+
+    static func makeTelemetrySinkRecorder(
+        telemetrySink: AnyModalTelemetrySink<M>?
+    ) -> ModalStoreTelemetryRecorder<M>? {
+        guard let telemetrySink else { return nil }
+        return { @MainActor event in
+            switch event {
+            case .presented(let presentation):
+                telemetrySink.record(.presented(presentation))
+            case .dismissed(let presentation, let reason):
+                telemetrySink.record(.dismissed(presentation, reason: reason))
+            case .replaced(let oldPresentation, let newPresentation):
+                telemetrySink.record(.replaced(old: oldPresentation, new: newPresentation))
+            case .queueChanged(let oldQueue, let newQueue):
+                telemetrySink.record(.queueChanged(old: oldQueue, new: newQueue))
+            case .middlewareMutation(let action, let metadata, let index):
+                telemetrySink.record(
+                    .middlewareMutation(
+                        ModalMiddlewareMutationEvent(
+                            action: Self.publicAction(for: action),
+                            metadata: metadata,
+                            index: index
+                        )
+                    )
+                )
+            case .commandIntercepted(let command, let outcome, let cancellationReason):
+                let result = Self.executionResult(
+                    for: command,
+                    outcome: outcome,
+                    cancellationReason: cancellationReason
+                )
+                telemetrySink.record(.commandIntercepted(command: command, result: result))
+            case .queued:
                 break
             }
         }
@@ -112,6 +151,16 @@ extension ModalStore {
                 secondary(event)
             }
         }
+    }
+
+    static func defaultTelemetrySink(
+        for configuration: ModalStoreConfiguration<M>
+    ) -> AnyModalTelemetrySink<M>? {
+        if let telemetrySink = configuration.telemetrySink {
+            return telemetrySink
+        }
+        guard let logger = configuration.logger else { return nil }
+        return AnyModalTelemetrySink(OSLogModalTelemetrySink<M>(logger: logger))
     }
 
     static func publicAction(

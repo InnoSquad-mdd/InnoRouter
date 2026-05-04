@@ -73,6 +73,37 @@ extension NavigationStore {
         }
     }
 
+    static func makeTelemetrySinkRecorder(
+        telemetrySink: AnyNavigationTelemetrySink<R>?
+    ) -> NavigationStoreTelemetryRecorder<R>? {
+        guard let telemetrySink else { return nil }
+        return { @MainActor event in
+            switch event {
+            case .middlewareMutation(let action, let metadata, let index):
+                telemetrySink.record(
+                    .middlewareMutation(
+                        MiddlewareMutationEvent(
+                            action: Self.publicAction(for: action),
+                            metadata: metadata,
+                            index: index
+                        )
+                    )
+                )
+            case .pathMismatch(let policy, let resolution, let oldPath, let newPath):
+                telemetrySink.record(
+                    .pathMismatch(
+                        NavigationPathMismatchEvent(
+                            policy: Self.publicPolicy(for: policy),
+                            resolution: Self.publicResolution(for: resolution),
+                            oldPath: oldPath,
+                            newPath: newPath
+                        )
+                    )
+                )
+            }
+        }
+    }
+
     static func combineRecorders(
         _ primary: NavigationStoreTelemetryRecorder<R>?,
         _ secondary: NavigationStoreTelemetryRecorder<R>?
@@ -90,6 +121,16 @@ extension NavigationStore {
                 secondary(event)
             }
         }
+    }
+
+    static func defaultTelemetrySink(
+        for configuration: NavigationStoreConfiguration<R>
+    ) -> AnyNavigationTelemetrySink<R>? {
+        if let telemetrySink = configuration.telemetrySink {
+            return telemetrySink
+        }
+        guard let logger = configuration.logger else { return nil }
+        return AnyNavigationTelemetrySink(OSLogNavigationTelemetrySink<R>(logger: logger))
     }
 
     static func publicPolicy(

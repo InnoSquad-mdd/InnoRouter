@@ -46,9 +46,9 @@ struct SplitSidebarView: View {
 
     var body: some View {
         List {
-            Button("Dashboard") { navigationIntent.send(.go(.dashboard)) }
-            Button("Reports") { navigationIntent.send(.go(.reports)) }
-            Button("Settings") { navigationIntent.send(.go(.settings)) }
+            Button("Dashboard") { navigationIntent(.go(.dashboard)) }
+            Button("Reports") { navigationIntent(.go(.reports)) }
+            Button("Settings") { navigationIntent(.go(.settings)) }
         }
         .navigationTitle("Sidebar")
     }

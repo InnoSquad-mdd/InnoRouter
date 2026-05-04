@@ -51,33 +51,34 @@ public final class FlowStore<R: Route> {
 
     private let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
     private let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?
+    private let telemetrySink: AnyFlowTelemetrySink<R>?
     private let queueCoalescePolicy: QueueCoalescePolicy<R>
     private let link: FlowStoreLink<R>
     private let broadcaster: EventBroadcaster<FlowEvent<R>>
     private var traceRecorder: InternalExecutionTraceRecorder?
-    /// Cached intent dispatcher that lives for the lifetime of this store.
+    /// Cached intent closure that lives for the lifetime of this store.
     /// Built on first access by ``intentDispatcher`` so SwiftUI hosts do
     /// not allocate a fresh closure on every render.
     @ObservationIgnored
-    private var cachedIntentDispatcher: AnyFlowIntentDispatcher<R>?
+    private var cachedIntentDispatcher: FlowIntentHandler<R>?
 
     // Bookkeeping toggled while FlowStore drives its own inner stores, so
     // observer callbacks can distinguish user / system-initiated changes.
     private var isApplyingInternalMutation: Bool = false
 
-    /// A type-erased dispatcher that forwards `FlowIntent` values to this
-    /// store's ``send(_:)`` entry point.
+    /// A closure that forwards `FlowIntent` values to this store's
+    /// ``send(_:)`` entry point.
     ///
     /// Hosts publish this through the SwiftUI environment so descendants can
     /// use ``EnvironmentFlowIntent`` to dispatch view-layer intents without
     /// holding a direct store reference. The dispatcher is created on first
     /// access and reused for the lifetime of the store, so a SwiftUI host
     /// does not allocate a fresh closure on every render.
-    public var intentDispatcher: AnyFlowIntentDispatcher<R> {
+    public var intentDispatcher: @MainActor @Sendable (FlowIntent<R>) -> Void {
         if let cachedIntentDispatcher {
             return cachedIntentDispatcher
         }
-        let dispatcher = AnyFlowIntentDispatcher<R> { [weak self] intent in
+        let dispatcher: FlowIntentHandler<R> = { [weak self] intent in
             self?.send(intent)
         }
         cachedIntentDispatcher = dispatcher
@@ -119,6 +120,7 @@ public final class FlowStore<R: Route> {
         let userNavOnPathMismatch = configuration.navigation.onPathMismatch
         let userModalOnPresented = configuration.modal.onPresented
         let userModalOnDismissed = configuration.modal.onDismissed
+        let userModalOnReplaced = configuration.modal.onReplaced
         let userModalOnQueueChanged = configuration.modal.onQueueChanged
         let userModalOnMiddlewareMutation = configuration.modal.onMiddlewareMutation
         let userModalOnCommandIntercepted = configuration.modal.onCommandIntercepted
@@ -154,6 +156,10 @@ public final class FlowStore<R: Route> {
             link.owner?.emitModalEvent(.dismissed(presentation, reason: reason))
             link.owner?.handleModalStoreDismissal(presentation: presentation, reason: reason)
         }
+        let composedModalOnReplaced: @MainActor @Sendable (ModalPresentation<R>, ModalPresentation<R>) -> Void = { old, new in
+            userModalOnReplaced?(old, new)
+            link.owner?.emitModalEvent(.replaced(old: old, new: new))
+        }
         let composedModalOnQueueChanged: @MainActor @Sendable ([ModalPresentation<R>], [ModalPresentation<R>]) -> Void = { old, new in
             userModalOnQueueChanged?(old, new)
             link.owner?.emitModalEvent(.queueChanged(old: old, new: new))
@@ -184,6 +190,7 @@ public final class FlowStore<R: Route> {
             routeStackValidator: configuration.navigation.routeStackValidator,
             pathMismatchPolicy: configuration.navigation.pathMismatchPolicy,
             logger: configuration.navigation.logger,
+            telemetrySink: configuration.navigation.telemetrySink,
             onChange: composedNavOnChange,
             onBatchExecuted: composedNavOnBatchExecuted,
             onTransactionExecuted: composedNavOnTransactionExecuted,
@@ -194,9 +201,11 @@ public final class FlowStore<R: Route> {
 
         let modalConfig = ModalStoreConfiguration<R>(
             logger: configuration.modal.logger,
+            telemetrySink: configuration.modal.telemetrySink,
             middlewares: configuration.modal.middlewares,
             onPresented: composedModalOnPresented,
             onDismissed: composedModalOnDismissed,
+            onReplaced: composedModalOnReplaced,
             onQueueChanged: composedModalOnQueueChanged,
             onMiddlewareMutation: composedModalOnMiddlewareMutation,
             onCommandIntercepted: composedModalOnCommandIntercepted,
@@ -222,6 +231,7 @@ public final class FlowStore<R: Route> {
         ).path
         self.onPathChanged = configuration.onPathChanged
         self.onIntentRejected = configuration.onIntentRejected
+        self.telemetrySink = configuration.telemetrySink
         self.queueCoalescePolicy = configuration.queueCoalescePolicy
         self.link = link
         let broadcaster = EventBroadcaster<FlowEvent<R>>(
@@ -230,6 +240,24 @@ public final class FlowStore<R: Route> {
         self.broadcaster = broadcaster
         self.traceRecorder = nil
         self.link.owner = self
+    }
+
+    /// Creates a new flow store after validating the supplied initial path.
+    ///
+    /// The default ``init(initial:configuration:)`` remains permissive for
+    /// source compatibility and coerces invalid initial paths to an empty
+    /// state. Use this initializer when the path comes from an external
+    /// source such as state restoration, a deep-link handoff, or a network
+    /// payload and invalid input should be reported immediately.
+    ///
+    /// - Throws: ``FlowPlanValidationError`` describing the first invariant
+    ///   violation in `initial`.
+    public convenience init(
+        validating initial: [RouteStep<R>],
+        configuration: FlowStoreConfiguration<R> = .init()
+    ) throws {
+        try FlowPlan<R>.validate(initial)
+        self.init(initial: initial, configuration: configuration)
     }
 
     // MARK: - Public API
@@ -574,15 +602,15 @@ public final class FlowStore<R: Route> {
     private func emitPathChangedIfNeeded(from oldPath: [RouteStep<R>]) {
         guard oldPath != path else { return }
         onPathChanged?(oldPath, path)
-        broadcaster.broadcast(.pathChanged(old: oldPath, new: path))
+        emitFlowEvent(.pathChanged(old: oldPath, new: path))
     }
 
     private func emitNavigationEvent(_ event: NavigationEvent<R>) {
-        broadcaster.broadcast(.navigation(event))
+        emitFlowEvent(.navigation(event))
     }
 
     private func emitModalEvent(_ event: ModalEvent<R>) {
-        broadcaster.broadcast(.modal(event))
+        emitFlowEvent(.modal(event))
     }
 
     private func emitIntentRejected(
@@ -594,7 +622,12 @@ public final class FlowStore<R: Route> {
             applyQueueCoalescePolicyIfNeeded(intent: intent, reason: reason)
         }
         onIntentRejected?(intent, reason)
-        broadcaster.broadcast(.intentRejected(intent, reason))
+        emitFlowEvent(.intentRejected(intent, reason))
+    }
+
+    private func emitFlowEvent(_ event: FlowEvent<R>) {
+        telemetrySink?.record(event)
+        broadcaster.broadcast(event)
     }
 
     private func applyQueueCoalescePolicyIfNeeded(

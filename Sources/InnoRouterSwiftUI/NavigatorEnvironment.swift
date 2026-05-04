@@ -3,45 +3,47 @@ import SwiftUI
 
 import InnoRouterCore
 
+typealias NavigationIntentHandler<R: Route> = @MainActor @Sendable (NavigationIntent<R>) -> Void
+
 @MainActor
 final class NavigationEnvironmentStorage {
     private var intentDispatchers: [ObjectIdentifier: Any] = [:]
 
     init() {}
 
-    subscript<R: Route>(routeType: R.Type) -> AnyNavigationIntentDispatcher<R>? {
+    subscript<R: Route>(routeType: R.Type) -> NavigationIntentHandler<R>? {
         get {
             let registration = intentDispatchers[ObjectIdentifier(routeType)]
-                as? DispatcherRegistration<AnyNavigationIntentDispatcher<R>>
+                as? DispatcherRegistration<NavigationIntentHandler<R>>
             return registration?.dispatcher
         }
         set {
             setIntentDispatcher(
                 newValue,
-                ownerID: newValue.map(ObjectIdentifier.init),
+                ownerID: newValue.map { _ in ObjectIdentifier(self) },
                 routeType: routeType
             )
         }
     }
 
     func setIntentDispatcher<R: Route>(
-        _ dispatcher: AnyNavigationIntentDispatcher<R>?,
+        _ dispatcher: NavigationIntentHandler<R>?,
         ownerID: ObjectIdentifier?,
         routeType: R.Type
     ) {
         let key = ObjectIdentifier(routeType)
         let existing = intentDispatchers[key]
-            as? DispatcherRegistration<AnyNavigationIntentDispatcher<R>>
+            as? DispatcherRegistration<NavigationIntentHandler<R>>
         let replacement = dispatcher.map {
             DispatcherRegistration(
                 dispatcher: $0,
-                ownerID: ownerID ?? ObjectIdentifier($0)
+                ownerID: ownerID ?? ObjectIdentifier(self)
             )
         }
         reportDuplicateDispatcherIfNeeded(
             existing: existing,
             replacement: replacement,
-            keyDescription: "AnyNavigationIntentDispatcher<\(String(describing: routeType))>"
+            keyDescription: "NavigationIntent handler for \(String(describing: routeType))"
         )
         if let replacement {
             intentDispatchers[key] = replacement
@@ -58,7 +60,7 @@ extension EnvironmentValues {
 extension View {
     @MainActor
     func navigationIntentDispatcher<R: Route>(
-        _ dispatcher: AnyNavigationIntentDispatcher<R>,
+        _ dispatcher: @escaping NavigationIntentHandler<R>,
         owner: AnyObject
     ) -> some View {
         transformEnvironment(\.navigationEnvironmentStorage) { storage in
@@ -78,34 +80,6 @@ extension View {
 }
 
 @MainActor
-public protocol NavigationIntentDispatching: AnyObject {
-    associatedtype RouteType: Route
-    func send(_ intent: NavigationIntent<RouteType>)
-}
-
-/// Type-erased dispatcher used to publish ``NavigationIntent`` values through
-/// the SwiftUI environment.
-///
-/// The dispatcher is `@MainActor`-isolated. ``NavigationIntent`` itself is
-/// `Sendable` because `Route` conforms to `Sendable`; the closure stored here
-/// is annotated `@Sendable` so the dispatcher can be safely captured from
-/// detached tasks before the eventual hop back to the main actor.
-@MainActor
-public final class AnyNavigationIntentDispatcher<R: Route>: NavigationIntentDispatching {
-    public typealias RouteType = R
-
-    private let sendIntent: @MainActor @Sendable (NavigationIntent<R>) -> Void
-
-    public init(send: @escaping @MainActor @Sendable (NavigationIntent<R>) -> Void) {
-        self.sendIntent = send
-    }
-
-    public func send(_ intent: NavigationIntent<R>) {
-        sendIntent(intent)
-    }
-}
-
-@MainActor
 @propertyWrapper
 public struct EnvironmentNavigationIntent<R: Route>: DynamicProperty {
     @Environment(\.navigationEnvironmentStorage) private var navigationEnvironmentStorage
@@ -116,7 +90,7 @@ public struct EnvironmentNavigationIntent<R: Route>: DynamicProperty {
         self.routeType = routeType
     }
 
-    public var wrappedValue: AnyNavigationIntentDispatcher<R> {
+    public var wrappedValue: @MainActor @Sendable (NavigationIntent<R>) -> Void {
         if let dispatcher = navigationEnvironmentStorage?[R.self] {
             return dispatcher
         }
@@ -127,10 +101,10 @@ public struct EnvironmentNavigationIntent<R: Route>: DynamicProperty {
             }
         } else {
             handleMissingEnvironment(policy: environmentMissingPolicy) {
-                "AnyNavigationIntentDispatcher is missing for \(String(describing: routeType)). " +
+                "NavigationIntent handler is missing for \(String(describing: routeType)). " +
                 "Ensure the matching NavigationHost or CoordinatorHost is in the environment hierarchy."
             }
         }
-        return AnyNavigationIntentDispatcher<R> { _ in /* no-op placeholder */ }
+        return { _ in /* no-op placeholder */ }
     }
 }

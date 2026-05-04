@@ -2,14 +2,14 @@ import OSLog
 
 // MARK: - DuplicateDispatcherDetection.swift
 // InnoRouterSwiftUI - shared fail-fast helper for the three
-// `*EnvironmentStorage` types that key dispatchers by Route type.
+// `*EnvironmentStorage` types that key intent handlers by Route type.
 //
 // Each `NavigationHost` / `ModalHost` / `FlowHost` owns its own
 // `*EnvironmentStorage` instance through `@State`, so SwiftUI scopes
-// the dispatcher table to the host's view subtree. The
+// the handler table to the host's view subtree. The
 // `*EnvironmentStorage` setters are still called on every environment
-// update. Some hosts allocate a fresh dispatcher wrapper during
-// `body`, so dispatcher identity alone is not stable enough to
+// update. Some hosts allocate a fresh closure during `body`, so handler
+// identity alone is not stable enough to
 // distinguish a benign re-registration from the genuinely problematic
 // case: a different owner writing to the same `(R.Type)` slot in the
 // same storage instance.
@@ -19,14 +19,14 @@ let duplicateDispatcherLogger = Logger(
     category: "duplicate-dispatcher"
 )
 
-/// Dispatcher plus stable owner identity for a route-type slot.
+/// Handler plus stable owner identity for a route-type slot.
 ///
-/// The dispatcher may be freshly allocated by a host `body`; the
+/// The handler may be freshly allocated by a host `body`; the
 /// owner identity is the authority (`NavigationStore`, `ModalStore`,
 /// `FlowStore`, or `Coordinator`) whose registration is allowed to
 /// refresh across SwiftUI updates.
 @MainActor
-struct DispatcherRegistration<Dispatcher: AnyObject> {
+struct DispatcherRegistration<Dispatcher> {
     let dispatcher: Dispatcher
     let ownerID: ObjectIdentifier
 }
@@ -39,7 +39,7 @@ struct DispatcherRegistration<Dispatcher: AnyObject> {
 /// so the pure detection rule can be unit-tested directly without
 /// triggering the `assertionFailure` trap.
 @MainActor
-func detectDuplicateDispatcher<Dispatcher: AnyObject>(
+func detectDuplicateDispatcher<Dispatcher>(
     existing: DispatcherRegistration<Dispatcher>?,
     replacement: DispatcherRegistration<Dispatcher>?
 ) -> Bool {
@@ -52,10 +52,10 @@ func detectDuplicateDispatcher<Dispatcher: AnyObject>(
     return existing.ownerID != replacement.ownerID
 }
 
-/// Reports a duplicate-dispatcher registration when `replacement`
+/// Reports a duplicate-handler registration when `replacement`
 /// targets the same key but is owned by a different authority from
 /// `existing`. Same-owner replacements are silently allowed even when
-/// the dispatcher wrapper is a fresh instance from a SwiftUI render.
+/// the handler closure is a fresh instance from a SwiftUI render.
 ///
 /// In Debug builds the helper traps with `assertionFailure` so the
 /// host wiring bug surfaces immediately. In Release it logs an
@@ -64,7 +64,7 @@ func detectDuplicateDispatcher<Dispatcher: AnyObject>(
 /// behaviour for production builds while still leaving an audit
 /// trail in `Console.app` / `os_log` streams.
 @MainActor
-func reportDuplicateDispatcherIfNeeded<Dispatcher: AnyObject>(
+func reportDuplicateDispatcherIfNeeded<Dispatcher>(
     existing: DispatcherRegistration<Dispatcher>?,
     replacement: DispatcherRegistration<Dispatcher>?,
     keyDescription: @autoclosure () -> String
@@ -73,9 +73,9 @@ func reportDuplicateDispatcherIfNeeded<Dispatcher: AnyObject>(
         return
     }
     let message =
-        "Duplicate dispatcher registration detected for \(keyDescription()). " +
+        "Duplicate intent handler registration detected for \(keyDescription()). " +
         "A second NavigationHost / ModalHost / FlowHost is overwriting " +
-        "an earlier dispatcher in the same environment scope. Each host " +
+        "an earlier handler in the same environment scope. Each host " +
         "owns its own *EnvironmentStorage; sibling hosts that need " +
         "distinct routes should use distinct Route types or scope them " +
         "with separate environment subtrees."

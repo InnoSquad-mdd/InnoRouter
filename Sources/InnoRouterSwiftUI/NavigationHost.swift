@@ -33,11 +33,11 @@ private struct NavigationStackHostContent<R: Route, DestinationView: View, Root:
 ///
 /// - The `NavigationStore` is owned by the caller and outlives this host.
 /// - ``NavigationStore/intentDispatcher`` is cached on the store, so the
-///   host reads it instead of allocating a fresh dispatcher per render.
+///   host reads it instead of allocating a fresh closure per render.
 /// - The route-type lookup table (``NavigationEnvironmentStorage``) is
 ///   `@State` because it scopes to the host's view-tree subtree, not to
 ///   the store's lifetime — multiple hosts can share a store while
-///   maintaining distinct dispatcher tables.
+///   maintaining distinct handler tables.
 public struct NavigationHost<R: Route, DestinationView: View, Root: View>: View {
     @Bindable private var store: NavigationStore<R>
     @State private var navigationEnvironmentStorage = NavigationEnvironmentStorage()

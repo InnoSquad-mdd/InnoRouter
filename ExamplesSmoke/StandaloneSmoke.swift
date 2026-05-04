@@ -33,10 +33,10 @@ struct HomeListView: View {
     var body: some View {
         List {
             Button("Go Detail") {
-                navigationIntent.send(.go(.detail(id: "123")))
+                navigationIntent(.go(.detail(id: "123")))
             }
             Button("Go Settings") {
-                navigationIntent.send(.go(.settings))
+                navigationIntent(.go(.settings))
             }
         }
         .navigationTitle("Home")

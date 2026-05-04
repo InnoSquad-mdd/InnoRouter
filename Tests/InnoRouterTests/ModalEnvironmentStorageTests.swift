@@ -21,7 +21,7 @@ struct ModalEnvironmentStorageTests {
     func testManualModalDispatcherSingleRegistration() {
         let store = ModalStore<TestModalRoute>()
         let storage = ModalEnvironmentStorage()
-        storage[TestModalRoute.self] = AnyModalIntentDispatcher { intent in
+        storage[TestModalRoute.self] = { intent in
             store.send(intent)
         }
 
@@ -30,11 +30,11 @@ struct ModalEnvironmentStorageTests {
             return
         }
 
-        dispatcher.send(.present(.profile, style: .sheet))
+        dispatcher(.present(.profile, style: .sheet))
         #expect(store.currentPresentation?.route == .profile)
         #expect(store.currentPresentation?.style == .sheet)
 
-        dispatcher.send(.dismiss)
+        dispatcher(.dismiss)
         #expect(store.currentPresentation == nil)
     }
 
@@ -46,17 +46,17 @@ struct ModalEnvironmentStorageTests {
         let ownerID = ObjectIdentifier(store)
 
         storage.setIntentDispatcher(
-            AnyModalIntentDispatcher { store.send($0) },
+            { store.send($0) },
             ownerID: ownerID,
             routeType: TestModalRoute.self
         )
         storage.setIntentDispatcher(
-            AnyModalIntentDispatcher { store.send($0) },
+            { store.send($0) },
             ownerID: ownerID,
             routeType: TestModalRoute.self
         )
 
-        storage[TestModalRoute.self]?.send(.present(.profile, style: .sheet))
+        storage[TestModalRoute.self]?(.present(.profile, style: .sheet))
 
         #expect(store.currentPresentation?.route == .profile)
         #expect(store.currentPresentation?.style == .sheet)
@@ -70,10 +70,10 @@ struct ModalEnvironmentStorageTests {
         let firstStorage = ModalEnvironmentStorage()
         let secondStorage = ModalEnvironmentStorage()
 
-        firstStorage[TestModalRoute.self] = AnyModalIntentDispatcher { intent in
+        firstStorage[TestModalRoute.self] = { intent in
             firstStore.send(intent)
         }
-        secondStorage[TestModalRoute.self] = AnyModalIntentDispatcher { intent in
+        secondStorage[TestModalRoute.self] = { intent in
             secondStore.send(intent)
         }
 
@@ -82,7 +82,7 @@ struct ModalEnvironmentStorageTests {
             return
         }
 
-        firstDispatcher.send(.present(.profile, style: .sheet))
+        firstDispatcher(.present(.profile, style: .sheet))
 
         #expect(firstStore.currentPresentation?.route == .profile)
         #expect(secondStore.currentPresentation == nil)

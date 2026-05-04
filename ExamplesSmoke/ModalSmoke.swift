@@ -45,10 +45,10 @@ struct ModalRootView: View {
     var body: some View {
         VStack(spacing: 12) {
             Button("Show Profile") {
-                modalIntent.send(.present(.profile, style: .sheet))
+                modalIntent(.present(.profile, style: .sheet))
             }
             Button("Show Onboarding") {
-                modalIntent.send(.present(.onboarding, style: .fullScreenCover))
+                modalIntent(.present(.onboarding, style: .fullScreenCover))
             }
         }
     }
@@ -61,7 +61,7 @@ struct ModalProfileView: View {
         VStack(spacing: 12) {
             Text("Profile")
             Button("Dismiss") {
-                modalIntent.send(.dismiss)
+                modalIntent(.dismiss)
             }
         }
         .padding()
@@ -76,7 +76,7 @@ struct ModalOnboardingView: View {
             VStack(spacing: 12) {
                 Text("Onboarding")
                 Button("Dismiss") {
-                    modalIntent.send(.dismiss)
+                    modalIntent(.dismiss)
                 }
             }
             .padding()

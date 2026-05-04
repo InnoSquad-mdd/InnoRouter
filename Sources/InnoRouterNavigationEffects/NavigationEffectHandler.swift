@@ -9,21 +9,23 @@ import Foundation
 /// non-SwiftUI features (InnoFlow effects, coordinator-owned async
 /// pipelines) against a navigator while keeping the call sites on the
 /// main actor.
+public enum NavigationEffectHandlerEvent<R: Route>: Sendable, Equatable {
+    case command(command: NavigationCommand<R>, result: NavigationResult<R>)
+    case batch(commands: [NavigationCommand<R>], result: NavigationBatchResult<R>)
+    case transaction(commands: [NavigationCommand<R>], result: NavigationTransactionResult<R>)
+}
+
 @MainActor
 public final class NavigationEffectHandler<R: Route> {
     private let executeCommand: @MainActor (NavigationCommand<R>) -> NavigationResult<R>
     private let executeBatchCommands: @MainActor ([NavigationCommand<R>], Bool) -> NavigationBatchResult<R>
     private let executeTransactionCommands: @MainActor ([NavigationCommand<R>]) -> NavigationTransactionResult<R>
     private let readState: @MainActor () -> RouteStack<R>
+    private let broadcaster: EventBroadcaster<NavigationEffectHandlerEvent<R>>
 
-    /// Result of the most recent command result emitted by a single
-    /// command, batch, or transaction execution, or `nil` before any
-    /// execution.
-    public private(set) var lastResult: NavigationResult<R>?
-
-    /// Result of the most recent batch execution, or `nil` when the
-    /// last call was a single command or transaction.
-    public private(set) var lastBatchResult: NavigationBatchResult<R>?
+    public var events: AsyncStream<NavigationEffectHandlerEvent<R>> {
+        broadcaster.stream()
+    }
 
     public init<N: Navigator & NavigationBatchExecutor & NavigationTransactionExecutor>(
         navigator: N
@@ -40,13 +42,13 @@ public final class NavigationEffectHandler<R: Route> {
         self.readState = {
             navigator.state
         }
+        self.broadcaster = EventBroadcaster()
     }
 
     @discardableResult
     public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
         let result = executeCommand(command)
-        lastResult = result
-        lastBatchResult = nil
+        broadcaster.broadcast(.command(command: command, result: result))
         return result
     }
 
@@ -61,8 +63,7 @@ public final class NavigationEffectHandler<R: Route> {
         stopOnFailure: Bool
     ) -> NavigationBatchResult<R> {
         let batchResult = executeBatchCommands(commands, stopOnFailure)
-        lastBatchResult = batchResult
-        lastResult = batchResult.results.last
+        broadcaster.broadcast(.batch(commands: commands, result: batchResult))
         return batchResult
     }
 
@@ -71,8 +72,7 @@ public final class NavigationEffectHandler<R: Route> {
         _ commands: [NavigationCommand<R>]
     ) -> NavigationTransactionResult<R> {
         let transactionResult = executeTransactionCommands(commands)
-        lastResult = transactionResult.results.last
-        lastBatchResult = nil
+        broadcaster.broadcast(.transaction(commands: commands, result: transactionResult))
         return transactionResult
     }
 
@@ -92,6 +92,10 @@ public final class NavigationEffectHandler<R: Route> {
         _ = execute(.replace(routes))
     }
 
+    public var state: RouteStack<R> {
+        readState()
+    }
+
     @discardableResult
     public func executeIf(
         _ shouldExecute: @escaping @Sendable () -> Bool,
@@ -99,8 +103,7 @@ public final class NavigationEffectHandler<R: Route> {
     ) -> NavigationResult<R> {
         guard shouldExecute() else {
             let result: NavigationResult<R> = .cancelled(.conditionFailed)
-            lastResult = result
-            lastBatchResult = nil
+            broadcaster.broadcast(.command(command: command, result: result))
             return result
         }
         return execute(command)
@@ -129,15 +132,13 @@ public final class NavigationEffectHandler<R: Route> {
         case .proceed(let updatedCommand):
             guard updatedCommand.canExecute(on: readState()) else {
                 let result: NavigationResult<R> = .cancelled(.staleAfterPrepare(command: updatedCommand))
-                lastResult = result
-                lastBatchResult = nil
+                broadcaster.broadcast(.command(command: updatedCommand, result: result))
                 return result
             }
             return execute(updatedCommand)
         case .cancel(let reason):
             let result: NavigationResult<R> = .cancelled(reason)
-            lastResult = result
-            lastBatchResult = nil
+            broadcaster.broadcast(.command(command: command, result: result))
             return result
         }
     }
