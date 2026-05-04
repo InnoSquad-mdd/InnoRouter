@@ -74,6 +74,31 @@ public enum SceneRejectionReason: String, Sendable, Equatable, Codable {
     /// released and the pending intent advances instead of leaving the
     /// queue stuck behind an orphaned claim.
     case hostTornDownDuringDispatch
+
+    public var localizedDescription: String {
+        switch self {
+        case .environmentReturnedFailure:
+            return "Scene environment returned a failure."
+        case .nothingActive:
+            return "No scene is currently active."
+        case .activeSceneMismatch:
+            return "The active scene does not match the dismissal request."
+        case .sceneNotDeclared:
+            return "The requested scene is not declared."
+        case .sceneDeclarationMismatch:
+            return "The requested scene does not match its declaration."
+        case .sceneInstanceNotActive:
+            return "The requested scene instance is not active."
+        case .supersededByNewerIntent:
+            return "Scene intent was superseded by a newer intent."
+        case .fallbackCannotDispatch:
+            return "Fallback scene dispatcher cannot service this intent."
+        case .duplicateHostRegistration:
+            return "A duplicate scene host registration was rejected."
+        case .hostTornDownDuringDispatch:
+            return "Scene host was torn down during dispatch."
+        }
+    }
 }
 
 /// Capability advertised by a dispatcher (``SceneHost`` or

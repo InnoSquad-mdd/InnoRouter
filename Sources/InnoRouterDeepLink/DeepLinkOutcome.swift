@@ -18,6 +18,9 @@ import InnoRouterCore
 public enum DeepLinkCoordinationOutcome<R: Route>: Sendable, Equatable {
     /// The plan ran. `batch` carries per-command results for observability.
     case executed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>)
+    /// The URL produced a plan, but the current navigation state cannot
+    /// execute it without failing.
+    case applicationRejected(plan: NavigationPlan<R>, failure: NavigationPlanValidationFailure<R>)
     /// The URL mapped to an authenticated route; the plan is held on the
     /// coordinator as `pendingDeepLink` until authorization succeeds.
     case pending(PendingDeepLink<R>)

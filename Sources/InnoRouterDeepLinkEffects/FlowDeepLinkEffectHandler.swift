@@ -145,6 +145,39 @@ public final class FlowDeepLinkEffectHandler<R: Route> {
         }
     }
 
+    /// Throwing async variant for auth probes that can fail before a
+    /// boolean authorization decision is available.
+    @discardableResult
+    public func resumePendingDeepLinkIfAllowed(
+        _ authorize: @escaping @MainActor @Sendable (FlowPendingDeepLink<R>) async throws -> Bool
+    ) async rethrows -> Result {
+        try await InternalExecutionTrace.withSpan(
+            domain: .deepLink,
+            operation: "resumePendingDeepLinkIfAllowed",
+            recorder: traceRecorder
+        ) {
+            guard let pending = pendingDeepLink else {
+                return .noPendingDeepLink
+            }
+            let captured = pending
+            let isAuthorized = try await authorize(captured)
+
+            guard self.pendingDeepLink == captured else {
+                if let current = self.pendingDeepLink {
+                    return .pending(current)
+                }
+                return .noPendingDeepLink
+            }
+
+            guard isAuthorized else {
+                return .pending(captured)
+            }
+            return resumePendingDeepLink()
+        } outcome: { result in
+            Self.traceOutcome(for: result)
+        }
+    }
+
     public var hasPendingDeepLink: Bool {
         pendingDeepLink != nil
     }

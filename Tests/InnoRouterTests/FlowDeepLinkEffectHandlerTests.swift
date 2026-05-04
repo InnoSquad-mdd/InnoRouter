@@ -50,6 +50,9 @@ private func makePipeline() -> FlowDeepLinkPipeline<EffectRoute> {
 
 @Suite("FlowDeepLinkEffectHandler Tests")
 struct FlowDeepLinkEffectHandlerTests {
+    enum AuthorizationProbeError: Error, Equatable {
+        case failed
+    }
 
     @Test("Happy path: handle(url) applies the plan and returns .executed with the resulting path")
     @MainActor
@@ -194,6 +197,38 @@ struct FlowDeepLinkEffectHandlerTests {
             // expected
         } else {
             Issue.record("Expected .noPendingDeepLink, got \(result)")
+        }
+    }
+
+    @Test("Throwing resumePendingDeepLinkIfAllowed propagates auth probe failures")
+    @MainActor
+    func throwingResumePendingDeepLinkIfAllowedPropagatesFailure() async {
+        let pipeline = FlowDeepLinkPipeline<EffectRoute>(
+            allowedSchemes: ["myapp"],
+            matcher: makePipeline().matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { false }
+            )
+        )
+        let store = FlowStore<EffectRoute>()
+        let handler = FlowDeepLinkEffectHandler(
+            pipeline: pipeline,
+            applier: store
+        )
+
+        _ = handler.handle(URL(string: "myapp://app/secure")!)
+
+        do {
+            _ = try await handler.resumePendingDeepLinkIfAllowed { _ async throws -> Bool in
+                throw AuthorizationProbeError.failed
+            }
+            Issue.record("Expected authorization probe failure")
+        } catch AuthorizationProbeError.failed {
+            #expect(handler.hasPendingDeepLink)
+            #expect(store.path.isEmpty)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
         }
     }
 

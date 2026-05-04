@@ -66,6 +66,24 @@ struct DeepLinkStrictDiagnosticsTests {
         }
     }
 
+    @Test("Strict init throws on invalid parameter name")
+    func testStrictThrowsOnInvalidParameterName() {
+        do {
+            _ = try DeepLinkMatcher<StrictRoute>(strict: ()) {
+                DeepLinkMapping("/detail/:1id") { _ in .detail }
+            }
+            Issue.record("Expected DeepLinkMatcherStrictError")
+        } catch let error as DeepLinkMatcherStrictError {
+            #expect(
+                error.diagnostics == [
+                    .invalidParameterName(pattern: "/detail/:1id", index: 1, name: "1id")
+                ]
+            )
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
     @Test("Strict init succeeds when no diagnostics are produced")
     func testStrictSucceedsWithCleanMappings() throws {
         let matcher = try DeepLinkMatcher<StrictRoute>(strict: ()) {
@@ -90,5 +108,11 @@ struct DeepLinkStrictDiagnosticsTests {
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
+    }
+
+    @Test("Strict error public initializer accepts an empty diagnostics array")
+    func strictErrorInitializerDoesNotTrapOnEmptyDiagnostics() {
+        let error = DeepLinkMatcherStrictError(diagnostics: [])
+        #expect(error.diagnostics.isEmpty)
     }
 }

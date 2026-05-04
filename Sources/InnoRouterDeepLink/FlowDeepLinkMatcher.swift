@@ -3,6 +3,7 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import Foundation
+import OSLog
 import InnoRouterCore
 
 /// Resolves a URL to a ``FlowPlan`` that a `FlowStore` can apply in a
@@ -64,6 +65,7 @@ public struct FlowDeepLinkMapping<R: Route>: Sendable {
 /// matchers coexist so apps can adopt the flow matcher incrementally.
 public struct FlowDeepLinkMatcher<R: Route>: Sendable {
     private let mappings: [FlowDeepLinkMapping<R>]
+    private let inputLimits: DeepLinkInputLimits
     public let diagnostics: [DeepLinkMatcherDiagnostic]
 
     public init(@FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]) {
@@ -86,15 +88,52 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
         mappings: [FlowDeepLinkMapping<R>]
     ) {
         self.mappings = mappings
+        self.inputLimits = configuration.inputLimits
         self.diagnostics = DeepLinkPattern.makeDiagnostics(
             for: mappings.map(\.pattern)
         )
         DeepLinkMatcherDiagnostic.emit(self.diagnostics, configuration: configuration)
     }
 
+    /// Creates a flow matcher that promotes any structural diagnostic into a
+    /// thrown ``DeepLinkMatcherStrictError`` rather than emitting a warning.
+    ///
+    /// Use this in release-readiness gates where shipping shadowed or
+    /// duplicated flow mappings would corrupt multi-step deep-link routing in
+    /// production.
+    public init(
+        strict: Void = (),
+        logger: Logger? = nil,
+        @FlowDeepLinkMappingBuilder<R> mappings: () -> [FlowDeepLinkMapping<R>]
+    ) throws {
+        try self.init(strict: strict, logger: logger, mappings: mappings())
+    }
+
+    /// Creates a flow matcher from a mapping array and promotes any
+    /// structural diagnostic into a thrown ``DeepLinkMatcherStrictError``.
+    public init(
+        strict: Void = (),
+        logger: Logger? = nil,
+        mappings: [FlowDeepLinkMapping<R>]
+    ) throws {
+        let resolvedDiagnostics = DeepLinkPattern.makeDiagnostics(
+            for: mappings.map(\.pattern)
+        )
+        if !resolvedDiagnostics.isEmpty {
+            for diagnostic in resolvedDiagnostics {
+                logger?.error("\(diagnostic.message, privacy: .public)")
+            }
+            throw DeepLinkMatcherStrictError(diagnostics: resolvedDiagnostics)
+        }
+        self.mappings = mappings
+        self.inputLimits = .unlimited
+        self.diagnostics = resolvedDiagnostics
+    }
+
     /// Walks every declared mapping and returns the first plan that
     /// the URL matches, or `nil` if none apply.
     public func match(_ url: URL) -> FlowPlan<R>? {
+        guard inputLimits.violation(for: url) == nil else { return nil }
         let parsed = DeepLinkParser.parse(url)
         for mapping in mappings {
             if let plan = mapping.match(parsed) {

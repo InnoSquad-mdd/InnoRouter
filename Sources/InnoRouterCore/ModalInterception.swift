@@ -14,6 +14,22 @@ public enum ModalCancellationReason<M: Route>: Sendable, Equatable {
     case custom(String)
 }
 
+public extension ModalCancellationReason {
+    var localizedDescription: String {
+        switch self {
+        case .middleware(let debugName, let command):
+            if let debugName {
+                return "Modal command was cancelled by middleware '\(debugName)' while executing \(command)."
+            }
+            return "Modal command was cancelled by middleware while executing \(command)."
+        case .conditionFailed:
+            return "Modal command was cancelled because a condition failed."
+        case .custom(let reason):
+            return reason
+        }
+    }
+}
+
 /// The decision a middleware returns from `willExecute`.
 public enum ModalInterception<M: Route>: Sendable, Equatable {
     /// Allow the command (potentially rewritten) to continue down the

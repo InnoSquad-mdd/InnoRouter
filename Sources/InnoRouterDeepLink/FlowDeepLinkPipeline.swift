@@ -90,20 +90,27 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
     public let allowedHosts: Set<String>?
     public let matcher: FlowDeepLinkMatcher<R>
     public let authenticationPolicy: DeepLinkAuthenticationPolicy<R>
+    public let inputLimits: DeepLinkInputLimits
 
     public init(
         allowedSchemes: Set<String>? = nil,
         allowedHosts: Set<String>? = nil,
         matcher: FlowDeepLinkMatcher<R>,
-        authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired
+        authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
+        inputLimits: DeepLinkInputLimits = .default
     ) {
         self.allowedSchemes = allowedSchemes?.flowLowercasedSet
         self.allowedHosts = allowedHosts?.flowLowercasedSet
         self.matcher = matcher
         self.authenticationPolicy = authenticationPolicy
+        self.inputLimits = inputLimits
     }
 
     public func decide(for url: URL) -> FlowDeepLinkDecision<R> {
+        if let violation = inputLimits.violation(for: url) {
+            return .rejected(reason: .inputLimitExceeded(violation))
+        }
+
         if let allowedSchemes {
             guard let scheme = url.scheme?.lowercased() else {
                 return .rejected(reason: .schemeNotAllowed(actualScheme: url.scheme))

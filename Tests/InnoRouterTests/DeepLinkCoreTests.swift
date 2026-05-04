@@ -257,6 +257,36 @@ struct DeepLinkTests {
         )
     }
 
+    @Test("DeepLinkMatcher surfaces invalid parameter name diagnostics")
+    func testMatcherInvalidParameterNameDiagnostics() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            DeepLinkMapping("/detail/:1id") { _ in .detail(id: "invalid") }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .invalidParameterName(pattern: "/detail/:1id", index: 1, name: "1id")
+            ]
+        )
+        #expect(matcher.match(URL(string: "myapp://app/detail/456")!) == nil)
+    }
+
+    @Test("DeepLinkMatcher input limits reject before matching")
+    func testMatcherInputLimitsRejectBeforeMatching() {
+        let matcher = DeepLinkMatcher<TestRoute>(
+            configuration: .init(
+                diagnosticsMode: .disabled,
+                inputLimits: DeepLinkInputLimits(maxURLLength: 20)
+            )
+        ) {
+            DeepLinkMapping("/detail/:id") { _ in .detail(id: "matched") }
+        }
+
+        #expect(matcher.match(URL(string: "myapp://app/detail/456")!) == nil)
+    }
+
     @Test("DeepLinkMatcher treats renamed parameters as equivalent structure")
     func testMatcherParameterNameOnlyShadowingDiagnostics() {
         let matcher = DeepLinkMatcher<TestRoute>(
@@ -333,6 +363,22 @@ struct DeepLinkTests {
             return
         }
         #expect(reason == .hostNotAllowed(actualHost: "other.com"))
+    }
+
+    @Test("DeepLinkPipeline rejected reason is inputLimitExceeded")
+    func testPipelineRejectsInputLimitWithReason() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .home },
+            inputLimits: DeepLinkInputLimits(maxPathSegments: 1)
+        )
+        let url = URL(string: "myapp://myapp.com/home/settings")!
+
+        let decision = pipeline.decide(for: url)
+        guard case .rejected(let reason) = decision else {
+            Issue.record("Expected rejected decision")
+            return
+        }
+        #expect(reason == .inputLimitExceeded(.pathSegmentCountExceeded(actual: 2, max: 1)))
     }
 
     @Test("DeepLinkPipeline keeps URL in unhandled decision")

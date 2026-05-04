@@ -164,4 +164,43 @@ public enum InternalExecutionTrace {
             }
         }
     }
+
+    /// Runs a throwing asynchronous body inside a traced span on the main actor.
+    @MainActor
+    public static func withSpan<T>(
+        domain: InternalExecutionTraceDomain,
+        operation: String,
+        recorder: InternalExecutionTraceRecorder?,
+        metadata: @autoclosure () -> [String: String] = [:],
+        _ body: () async throws -> T,
+        outcome: @escaping (T) -> String
+    ) async rethrows -> T {
+        guard let recorder else {
+            return try await body()
+        }
+
+        let rootID = currentRootID ?? UUID().uuidString
+        let parentSpanID = currentSpanID
+        let spanID = UUID().uuidString
+        let context = InternalExecutionTraceContext(
+            rootID: rootID,
+            spanID: spanID,
+            parentSpanID: parentSpanID,
+            domain: domain
+        )
+
+        recorder(.start(context: context, operation: operation, metadata: metadata()))
+        return try await $currentRootID.withValue(rootID) {
+            try await $currentSpanID.withValue(spanID) {
+                do {
+                    let value = try await body()
+                    recorder(.finish(context: context, operation: operation, outcome: outcome(value)))
+                    return value
+                } catch {
+                    recorder(.finish(context: context, operation: operation, outcome: "threw"))
+                    throw error
+                }
+            }
+        }
+    }
 }

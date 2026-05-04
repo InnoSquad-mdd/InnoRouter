@@ -139,6 +139,27 @@ struct CoordinatorDeepLinkTests {
         #expect(coordinator.pendingDeepLink?.plan.commands == planCommands)
     }
 
+    @Test("DeepLink plan validation rejection prevents store execution")
+    @MainActor
+    func testDeepLinkPlanValidationRejectionPreventsExecution() {
+        let pipeline = DeepLinkPipeline<TestRoute>(
+            resolve: { _ in .settings },
+            plan: { _ in NavigationPlan(commands: [.pop]) }
+        )
+        let coordinator = DeepLinkCoordinator(deepLinkPipeline: pipeline)
+
+        let outcome = coordinator.handleDeepLink(URL(string: "myapp://myapp.com/settings")!)
+
+        guard case .applicationRejected(let plan, let failure) = outcome else {
+            Issue.record("expected .applicationRejected, got \(outcome)")
+            return
+        }
+        #expect(plan.commands == [.pop])
+        #expect(failure.result == .emptyStack)
+        #expect(coordinator.store.state.path.isEmpty)
+        #expect(coordinator.pendingDeepLink == nil)
+    }
+
     @Test("Async coordinator deep-link guard keeps pending until authorized")
     @MainActor
     func testResumePendingDeepLinkIfAllowed() async {

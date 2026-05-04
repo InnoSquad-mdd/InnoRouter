@@ -34,6 +34,38 @@ public struct NavigationPlan<R: Route>: Sendable, Equatable {
     public init(commands: [NavigationCommand<R>]) {
         self.commands = commands
     }
+
+    public func validationFailure(on initialStack: RouteStack<R>) -> NavigationPlanValidationFailure<R>? {
+        var preview = initialStack
+        let engine = NavigationEngine<R>()
+        for (index, command) in commands.enumerated() {
+            let result = engine.apply(command, to: &preview)
+            if !result.isSuccess {
+                return NavigationPlanValidationFailure(
+                    index: index,
+                    command: command,
+                    result: result
+                )
+            }
+        }
+        return nil
+    }
+
+    public func canExecute(on initialStack: RouteStack<R>) -> Bool {
+        validationFailure(on: initialStack) == nil
+    }
+}
+
+public struct NavigationPlanValidationFailure<R: Route>: Sendable, Equatable {
+    public let index: Int
+    public let command: NavigationCommand<R>
+    public let result: NavigationResult<R>
+
+    public init(index: Int, command: NavigationCommand<R>, result: NavigationResult<R>) {
+        self.index = index
+        self.command = command
+        self.result = result
+    }
 }
 
 public enum DeepLinkAuthenticationPolicy<R: Route>: Sendable {
@@ -47,6 +79,18 @@ public enum DeepLinkAuthenticationPolicy<R: Route>: Sendable {
 public enum DeepLinkRejectionReason: Sendable, Equatable {
     case schemeNotAllowed(actualScheme: String?)
     case hostNotAllowed(actualHost: String?)
+    case inputLimitExceeded(DeepLinkInputLimitViolation)
+
+    public var localizedDescription: String {
+        switch self {
+        case .schemeNotAllowed(let actualScheme):
+            return "Deep-link scheme is not allowed: \(actualScheme ?? "nil")."
+        case .hostNotAllowed(let actualHost):
+            return "Deep-link host is not allowed: \(actualHost ?? "nil")."
+        case .inputLimitExceeded(let violation):
+            return violation.localizedDescription
+        }
+    }
 }
 
 public enum DeepLinkDecision<R: Route>: Sendable, Equatable {
@@ -65,12 +109,14 @@ public struct DeepLinkPipeline<R: Route>: Sendable {
     public var resolve: Resolver
     public var authenticationPolicy: DeepLinkAuthenticationPolicy<R>
     public var plan: Planner
+    public var inputLimits: DeepLinkInputLimits
 
     public init(
         allowedSchemes: Set<String>? = nil,
         allowedHosts: Set<String>? = nil,
         resolve: @escaping Resolver,
         authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
+        inputLimits: DeepLinkInputLimits = .default,
         plan: @escaping Planner = { route in NavigationPlan(commands: [.push(route)]) }
     ) {
         self.allowedSchemes = allowedSchemes?.lowercasedSet
@@ -78,9 +124,14 @@ public struct DeepLinkPipeline<R: Route>: Sendable {
         self.resolve = resolve
         self.authenticationPolicy = authenticationPolicy
         self.plan = plan
+        self.inputLimits = inputLimits
     }
 
     public func decide(for url: URL) -> DeepLinkDecision<R> {
+        if let violation = inputLimits.violation(for: url) {
+            return .rejected(reason: .inputLimitExceeded(violation))
+        }
+
         if let allowedSchemes {
             guard let scheme = url.scheme?.lowercased() else {
                 return .rejected(reason: .schemeNotAllowed(actualScheme: url.scheme))
