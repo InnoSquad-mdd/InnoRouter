@@ -46,8 +46,28 @@ That means:
 - duplicate patterns
 - wildcard shadowing
 - non-terminal wildcards
+- invalid parameter names; parameter names must match
+  `^[A-Za-z_][A-Za-z0-9_]*$`
 - parameter-heavy patterns that subsume more specific later patterns
 
 Diagnostics are available on both push-only and flow matchers. They
 are intended to catch ambiguous authoring early without changing the
 matcher’s runtime semantics.
+
+For release-readiness gates, use the throwing strict initializers:
+`DeepLinkMatcher(strict:)` for push-only mappings and
+`FlowDeepLinkMatcher(strict:)` for mappings that expand into a
+`FlowPlan`. Strict initializers throw `DeepLinkMatcherStrictError` with
+the full diagnostic list instead of only logging warnings, and accept
+the same `DeepLinkInputLimits` guardrails used by non-strict matchers.
+
+## Input limits
+
+`DeepLinkInputLimits` guards runtime URLs before matching. Configure it
+on `DeepLinkMatcherConfiguration`, `DeepLinkPipeline`, or
+`FlowDeepLinkPipeline` to cap absolute URL length, path segment count,
+and query item count. Direct matcher calls still return `nil` because
+their public contract is optional. Pipeline and effect-handler paths
+surface limit violations as typed
+`DeepLinkRejectionReason.inputLimitExceeded` rejections instead of
+"no match" outcomes.

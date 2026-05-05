@@ -28,18 +28,15 @@ struct FlowHostCompositionTests {
         _ = host.body
     }
 
-    @Test("FlowStore intentDispatcher is cached and forwards flow intents")
+    @Test("FlowStore intentDispatcher forwards flow intents")
     @MainActor
     func flowStoreIntentDispatcherIsCachedAndForwardsIntents() {
         let store = FlowStore<FlowHostRoute>()
         let dispatcher = store.intentDispatcher
-        let secondRead = store.intentDispatcher
 
-        #expect(dispatcher === secondRead)
-
-        dispatcher.send(.push(.landing))
-        dispatcher.send(.push(.child))
-        dispatcher.send(.presentSheet(.sheetChild))
+        dispatcher(.push(.landing))
+        dispatcher(.push(.child))
+        dispatcher(.presentSheet(.sheetChild))
 
         #expect(store.path == [.push(.landing), .push(.child), .sheet(.sheetChild)])
         #expect(store.modalStore.currentPresentation?.route == .sheetChild)
@@ -53,11 +50,11 @@ struct FlowHostCompositionTests {
         let firstStorage = FlowEnvironmentStorage()
         let secondStorage = FlowEnvironmentStorage()
 
-        firstStorage[FlowHostRoute.self] = AnyFlowIntentDispatcher { firstStore.send($0) }
-        secondStorage[FlowHostRoute.self] = AnyFlowIntentDispatcher { secondStore.send($0) }
+        firstStorage[FlowHostRoute.self] = { firstStore.send($0) }
+        secondStorage[FlowHostRoute.self] = { secondStore.send($0) }
 
-        firstStorage[FlowHostRoute.self]?.send(.push(.landing))
-        secondStorage[FlowHostRoute.self]?.send(.push(.child))
+        firstStorage[FlowHostRoute.self]?(.push(.landing))
+        secondStorage[FlowHostRoute.self]?(.push(.child))
 
         #expect(firstStore.path == [.push(.landing)])
         #expect(secondStore.path == [.push(.child)])
@@ -71,17 +68,17 @@ struct FlowHostCompositionTests {
         let ownerID = ObjectIdentifier(store)
 
         storage.setIntentDispatcher(
-            AnyFlowIntentDispatcher { store.send($0) },
+            { store.send($0) },
             ownerID: ownerID,
             routeType: FlowHostRoute.self
         )
         storage.setIntentDispatcher(
-            AnyFlowIntentDispatcher { store.send($0) },
+            { store.send($0) },
             ownerID: ownerID,
             routeType: FlowHostRoute.self
         )
 
-        storage[FlowHostRoute.self]?.send(.push(.landing))
+        storage[FlowHostRoute.self]?(.push(.landing))
 
         #expect(store.path == [.push(.landing)])
     }

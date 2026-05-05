@@ -31,7 +31,7 @@ jobs:
         run: swift --version
 
       - name: Build DocC Site
-        run: ./scripts/build-docc-site.sh --version preview
+        run: ./scripts/build-docc-site.sh --version preview --skip-latest
 
       - name: Package DocC Preview Artifact
         run: tar -czf .build/docc-site-preview.tar.gz -C .build docc-site

@@ -18,6 +18,7 @@ enum ModalStoreTelemetryEvent<M: Route>: Equatable {
 
     case presented(ModalPresentation<M>)
     case dismissed(ModalPresentation<M>, reason: ModalDismissalReason)
+    case replaced(old: ModalPresentation<M>, new: ModalPresentation<M>)
     case queued(ModalPresentation<M>)
     case queueChanged(oldQueue: [ModalPresentation<M>], newQueue: [ModalPresentation<M>])
     case middlewareMutation(

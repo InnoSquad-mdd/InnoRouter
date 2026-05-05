@@ -2,45 +2,47 @@ import SwiftUI
 
 import InnoRouterCore
 
+typealias FlowIntentHandler<R: Route> = @MainActor @Sendable (FlowIntent<R>) -> Void
+
 @MainActor
 final class FlowEnvironmentStorage {
     private var intentDispatchers: [ObjectIdentifier: Any] = [:]
 
     init() {}
 
-    subscript<R: Route>(routeType: R.Type) -> AnyFlowIntentDispatcher<R>? {
+    subscript<R: Route>(routeType: R.Type) -> FlowIntentHandler<R>? {
         get {
             let registration = intentDispatchers[ObjectIdentifier(routeType)]
-                as? DispatcherRegistration<AnyFlowIntentDispatcher<R>>
+                as? DispatcherRegistration<FlowIntentHandler<R>>
             return registration?.dispatcher
         }
         set {
             setIntentDispatcher(
                 newValue,
-                ownerID: newValue.map(ObjectIdentifier.init),
+                ownerID: newValue.map { _ in ObjectIdentifier(self) },
                 routeType: routeType
             )
         }
     }
 
     func setIntentDispatcher<R: Route>(
-        _ dispatcher: AnyFlowIntentDispatcher<R>?,
+        _ dispatcher: FlowIntentHandler<R>?,
         ownerID: ObjectIdentifier?,
         routeType: R.Type
     ) {
         let key = ObjectIdentifier(routeType)
         let existing = intentDispatchers[key]
-            as? DispatcherRegistration<AnyFlowIntentDispatcher<R>>
+            as? DispatcherRegistration<FlowIntentHandler<R>>
         let replacement = dispatcher.map {
             DispatcherRegistration(
                 dispatcher: $0,
-                ownerID: ownerID ?? ObjectIdentifier($0)
+                ownerID: ownerID ?? ObjectIdentifier(self)
             )
         }
         reportDuplicateDispatcherIfNeeded(
             existing: existing,
             replacement: replacement,
-            keyDescription: "AnyFlowIntentDispatcher<\(String(describing: routeType))>"
+            keyDescription: "FlowIntent handler for \(String(describing: routeType))"
         )
         if let replacement {
             intentDispatchers[key] = replacement
@@ -57,7 +59,7 @@ extension EnvironmentValues {
 extension View {
     @MainActor
     func flowIntentDispatcher<R: Route>(
-        _ dispatcher: AnyFlowIntentDispatcher<R>,
+        _ dispatcher: @escaping FlowIntentHandler<R>,
         owner: AnyObject
     ) -> some View {
         transformEnvironment(\.flowEnvironmentStorage) { storage in
@@ -77,34 +79,6 @@ extension View {
 }
 
 @MainActor
-public protocol FlowIntentDispatching: AnyObject {
-    associatedtype RouteType: Route
-    func send(_ intent: FlowIntent<RouteType>)
-}
-
-/// Type-erased dispatcher used to publish ``FlowIntent`` values through the
-/// SwiftUI environment.
-///
-/// The dispatcher is `@MainActor`-isolated. ``FlowIntent`` itself is
-/// `Sendable` because `Route` conforms to `Sendable`; the closure stored here
-/// is annotated `@Sendable` so the dispatcher can be safely captured from
-/// detached tasks before the eventual hop back to the main actor.
-@MainActor
-public final class AnyFlowIntentDispatcher<R: Route>: FlowIntentDispatching {
-    public typealias RouteType = R
-
-    private let sendIntent: @MainActor @Sendable (FlowIntent<R>) -> Void
-
-    public init(send: @escaping @MainActor @Sendable (FlowIntent<R>) -> Void) {
-        self.sendIntent = send
-    }
-
-    public func send(_ intent: FlowIntent<R>) {
-        sendIntent(intent)
-    }
-}
-
-@MainActor
 @propertyWrapper
 public struct EnvironmentFlowIntent<R: Route>: DynamicProperty {
     @Environment(\.flowEnvironmentStorage) private var flowEnvironmentStorage
@@ -115,7 +89,7 @@ public struct EnvironmentFlowIntent<R: Route>: DynamicProperty {
         self.routeType = routeType
     }
 
-    public var wrappedValue: AnyFlowIntentDispatcher<R> {
+    public var wrappedValue: @MainActor @Sendable (FlowIntent<R>) -> Void {
         if let dispatcher = flowEnvironmentStorage?[R.self] {
             return dispatcher
         }
@@ -126,10 +100,10 @@ public struct EnvironmentFlowIntent<R: Route>: DynamicProperty {
             }
         } else {
             handleMissingEnvironment(policy: environmentMissingPolicy) {
-                "AnyFlowIntentDispatcher is missing for \(String(describing: routeType)). " +
+                "FlowIntent handler is missing for \(String(describing: routeType)). " +
                 "Ensure the matching FlowHost is in the environment hierarchy."
             }
         }
-        return AnyFlowIntentDispatcher<R> { _ in /* no-op placeholder */ }
+        return { _ in /* no-op placeholder */ }
     }
 }

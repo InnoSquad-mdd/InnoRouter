@@ -69,10 +69,10 @@ struct CoordinatorRootView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Button("Go Auth") { navigationIntent.send(.go(.auth)) }
-            Button("Go Home") { navigationIntent.send(.go(.home)) }
+            Button("Go Auth") { navigationIntent(.go(.auth)) }
+            Button("Go Home") { navigationIntent(.go(.home)) }
             Button("Go Home (Many)") {
-                navigationIntent.send(.goMany([.home]))
+                navigationIntent(.goMany([.home]))
             }
         }
         .padding()

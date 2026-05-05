@@ -38,6 +38,18 @@ Modal routing intentionally stays separate from stack routing:
 - modal queue state lives in `ModalStore`
 - stack state lives in `NavigationStore`
 
+Modal queue rules are intentionally small:
+
+- `present` shows immediately when no modal is active.
+- `present` appends to `queuedPresentations` when another modal is
+  active.
+- `dismissCurrent` dismisses the active modal and promotes the first
+  queued presentation, if one exists.
+- `dismissAll` clears both the active modal and the queue.
+- `replaceCurrent` swaps only the active presentation and leaves the
+  queue untouched; observers receive `.replaced` before the command
+  interception event.
+
 `alert` and `confirmationDialog` stay outside this framework surface and should remain feature-owned state.
 
 ## Composition

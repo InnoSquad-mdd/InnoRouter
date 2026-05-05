@@ -24,10 +24,10 @@ struct NavigationEnvironmentStorageTests {
         let firstStorage = NavigationEnvironmentStorage()
         let secondStorage = NavigationEnvironmentStorage()
 
-        firstStorage[TestRoute.self] = AnyNavigationIntentDispatcher { intent in
+        firstStorage[TestRoute.self] = { intent in
             firstStore.send(intent)
         }
-        secondStorage[TestRoute.self] = AnyNavigationIntentDispatcher { intent in
+        secondStorage[TestRoute.self] = { intent in
             secondStore.send(intent)
         }
 
@@ -35,7 +35,7 @@ struct NavigationEnvironmentStorageTests {
             Issue.record("Expected first dispatcher")
             return
         }
-        firstDispatcher.send(.go(.home))
+        firstDispatcher(.go(.home))
 
         #expect(firstStore.state.path == [.home])
         #expect(secondStore.state.path.isEmpty)
@@ -46,7 +46,7 @@ struct NavigationEnvironmentStorageTests {
     func testNavigationHostStyleDispatcher() {
         let store = NavigationStore<TestRoute>()
         let storage = NavigationEnvironmentStorage()
-        storage[TestRoute.self] = AnyNavigationIntentDispatcher { intent in
+        storage[TestRoute.self] = { intent in
             store.send(intent)
         }
 
@@ -54,7 +54,7 @@ struct NavigationEnvironmentStorageTests {
             Issue.record("Expected dispatcher")
             return
         }
-        dispatcher.send(.go(.detail(id: "123")))
+        dispatcher(.go(.detail(id: "123")))
 
         #expect(store.state.path == [.detail(id: "123")])
     }

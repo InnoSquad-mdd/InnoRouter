@@ -83,9 +83,13 @@ platform; build it behind `#if !os(...)`.
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.0.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.1.0")
 ]
 ```
+
+InnoRouter is distributed as a source-only SwiftPM package. It does
+not ship binary artifacts, and library evolution is intentionally off
+so source builds stay simple across Apple platforms.
 
 The documentation gate also keeps at least one complete Swift snippet
 typechecked against the package:
@@ -156,8 +160,16 @@ minor release:
 - Performance improvements that preserve semantics.
 - Doc-only changes.
 
-The full 3.0 baseline sweep is summarized in
+The full 4.0 baseline sweep is summarized in
 [`CHANGELOG.md`](CHANGELOG.md).
+
+### 4.1.0 breaking cleanup
+
+`4.1.0` is the adoption baseline after the pre-user cleanup pass. It
+removes unused dispatcher-object APIs, keeps `replaceStack` as the
+single full-stack replacement intent, and moves effect observation to
+explicit event streams. New apps should start from `4.1.0`; the
+`4.0.0` tag remains available as the first OSS snapshot.
 
 ### Imports
 
@@ -387,15 +399,15 @@ struct HomeListView: View {
     var body: some View {
         List {
             Button("Detail") {
-                navigationIntent.send(.go(.detail(id: "123")))
+                navigationIntent(.go(.detail(id: "123")))
             }
 
             Button("Settings") {
-                navigationIntent.send(.go(.settings))
+                navigationIntent(.go(.settings))
             }
 
             Button("Back") {
-                navigationIntent.send(.back)
+                navigationIntent(.back)
             }
         }
     }
@@ -494,7 +506,7 @@ lives in the DocC tutorial
 - `.backBy(Int)`
 - `.backTo(Route)`
 - `.backToRoot`
-- `.resetTo([Route])`
+- `.replaceStack([Route])`
 
 `NavigationStore.send(_:)` is the SwiftUI entry point for these intents.
 
@@ -721,8 +733,11 @@ Typical flow:
 - duplicate patterns
 - wildcard shadowing
 - parameter shadowing
+- non-terminal wildcards
 
 Diagnostics do not change declaration-order precedence. They help catch authoring mistakes without silently changing runtime behavior.
+Use `try DeepLinkMatcher(strict:)` or `try FlowDeepLinkMatcher(strict:)`
+in release-readiness gates when diagnostics should fail the build.
 
 ### Composite deep links (push + modal tail)
 
@@ -952,7 +967,7 @@ Run these locally before cutting a release:
 ```bash
 swift test
 ./scripts/principle-gates.sh
-./scripts/build-docc-site.sh --version preview
+./scripts/build-docc-site.sh --version preview --skip-latest
 ```
 
 ## Flow stack
@@ -972,6 +987,9 @@ Typical usage:
 
 ```swift skip doc-fragment
 let flow = FlowStore<AppRoute>()
+let restoredFlow = try FlowStore<AppRoute>(
+    validating: persistedSteps
+)
 
 flow.send(.push(.home))
 flow.send(.push(.detail(id)))
@@ -980,11 +998,14 @@ flow.apply(FlowPlan(steps: [.push(.home), .cover(.paywall)]))
 ```
 
 - `FlowHost` composes `ModalHost` over `NavigationHost` and injects an
-  `AnyFlowIntentDispatcher<R>` for `@EnvironmentFlowIntent(Route.self)`
-  dispatch.
+  environment closure for `@EnvironmentFlowIntent(Route.self)` dispatch.
 - `FlowStoreConfiguration` composes `NavigationStoreConfiguration` and
   `ModalStoreConfiguration`, adding `onPathChanged` and
   `onIntentRejected`.
+- `FlowStore(validating:configuration:)` is the throwing initializer
+  for restored or externally supplied `[RouteStep]` values; the
+  compatibility `initial:` initializer still coerces invalid input to
+  an empty path.
 - `FlowRejectionReason` surfaces invariant violations
   (`pushBlockedByModalTail`, `invalidResetPath`,
   `middlewareRejected(debugName:)`).

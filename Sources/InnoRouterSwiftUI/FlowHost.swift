@@ -7,7 +7,7 @@ import InnoRouterCore
 ///
 /// `FlowHost` composes the existing `NavigationHost` and `ModalHost` views
 /// around the store's inner navigation / modal stores, and injects the store's
-/// cached `AnyFlowIntentDispatcher` into the environment so descendants can
+/// cached flow-intent closure into the environment so descendants can
 /// dispatch `FlowIntent` values via `@EnvironmentFlowIntent`.
 public struct FlowHost<R: Route, Destination: View, Root: View>: View {
     @Bindable private var store: FlowStore<R>

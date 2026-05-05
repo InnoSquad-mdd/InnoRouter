@@ -14,9 +14,7 @@ public enum NavigationIntent<R: Route>: Sendable, Equatable {
     case backBy(Int)
     case backTo(R)
     case backToRoot
-    case resetTo([R])
-    /// Replaces the entire navigation stack with the supplied routes, using
-    /// full-route `Equatable` comparison rather than `resetTo`'s legacy name.
+    /// Replaces the entire navigation stack with the supplied routes.
     case replaceStack([R])
     /// Pops back to the matching route when the current stack already contains
     /// an equal route; otherwise pushes the supplied route.
@@ -49,8 +47,8 @@ public extension Coordinator {
 }
 
 extension Coordinator {
-    var navigationIntentDispatcher: AnyNavigationIntentDispatcher<RouteType> {
-        AnyNavigationIntentDispatcher { [weak self] intent in
+    var navigationIntentDispatcher: NavigationIntentHandler<RouteType> {
+        { [weak self] intent in
             self?.handle(intent)
         }
     }

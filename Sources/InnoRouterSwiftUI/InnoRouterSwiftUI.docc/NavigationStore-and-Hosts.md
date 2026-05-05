@@ -26,10 +26,15 @@ Configuration is centralized in `NavigationStoreConfiguration`.
 
 - render the root view
 - render destinations for pushed routes
-- inject environment intent dispatchers
+- inject environment intent closures
 - bridge system path changes back into router commands
 
 Views should not mutate a store directly. They should emit `NavigationIntent` through the environment.
+
+`NavigationStoreConfiguration.telemetrySink` receives structured
+`NavigationTelemetryEvent` values for analytics or diagnostics. When
+the sink is omitted but `logger` is supplied, the store installs the
+default `OSLogNavigationTelemetrySink`.
 
 ## Path reconciliation
 

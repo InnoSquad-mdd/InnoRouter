@@ -26,3 +26,19 @@ public enum FlowRejectionReason: Sendable, Equatable {
     /// so `FlowStore.path` was rolled back.
     case middlewareRejected(debugName: String?)
 }
+
+public extension FlowRejectionReason {
+    var localizedDescription: String {
+        switch self {
+        case .pushBlockedByModalTail:
+            return "Flow push was rejected because a modal is already at the tail."
+        case .invalidResetPath:
+            return "Flow reset path is invalid."
+        case .middlewareRejected(let debugName):
+            if let debugName {
+                return "Flow intent was rejected by middleware '\(debugName)'."
+            }
+            return "Flow intent was rejected by middleware."
+        }
+    }
+}

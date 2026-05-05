@@ -1,6 +1,6 @@
 # Competitive Analysis and Improvement Roadmap
 
-_Last updated: 2026-04-28 · Maintainer snapshot after the 4.0.0 GA quality and adoption sweep_
+_Last updated: 2026-05-04 · Maintainer snapshot after the 4.1.0 breaking cleanup sweep_
 
 This document positions InnoRouter against comparable SwiftUI navigation
 libraries and derives a prioritised improvement backlog from the gaps.
@@ -153,8 +153,8 @@ Shape (landed):
 - `FlowStore<R>` (`InnoRouterSwiftUI`) owns an inner `NavigationStore`
   + `ModalStore` and exposes `path: [RouteStep<R>]` as the single
   source of truth. `FlowIntent` + `FlowPlan` are the public entry points.
-- `FlowHost` composes `ModalHost` over `NavigationHost` and injects an
-  `AnyFlowIntentDispatcher` for environment dispatch.
+- `FlowHost` composes `ModalHost` over `NavigationHost` and injects a
+  flow-intent environment closure for dispatch.
 - Invariants are enforced with explicit rejection reasons
   (`pushBlockedByModalTail`, `invalidResetPath`, `middlewareRejected`).
 - Atomic commits (`47467b50`): every `FlowIntent` now previews both

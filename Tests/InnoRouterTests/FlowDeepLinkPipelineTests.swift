@@ -64,6 +64,22 @@ struct FlowDeepLinkPipelineTests {
         }
     }
 
+    @Test(".rejected when input limits are exceeded")
+    func inputLimitRejection() {
+        let pipeline = FlowDeepLinkPipeline<PipelineRoute>(
+            allowedSchemes: ["myapp"],
+            matcher: makeMatcher(),
+            inputLimits: DeepLinkInputLimits(maxPathSegments: 1)
+        )
+        let decision = pipeline.decide(for: URL(string: "myapp://app/home/detail/42")!)
+        if case .rejected(.inputLimitExceeded(.pathSegmentCountExceeded(let actual, let max))) = decision {
+            #expect(actual == 3)
+            #expect(max == 1)
+        } else {
+            Issue.record("Expected .rejected(.inputLimitExceeded), got \(decision)")
+        }
+    }
+
     @Test(".unhandled when no mapping matches")
     func unmatchedURL() {
         let pipeline = FlowDeepLinkPipeline<PipelineRoute>(

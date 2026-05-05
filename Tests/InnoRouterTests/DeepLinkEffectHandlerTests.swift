@@ -16,6 +16,10 @@ import InnoRouterEffects
 
 @Suite("DeepLinkEffectHandler Tests")
 struct DeepLinkEffectHandlerTests {
+    enum AuthorizationProbeError: Error, Equatable {
+        case failed
+    }
+
     struct MockDeepLinkEffect: DeepLinkEffect {
         var deepLinkURL: URL?
 
@@ -194,6 +198,38 @@ struct DeepLinkEffectHandlerTests {
         #expect(store.state.path.isEmpty)
     }
 
+    @Test("Throwing async deep-link guard propagates auth probe failures")
+    @MainActor
+    func testThrowingResumePendingDeepLinkIfAllowedPropagatesFailure() async {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/settings") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyBatchNavigator(store),
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { false }
+            ),
+            plan: { route in NavigationPlan(commands: [.push(route)]) }
+        )
+
+        _ = handler.handle(URL(string: "myapp://myapp.com/settings")!)
+
+        do {
+            _ = try await handler.resumePendingDeepLinkIfAllowed { _ async throws -> Bool in
+                throw AuthorizationProbeError.failed
+            }
+            Issue.record("Expected authorization probe failure")
+        } catch AuthorizationProbeError.failed {
+            #expect(handler.hasPendingDeepLink)
+            #expect(store.state.path.isEmpty)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
     @Test("Rejected decision preserves rejection reason")
     @MainActor
     func testRejectedReasonIsPreserved() {
@@ -213,6 +249,67 @@ struct DeepLinkEffectHandlerTests {
             return
         }
         #expect(reason == .schemeNotAllowed(actualScheme: "https"))
+    }
+
+    @Test("Plan validation rejection prevents execution")
+    @MainActor
+    func testPlanValidationRejectionPreventsExecution() {
+        let store = NavigationStore<TestRoute>()
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/settings") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyBatchNavigator(store),
+            matcher: matcher,
+            plan: { _ in NavigationPlan(commands: [.pop]) }
+        )
+
+        let result = handler.handle(URL(string: "myapp://myapp.com/settings")!)
+        guard case .applicationRejected(let plan, let failure) = result else {
+            Issue.record("Expected applicationRejected result")
+            return
+        }
+        #expect(plan.commands == [.pop])
+        #expect(failure.index == 0)
+        #expect(failure.command == .pop)
+        #expect(failure.result == .emptyStack)
+        #expect(store.state.path.isEmpty)
+    }
+
+    @Test("Resume pending validates plan before execution")
+    @MainActor
+    func testResumePendingDeepLinkValidatesPlanBeforeExecution() {
+        let store = NavigationStore<TestRoute>()
+        let authState = Mutex(false)
+        let matcher = DeepLinkMatcher<TestRoute> {
+            DeepLinkMapping("/settings") { _ in .settings }
+        }
+        let handler = DeepLinkEffectHandler(
+            navigator: AnyBatchNavigator(store),
+            matcher: matcher,
+            authenticationPolicy: .required(
+                shouldRequireAuthentication: { _ in true },
+                isAuthenticated: { authState.withLock { $0 } }
+            ),
+            plan: { _ in NavigationPlan(commands: [.pop]) }
+        )
+
+        let pending = handler.handle(URL(string: "myapp://myapp.com/settings")!)
+        guard case .pending = pending else {
+            Issue.record("Expected pending result")
+            return
+        }
+
+        authState.withLock { $0 = true }
+        let resumed = handler.resumePendingDeepLink()
+        guard case .applicationRejected(let plan, let failure) = resumed else {
+            Issue.record("Expected applicationRejected result")
+            return
+        }
+        #expect(plan.commands == [.pop])
+        #expect(failure.result == .emptyStack)
+        #expect(!handler.hasPendingDeepLink)
+        #expect(store.state.path.isEmpty)
     }
 
     @Test("Unhandled decision preserves original URL")

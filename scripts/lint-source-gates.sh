@@ -19,6 +19,28 @@ if ! command -v rg >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "[lint-source-gates] Checking swiftformat in lint mode when available"
+if command -v swiftformat >/dev/null 2>&1; then
+  if [[ -f .swiftformat ]]; then
+    swiftformat Sources Tests Examples ExamplesSmoke --lint
+  else
+    echo "[lint-source-gates] .swiftformat not found; skipping swiftformat check-only gate"
+  fi
+else
+  echo "[lint-source-gates] swiftformat not found; skipping check-only gate"
+fi
+
+echo "[lint-source-gates] Checking swiftlint in lint mode when available"
+if command -v swiftlint >/dev/null 2>&1; then
+  if [[ -f .swiftlint.yml || -f .swiftlint.yaml ]]; then
+    swiftlint lint --strict
+  else
+    echo "[lint-source-gates] .swiftlint.yml not found; skipping swiftlint check-only gate"
+  fi
+else
+  echo "[lint-source-gates] swiftlint not found; skipping check-only gate"
+fi
+
 echo "[lint-source-gates] Checking non-ASCII letters in source comments (Hangul, etc.)"
 # Public-facing comments and docstrings must be English so the
 # library is usable outside the original team's locale. Test

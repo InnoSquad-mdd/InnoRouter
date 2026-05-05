@@ -15,6 +15,7 @@ import Foundation
 public final class DeepLinkEffectHandler<R: Route> {
     public enum Result: Sendable, Equatable {
         case executed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>)
+        case applicationRejected(plan: NavigationPlan<R>, failure: NavigationPlanValidationFailure<R>)
         case pending(PendingDeepLink<R>)
         case rejected(reason: DeepLinkRejectionReason)
         case unhandled(url: URL)
@@ -34,6 +35,7 @@ public final class DeepLinkEffectHandler<R: Route> {
         allowedSchemes: Set<String>? = nil,
         allowedHosts: Set<String>? = nil,
         authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired,
+        inputLimits: DeepLinkInputLimits = .default,
         plan: @escaping DeepLinkPipeline<R>.Planner = { route in
             NavigationPlan(commands: [.push(route)])
         }
@@ -43,6 +45,7 @@ public final class DeepLinkEffectHandler<R: Route> {
             allowedHosts: allowedHosts,
             resolve: { url in matcher.match(url) },
             authenticationPolicy: authenticationPolicy,
+            inputLimits: inputLimits,
             plan: plan
         )
         self.navigationHandler = NavigationEffectHandler(navigator: navigator)
@@ -59,8 +62,7 @@ public final class DeepLinkEffectHandler<R: Route> {
             return .pending(pendingDeepLink)
         case .plan(let plan):
             self.pendingDeepLink = nil
-            let batch = navigationHandler.execute(plan.commands)
-            return .executed(plan: plan, batch: batch)
+            return result(for: plan)
         }
     }
 
@@ -81,8 +83,7 @@ public final class DeepLinkEffectHandler<R: Route> {
         }
 
         self.pendingDeepLink = nil
-        let batch = navigationHandler.execute(pendingDeepLink.plan.commands)
-        return .executed(plan: pendingDeepLink.plan, batch: batch)
+        return result(for: pendingDeepLink.plan)
     }
 
     public func resumePendingDeepLinkIfAllowed(
@@ -105,10 +106,26 @@ public final class DeepLinkEffectHandler<R: Route> {
             return .pending(capturedPendingDeepLink)
         }
 
-        // Re-validate the captured plan against the current stack. If the stack was
-        // mutated while `authorize` was suspended (e.g. a concurrent `popToRoot`),
-        // keep the pending deep link rather than replaying a stale plan.
-        guard navigationHandler.canExecuteSequentially(capturedPendingDeepLink.plan.commands) else {
+        return resumePendingDeepLink()
+    }
+
+    public func resumePendingDeepLinkIfAllowed(
+        _ authorize: @escaping @MainActor @Sendable (PendingDeepLink<R>) async throws -> Bool
+    ) async rethrows -> Result {
+        guard let pendingDeepLink else {
+            return .noPendingDeepLink
+        }
+        let capturedPendingDeepLink = pendingDeepLink
+        let isAuthorized = try await authorize(capturedPendingDeepLink)
+
+        guard self.pendingDeepLink == capturedPendingDeepLink else {
+            if let currentPendingDeepLink = self.pendingDeepLink {
+                return .pending(currentPendingDeepLink)
+            }
+            return .noPendingDeepLink
+        }
+
+        guard isAuthorized else {
             return .pending(capturedPendingDeepLink)
         }
 
@@ -121,6 +138,14 @@ public final class DeepLinkEffectHandler<R: Route> {
 
     public func clearPendingDeepLink() {
         pendingDeepLink = nil
+    }
+
+    private func result(for plan: NavigationPlan<R>) -> Result {
+        if let failure = plan.validationFailure(on: navigationHandler.state) {
+            return .applicationRejected(plan: plan, failure: failure)
+        }
+        let batch = navigationHandler.execute(plan.commands)
+        return .executed(plan: plan, batch: batch)
     }
 
     private func canResume(_ pendingDeepLink: PendingDeepLink<R>) -> Bool {

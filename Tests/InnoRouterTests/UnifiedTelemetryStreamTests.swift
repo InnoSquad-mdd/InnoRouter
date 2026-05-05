@@ -158,6 +158,28 @@ struct UnifiedTelemetryStreamTests {
         #expect(callbackPaths == [[.home]])
     }
 
+    @Test("NavigationStore configuration telemetry sink receives structured events")
+    @MainActor
+    func navigationTelemetrySinkReceivesEvents() {
+        let captured = Mutex<[NavigationTelemetryEvent<StreamRoute>]>([])
+        let sink = AnyNavigationTelemetrySink<StreamRoute> { event in
+            captured.withLock { $0.append(event) }
+        }
+        let store = NavigationStore<StreamRoute>(
+            configuration: NavigationStoreConfiguration(telemetrySink: sink)
+        )
+
+        store.send(.go(.home))
+
+        let events = captured.withLock { $0 }
+        guard case .changed(let from, let to) = events.first else {
+            Issue.record("Expected .changed, got \(String(describing: events.first))")
+            return
+        }
+        #expect(from.path.isEmpty)
+        #expect(to.path == [.home])
+    }
+
     // MARK: - ModalStore
 
     @Test("ModalStore.events emits .presented for a single sheet")
@@ -195,6 +217,36 @@ struct UnifiedTelemetryStreamTests {
         }
     }
 
+    @Test("ModalStore.events emits .replaced before .commandIntercepted")
+    @MainActor
+    func modalEventsEmitsReplacementSequence() async {
+        let store = ModalStore<StreamRoute>()
+        store.present(.sheet, style: .sheet)
+
+        var iterator = store.events.makeAsyncIterator()
+
+        store.replaceCurrent(.settings, style: .sheet)
+
+        let first = await iterator.next()
+        guard case .replaced(let old, let new) = first else {
+            Issue.record("Expected .replaced first, got \(String(describing: first))")
+            return
+        }
+        #expect(old.route == .sheet)
+        #expect(new.route == .settings)
+
+        let second = await iterator.next()
+        guard case .commandIntercepted(_, let result) = second else {
+            Issue.record("Expected .commandIntercepted second, got \(String(describing: second))")
+            return
+        }
+        guard case .executed(.replaceCurrent(let presentation)) = result else {
+            Issue.record("Expected .executed(.replaceCurrent), got \(result)")
+            return
+        }
+        #expect(presentation.route == .settings)
+    }
+
     @Test("ModalStore.events emits .dismissed and promoted .queueChanged + .presented")
     @MainActor
     func modalEventsEmitsPromotionSequence() async {
@@ -222,6 +274,33 @@ struct UnifiedTelemetryStreamTests {
             return
         }
         #expect(promoted.route == .settings)
+    }
+
+    @Test("ModalStore configuration telemetry sink receives replacement events")
+    @MainActor
+    func modalTelemetrySinkReceivesEvents() {
+        let captured = Mutex<[ModalTelemetryEvent<StreamRoute>]>([])
+        let sink = AnyModalTelemetrySink<StreamRoute> { event in
+            captured.withLock { $0.append(event) }
+        }
+        let store = ModalStore<StreamRoute>(
+            configuration: ModalStoreConfiguration(telemetrySink: sink)
+        )
+
+        store.present(.sheet, style: .sheet)
+        store.replaceCurrent(.settings, style: .sheet)
+
+        let events = captured.withLock { $0 }
+        let replacement = events.first {
+            if case .replaced = $0 { return true }
+            return false
+        }
+        guard case .replaced(let old, let new) = replacement else {
+            Issue.record("Expected .replaced event, got \(events)")
+            return
+        }
+        #expect(old.route == .sheet)
+        #expect(new.route == .settings)
     }
 
     // MARK: - FlowStore
@@ -286,6 +365,44 @@ struct UnifiedTelemetryStreamTests {
         #expect(new == [.sheet(.sheet)])
     }
 
+    @Test("FlowStore.events wraps modal replacement before .pathChanged")
+    @MainActor
+    func flowEventsWrapsModalReplacementBeforePathChanged() async {
+        let store = FlowStore<StreamRoute>()
+        store.send(.presentSheet(.sheet))
+
+        var iterator = store.events.makeAsyncIterator()
+
+        store.modalStore.replaceCurrent(.settings, style: .sheet)
+
+        let first = await iterator.next()
+        guard case .modal(.replaced(let old, let new)) = first else {
+            Issue.record("Expected .modal(.replaced) first, got \(String(describing: first))")
+            return
+        }
+        #expect(old.route == .sheet)
+        #expect(new.route == .settings)
+
+        let second = await iterator.next()
+        guard case .modal(.commandIntercepted(_, let result)) = second else {
+            Issue.record("Expected .modal(.commandIntercepted) second, got \(String(describing: second))")
+            return
+        }
+        guard case .executed(.replaceCurrent(let presentation)) = result else {
+            Issue.record("Expected .executed(.replaceCurrent), got \(result)")
+            return
+        }
+        #expect(presentation.route == .settings)
+
+        let third = await iterator.next()
+        guard case .pathChanged(let oldPath, let newPath) = third else {
+            Issue.record("Expected .pathChanged third, got \(String(describing: third))")
+            return
+        }
+        #expect(oldPath == [.sheet(.sheet)])
+        #expect(newPath == [.sheet(.settings)])
+    }
+
     @Test("FlowStore.events preserves order for direct inner navigation mutations")
     @MainActor
     func flowEventsPreservesDirectInnerNavigationOrder() async {
@@ -329,5 +446,32 @@ struct UnifiedTelemetryStreamTests {
             }
         }
         #expect(sawRejected)
+    }
+
+    @Test("FlowStore configuration telemetry sink receives wrapped events")
+    @MainActor
+    func flowTelemetrySinkReceivesWrappedEvents() {
+        let captured = Mutex<[FlowTelemetryEvent<StreamRoute>]>([])
+        let sink = AnyFlowTelemetrySink<StreamRoute> { event in
+            captured.withLock { $0.append(event) }
+        }
+        let store = FlowStore<StreamRoute>(
+            configuration: FlowStoreConfiguration(telemetrySink: sink)
+        )
+
+        store.send(.push(.home))
+
+        let events = captured.withLock { $0 }
+        #expect(events.count == 2)
+        guard case .navigation(.changed) = events.first else {
+            Issue.record("Expected .navigation(.changed), got \(String(describing: events.first))")
+            return
+        }
+        guard case .pathChanged(let old, let new) = events.last else {
+            Issue.record("Expected .pathChanged, got \(String(describing: events.last))")
+            return
+        }
+        #expect(old.isEmpty)
+        #expect(new == [.push(.home)])
     }
 }

@@ -23,6 +23,9 @@ public enum ModalEvent<M: Route>: Sendable, Equatable {
     /// `ModalStore` fired `onDismissed`.
     case dismissed(ModalPresentation<M>, reason: ModalDismissalReason)
 
+    /// `ModalStore` replaced the active presentation in place.
+    case replaced(old: ModalPresentation<M>, new: ModalPresentation<M>)
+
     /// `ModalStore` fired `onQueueChanged`.
     case queueChanged(old: [ModalPresentation<M>], new: [ModalPresentation<M>])
 
@@ -41,6 +44,8 @@ extension ModalEvent: CustomStringConvertible {
             return ".presented(\(presentation.route), style: \(presentation.style))"
         case .dismissed(let presentation, let reason):
             return ".dismissed(\(presentation.route), reason: \(reason))"
+        case .replaced(let old, let new):
+            return ".replaced(old: \(old.route), new: \(new.route))"
         case .queueChanged(let old, let new):
             return ".queueChanged(old.count: \(old.count), new.count: \(new.count))"
         case .commandIntercepted(let command, let result):

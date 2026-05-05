@@ -199,4 +199,87 @@ struct FlowDeepLinkMatcherTests {
             ]
         )
     }
+
+    @Test("FlowDeepLinkMatcher surfaces invalid parameter name diagnostics")
+    func invalidParameterNameDiagnostics() {
+        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+            configuration: .init(diagnosticsMode: .disabled)
+        ) {
+            FlowDeepLinkMapping("/detail/:1id") { _ in FlowPlan(steps: [.push(.detail(id: "invalid"))]) }
+        }
+
+        #expect(
+            matcher.diagnostics == [
+                .invalidParameterName(pattern: "/detail/:1id", index: 1, name: "1id")
+            ]
+        )
+        #expect(matcher.match("myapp://app/detail/99") == nil)
+    }
+
+    @Test("FlowDeepLinkMatcher input limits reject before matching")
+    func inputLimitsRejectBeforeMatching() {
+        let matcher = FlowDeepLinkMatcher<MatcherRoute>(
+            configuration: .init(
+                diagnosticsMode: .disabled,
+                inputLimits: DeepLinkInputLimits(maxQueryItems: 1)
+            )
+        ) {
+            FlowDeepLinkMapping("/compare/:id") { params in
+                FlowPlan(steps: [.push(.compare(ids: params.values(forName: "id")))])
+            }
+        }
+
+        #expect(matcher.match("myapp://app/compare/a?id=b&id=c") == nil)
+    }
+
+    @Test("FlowDeepLinkMatcher strict init throws on duplicate patterns")
+    func strictInitThrowsOnDuplicatePattern() {
+        do {
+            _ = try FlowDeepLinkMatcher<MatcherRoute>(strict: ()) {
+                FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
+                FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.privacyPolicy)]) }
+            }
+            Issue.record("Expected DeepLinkMatcherStrictError")
+        } catch let error as DeepLinkMatcherStrictError {
+            #expect(
+                error.diagnostics == [
+                    .duplicatePattern(pattern: "/home", firstIndex: 0, duplicateIndex: 1)
+                ]
+            )
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("FlowDeepLinkMatcher strict init throws on invalid parameter name")
+    func strictInitThrowsOnInvalidParameterName() {
+        do {
+            _ = try FlowDeepLinkMatcher<MatcherRoute>(strict: ()) {
+                FlowDeepLinkMapping("/detail/:1id") { _ in FlowPlan(steps: [.push(.detail(id: "invalid"))]) }
+            }
+            Issue.record("Expected DeepLinkMatcherStrictError")
+        } catch let error as DeepLinkMatcherStrictError {
+            #expect(
+                error.diagnostics == [
+                    .invalidParameterName(pattern: "/detail/:1id", index: 1, name: "1id")
+                ]
+            )
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("FlowDeepLinkMatcher strict array init succeeds with clean mappings")
+    func strictArrayInitSucceedsWithCleanMappings() throws {
+        let matcher = try FlowDeepLinkMatcher<MatcherRoute>(
+            strict: (),
+            mappings: [
+                FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) },
+                FlowDeepLinkMapping("/privacy") { _ in FlowPlan(steps: [.sheet(.privacyPolicy)]) }
+            ]
+        )
+
+        #expect(matcher.diagnostics.isEmpty)
+        #expect(matcher.match("myapp://app/home") == FlowPlan(steps: [.push(.home)]))
+    }
 }

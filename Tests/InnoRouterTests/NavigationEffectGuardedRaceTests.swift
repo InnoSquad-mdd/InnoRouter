@@ -24,6 +24,7 @@ struct NavigationEffectGuardedRaceTests {
     func testExecuteGuarded_staleCommandAfterConcurrentPop() async {
         let store = NavigationStore<RaceRoute>()
         let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        var iterator = handler.events.makeAsyncIterator()
 
         store.execute(.push(.home))
         store.execute(.push(.settings))
@@ -42,8 +43,12 @@ struct NavigationEffectGuardedRaceTests {
         }
         #expect(staleCommand == .pop)
         #expect(store.state.path.isEmpty)
-        #expect(handler.lastResult == result)
-        #expect(handler.lastBatchResult == nil)
+        guard case .command(let command, let eventResult) = await iterator.next() else {
+            Issue.record("expected .command event")
+            return
+        }
+        #expect(command == .pop)
+        #expect(eventResult == result)
     }
 
     @Test("executeGuarded still proceeds when prepare returns a command that remains valid")
@@ -116,12 +121,14 @@ struct NavigationEffectGuardedRaceTests {
             return true
         }
 
-        guard case .pending(let deferredAgain) = result else {
-            Issue.record("expected .pending after stale re-validation, got \(result)")
+        guard case .applicationRejected(let plan, let failure) = result else {
+            Issue.record("expected .applicationRejected after stale re-validation, got \(result)")
             return
         }
-        #expect(deferredAgain == pending)
-        #expect(handler.pendingDeepLink == pending)
+        #expect(plan == pending.plan)
+        #expect(failure.command == .popTo(.home))
+        #expect(failure.result == .routeNotFound(.home))
+        #expect(handler.pendingDeepLink == nil)
         #expect(store.state.path.isEmpty)
     }
 }

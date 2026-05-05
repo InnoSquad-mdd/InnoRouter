@@ -1,6 +1,7 @@
 # Public API baseline for InnoRouterDeepLinkEffects
 relationship | conformsTo | RouterEffect | DeepLinkEffect |  |
 relationship | memberOf | DeepLinkEffectHandler.Result | DeepLinkEffectHandler |  |
+relationship | memberOf | DeepLinkEffectHandler.Result.applicationRejected(plan:failure:) | DeepLinkEffectHandler.Result |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.executed(plan:batch:) | DeepLinkEffectHandler.Result |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.invalidURL(input:) | DeepLinkEffectHandler.Result |  |
 relationship | memberOf | DeepLinkEffectHandler.Result.missingDeepLinkURL | DeepLinkEffectHandler.Result |  |
@@ -11,7 +12,7 @@ relationship | memberOf | DeepLinkEffectHandler.Result.unhandled(url:) | DeepLin
 relationship | memberOf | DeepLinkEffectHandler.clearPendingDeepLink() | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.handle(_:) | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.hasPendingDeepLink | DeepLinkEffectHandler |  |
-relationship | memberOf | DeepLinkEffectHandler.init(navigator:matcher:allowedSchemes:allowedHosts:authenticationPolicy:plan:) | DeepLinkEffectHandler |  |
+relationship | memberOf | DeepLinkEffectHandler.init(navigator:matcher:allowedSchemes:allowedHosts:authenticationPolicy:inputLimits:plan:) | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.navigationHandler | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.pendingDeepLink | DeepLinkEffectHandler |  |
 relationship | memberOf | DeepLinkEffectHandler.resumePendingDeepLink() | DeepLinkEffectHandler |  |
@@ -40,6 +41,7 @@ symbol | swift.class | DeepLinkEffectHandler | DeepLinkEffectHandler | @MainActo
 symbol | swift.class | FlowDeepLinkEffectHandler | FlowDeepLinkEffectHandler | @MainActor final class FlowDeepLinkEffectHandler<R> where R : Route | []
 symbol | swift.enum | DeepLinkEffectHandler.Result | DeepLinkEffectHandler.Result | enum Result | []
 symbol | swift.enum | FlowDeepLinkEffectHandler.Result | FlowDeepLinkEffectHandler.Result | enum Result | []
+symbol | swift.enum.case | DeepLinkEffectHandler.Result.applicationRejected(plan:failure:) | DeepLinkEffectHandler.Result.applicationRejected(plan:failure:) | case applicationRejected(plan: NavigationPlan<R>, failure: NavigationPlanValidationFailure<R>) | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.executed(plan:batch:) | DeepLinkEffectHandler.Result.executed(plan:batch:) | case executed(plan: NavigationPlan<R>, batch: NavigationBatchResult<R>) | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.invalidURL(input:) | DeepLinkEffectHandler.Result.invalidURL(input:) | case invalidURL(input: String) | []
 symbol | swift.enum.case | DeepLinkEffectHandler.Result.missingDeepLinkURL | DeepLinkEffectHandler.Result.missingDeepLinkURL | case missingDeepLinkURL | []
@@ -55,7 +57,7 @@ symbol | swift.enum.case | FlowDeepLinkEffectHandler.Result.noPendingDeepLink | 
 symbol | swift.enum.case | FlowDeepLinkEffectHandler.Result.pending(_:) | FlowDeepLinkEffectHandler.Result.pending(_:) | case pending(FlowPendingDeepLink<R>) | []
 symbol | swift.enum.case | FlowDeepLinkEffectHandler.Result.rejected(reason:) | FlowDeepLinkEffectHandler.Result.rejected(reason:) | case rejected(reason: DeepLinkRejectionReason) | []
 symbol | swift.enum.case | FlowDeepLinkEffectHandler.Result.unhandled(url:) | FlowDeepLinkEffectHandler.Result.unhandled(url:) | case unhandled(url: URL) | []
-symbol | swift.init | DeepLinkEffectHandler.init(navigator:matcher:allowedSchemes:allowedHosts:authenticationPolicy:plan:) | init(navigator:matcher:allowedSchemes:allowedHosts:authenticationPolicy:plan:) | @MainActor init<N>(navigator: N, matcher: DeepLinkMatcher<R>, allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, plan: @escaping DeepLinkPipeline<R>.Planner = { route in NavigationPlan(commands: [.push(route)]) }) where R == N.RouteType, N : NavigationBatchExecutor, N : NavigationCommandExecutor, N : NavigationStateReader, N : NavigationTransactionExecutor | []
+symbol | swift.init | DeepLinkEffectHandler.init(navigator:matcher:allowedSchemes:allowedHosts:authenticationPolicy:inputLimits:plan:) | init(navigator:matcher:allowedSchemes:allowedHosts:authenticationPolicy:inputLimits:plan:) | @MainActor init<N>(navigator: N, matcher: DeepLinkMatcher<R>, allowedSchemes: Set<String>? = nil, allowedHosts: Set<String>? = nil, authenticationPolicy: DeepLinkAuthenticationPolicy<R> = .notRequired, inputLimits: DeepLinkInputLimits = .default, plan: @escaping DeepLinkPipeline<R>.Planner = { route in NavigationPlan(commands: [.push(route)]) }) where R == N.RouteType, N : NavigationBatchExecutor, N : NavigationCommandExecutor, N : NavigationStateReader, N : NavigationTransactionExecutor | []
 symbol | swift.init | FlowDeepLinkEffectHandler.init(pipeline:applier:) | init(pipeline:applier:) | @MainActor init(pipeline: FlowDeepLinkPipeline<R>, applier: any FlowPlanApplier<R>) | []
 symbol | swift.method | DeepLinkEffectHandler.clearPendingDeepLink() | clearPendingDeepLink() | @MainActor func clearPendingDeepLink() | []
 symbol | swift.method | DeepLinkEffectHandler.handle(_:) | handle(_:) | @MainActor func handle(_ url: URL) -> DeepLinkEffectHandler<R>.Result | []
@@ -63,6 +65,7 @@ symbol | swift.method | DeepLinkEffectHandler.handle(_:) | handle(_:) | @MainAct
 symbol | swift.method | DeepLinkEffectHandler.handle(_:) | handle(_:) | @MainActor func handle<E>(_ effect: E) -> DeepLinkEffectHandler<R>.Result where E : DeepLinkEffect | []
 symbol | swift.method | DeepLinkEffectHandler.resumePendingDeepLink() | resumePendingDeepLink() | @MainActor func resumePendingDeepLink() -> DeepLinkEffectHandler<R>.Result | []
 symbol | swift.method | DeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (PendingDeepLink<R>) async -> Bool) async -> DeepLinkEffectHandler<R>.Result | []
+symbol | swift.method | DeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (PendingDeepLink<R>) async throws -> Bool) async rethrows -> DeepLinkEffectHandler<R>.Result | []
 symbol | swift.method | FlowDeepLinkEffectHandler.clearPendingDeepLink() | clearPendingDeepLink() | @MainActor func clearPendingDeepLink() | []
 symbol | swift.method | FlowDeepLinkEffectHandler.handle(_:) | handle(_:) | @discardableResult @MainActor func handle(_ url: URL) -> FlowDeepLinkEffectHandler<R>.Result | []
 symbol | swift.method | FlowDeepLinkEffectHandler.handle(_:) | handle(_:) | @discardableResult @MainActor func handle(_ urlString: String) -> FlowDeepLinkEffectHandler<R>.Result | []
@@ -70,6 +73,7 @@ symbol | swift.method | FlowDeepLinkEffectHandler.handle(_:) | handle(_:) | @dis
 symbol | swift.method | FlowDeepLinkEffectHandler.restore(pending:) | restore(pending:) | @MainActor func restore(pending: FlowPendingDeepLink<R>) | []
 symbol | swift.method | FlowDeepLinkEffectHandler.resumePendingDeepLink() | resumePendingDeepLink() | @discardableResult @MainActor func resumePendingDeepLink() -> FlowDeepLinkEffectHandler<R>.Result | []
 symbol | swift.method | FlowDeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @discardableResult @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (FlowPendingDeepLink<R>) async -> Bool) async -> FlowDeepLinkEffectHandler<R>.Result | []
+symbol | swift.method | FlowDeepLinkEffectHandler.resumePendingDeepLinkIfAllowed(_:) | resumePendingDeepLinkIfAllowed(_:) | @discardableResult @MainActor func resumePendingDeepLinkIfAllowed(_ authorize: @escaping @MainActor (FlowPendingDeepLink<R>) async throws -> Bool) async rethrows -> FlowDeepLinkEffectHandler<R>.Result | []
 symbol | swift.property | DeepLinkEffect.deepLinkURL | deepLinkURL | var deepLinkURL: URL? { get } | []
 symbol | swift.property | DeepLinkEffectHandler.hasPendingDeepLink | hasPendingDeepLink | @MainActor var hasPendingDeepLink: Bool { get } | []
 symbol | swift.property | DeepLinkEffectHandler.navigationHandler | navigationHandler | @MainActor let navigationHandler: NavigationEffectHandler<R> | []

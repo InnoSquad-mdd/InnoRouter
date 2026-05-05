@@ -117,14 +117,24 @@ public enum ModalPresentResult<M: Route>: Sendable, Equatable {
 /// other parameter — see ``NavigationStoreConfiguration`` for the
 /// same pattern.
 public struct ModalStoreConfiguration<M: Route>: Sendable {
-    /// Optional logger used for modal telemetry.
+    /// Optional logger used by the default OSLog telemetry adapter and
+    /// internal execution traces.
     public var logger: Logger?
+    /// Structured telemetry sink used for modal lifecycle events.
+    ///
+    /// When this is `nil` and `logger` is supplied, ``ModalStore``
+    /// installs ``OSLogModalTelemetrySink`` as the default adapter.
+    /// Provide this sink when telemetry should go to analytics, tests,
+    /// or another structured pipeline instead of OSLog.
+    public var telemetrySink: AnyModalTelemetrySink<M>?
     /// Initial middleware registrations applied at store construction time.
     public var middlewares: [ModalMiddlewareRegistration<M>]
     /// Called whenever a presentation becomes active.
     public var onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)?
     /// Called whenever the active presentation is dismissed.
     public var onDismissed: (@MainActor @Sendable (ModalPresentation<M>, ModalDismissalReason) -> Void)?
+    /// Called whenever the active presentation is replaced in place.
+    public var onReplaced: (@MainActor @Sendable (ModalPresentation<M>, ModalPresentation<M>) -> Void)?
     /// Called whenever the queued modal list changes.
     public var onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)?
     /// Called after a successful middleware mutation
@@ -147,18 +157,22 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
     /// Creates a modal store configuration.
     public init(
         logger: Logger? = nil,
+        telemetrySink: AnyModalTelemetrySink<M>? = nil,
         middlewares: [ModalMiddlewareRegistration<M>] = [],
         onPresented: (@MainActor @Sendable (ModalPresentation<M>) -> Void)? = nil,
         onDismissed: (@MainActor @Sendable (ModalPresentation<M>, ModalDismissalReason) -> Void)? = nil,
+        onReplaced: (@MainActor @Sendable (ModalPresentation<M>, ModalPresentation<M>) -> Void)? = nil,
         onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? = nil,
         onMiddlewareMutation: (@MainActor @Sendable (ModalMiddlewareMutationEvent<M>) -> Void)? = nil,
         onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? = nil,
         eventBufferingPolicy: EventBufferingPolicy = .default
     ) {
         self.logger = logger
+        self.telemetrySink = telemetrySink
         self.middlewares = middlewares
         self.onPresented = onPresented
         self.onDismissed = onDismissed
+        self.onReplaced = onReplaced
         self.onQueueChanged = onQueueChanged
         self.onMiddlewareMutation = onMiddlewareMutation
         self.onCommandIntercepted = onCommandIntercepted

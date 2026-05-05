@@ -66,6 +66,24 @@ struct DeepLinkStrictDiagnosticsTests {
         }
     }
 
+    @Test("Strict init throws on invalid parameter name")
+    func testStrictThrowsOnInvalidParameterName() {
+        do {
+            _ = try DeepLinkMatcher<StrictRoute>(strict: ()) {
+                DeepLinkMapping("/detail/:1id") { _ in .detail }
+            }
+            Issue.record("Expected DeepLinkMatcherStrictError")
+        } catch let error as DeepLinkMatcherStrictError {
+            #expect(
+                error.diagnostics == [
+                    .invalidParameterName(pattern: "/detail/:1id", index: 1, name: "1id")
+                ]
+            )
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
     @Test("Strict init succeeds when no diagnostics are produced")
     func testStrictSucceedsWithCleanMappings() throws {
         let matcher = try DeepLinkMatcher<StrictRoute>(strict: ()) {
@@ -73,6 +91,32 @@ struct DeepLinkStrictDiagnosticsTests {
             DeepLinkMapping("/detail") { _ in .detail }
         }
         #expect(matcher.diagnostics.isEmpty)
+    }
+
+    @Test("Strict push matcher keeps configured input limits")
+    func testStrictPushMatcherKeepsInputLimits() throws {
+        let matcher = try DeepLinkMatcher<StrictRoute>(
+            strict: (),
+            inputLimits: .init(maxURLLength: 18, maxPathSegments: nil, maxQueryItems: nil)
+        ) {
+            DeepLinkMapping("/home") { _ in .home }
+        }
+
+        #expect(matcher.match("myapp://app/home") == .home)
+        #expect(matcher.match("myapp://app/home?token=too-long") == nil)
+    }
+
+    @Test("Strict flow matcher keeps configured input limits")
+    func testStrictFlowMatcherKeepsInputLimits() throws {
+        let matcher = try FlowDeepLinkMatcher<StrictRoute>(
+            strict: (),
+            inputLimits: .init(maxURLLength: 18, maxPathSegments: nil, maxQueryItems: nil)
+        ) {
+            FlowDeepLinkMapping("/home") { _ in FlowPlan(steps: [.push(.home)]) }
+        }
+
+        #expect(matcher.match("myapp://app/home") == FlowPlan(steps: [.push(.home)]))
+        #expect(matcher.match("myapp://app/home?token=too-long") == nil)
     }
 
     @Test("Strict mode aggregates every diagnostic into the thrown error")
@@ -90,5 +134,11 @@ struct DeepLinkStrictDiagnosticsTests {
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
+    }
+
+    @Test("Strict error public initializer accepts an empty diagnostics array")
+    func strictErrorInitializerDoesNotTrapOnEmptyDiagnostics() {
+        let error = DeepLinkMatcherStrictError(diagnostics: [])
+        #expect(error.diagnostics.isEmpty)
     }
 }

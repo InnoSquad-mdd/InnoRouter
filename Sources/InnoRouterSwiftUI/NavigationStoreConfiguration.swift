@@ -70,8 +70,16 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
     /// ``NavigationPathMismatchPolicy/assertAndReplace`` without changing the
     /// production default.
     public var pathMismatchPolicy: NavigationPathMismatchPolicy<R>
-    /// Optional logger used for runtime telemetry.
+    /// Optional logger used by the default OSLog telemetry adapter and
+    /// internal execution traces.
     public var logger: Logger?
+    /// Structured telemetry sink used for store lifecycle events.
+    ///
+    /// When this is `nil` and `logger` is supplied, ``NavigationStore``
+    /// installs ``OSLogNavigationTelemetrySink`` as the default adapter.
+    /// Provide this sink when telemetry should go to analytics, tests,
+    /// or another structured pipeline instead of OSLog.
+    public var telemetrySink: AnyNavigationTelemetrySink<R>?
     /// Called after a state mutation changes the stack.
     public var onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)?
     /// Called after a batch execution completes.
@@ -108,6 +116,7 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         routeStackValidator: RouteStackValidator<R> = .permissive,
         pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace,
         logger: Logger? = nil,
+        telemetrySink: AnyNavigationTelemetrySink<R>? = nil,
         onChange: (@MainActor @Sendable (RouteStack<R>, RouteStack<R>) -> Void)? = nil,
         onBatchExecuted: (@MainActor @Sendable (NavigationBatchResult<R>) -> Void)? = nil,
         onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)? = nil,
@@ -120,6 +129,7 @@ public struct NavigationStoreConfiguration<R: Route>: Sendable {
         self.routeStackValidator = routeStackValidator
         self.pathMismatchPolicy = pathMismatchPolicy
         self.logger = logger
+        self.telemetrySink = telemetrySink
         self.onChange = onChange
         self.onBatchExecuted = onBatchExecuted
         self.onTransactionExecuted = onTransactionExecuted

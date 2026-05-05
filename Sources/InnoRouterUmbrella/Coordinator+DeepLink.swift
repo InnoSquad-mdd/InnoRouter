@@ -37,6 +37,9 @@ public extension DeepLinkCoordinating {
 
         case .plan(let plan):
             pendingDeepLink = nil
+            if let failure = plan.validationFailure(on: store.state) {
+                return .applicationRejected(plan: plan, failure: failure)
+            }
             let batch = store.executeBatch(plan.commands)
             return .executed(plan: plan, batch: batch)
         }
@@ -63,6 +66,9 @@ public extension DeepLinkCoordinating {
 
         // Safe to clear first: we iterate on the local `pendingDeepLink` constant, not the stored property.
         self.pendingDeepLink = nil
+        if let failure = pendingDeepLink.plan.validationFailure(on: store.state) {
+            return .applicationRejected(plan: pendingDeepLink.plan, failure: failure)
+        }
         let batch = store.executeBatch(pendingDeepLink.plan.commands)
         return .executed(plan: pendingDeepLink.plan, batch: batch)
     }
@@ -83,6 +89,30 @@ public extension DeepLinkCoordinating {
         guard let pendingDeepLink else { return .noPendingDeepLink }
         let capturedPendingDeepLink = pendingDeepLink
         let isAuthorized = await authorize(capturedPendingDeepLink)
+
+        guard self.pendingDeepLink == capturedPendingDeepLink else {
+            if let currentPendingDeepLink = self.pendingDeepLink {
+                return .pending(currentPendingDeepLink)
+            }
+            return .noPendingDeepLink
+        }
+
+        guard isAuthorized else {
+            return .pending(capturedPendingDeepLink)
+        }
+
+        return resumePendingDeepLinkIfPossible()
+    }
+
+    /// Throwing async guard for authorization probes that can fail before a
+    /// boolean decision is available.
+    @discardableResult
+    func resumePendingDeepLinkIfAllowed(
+        _ authorize: @escaping @MainActor @Sendable (PendingDeepLink<RouteType>) async throws -> Bool
+    ) async rethrows -> DeepLinkCoordinationOutcome<RouteType> {
+        guard let pendingDeepLink else { return .noPendingDeepLink }
+        let capturedPendingDeepLink = pendingDeepLink
+        let isAuthorized = try await authorize(capturedPendingDeepLink)
 
         guard self.pendingDeepLink == capturedPendingDeepLink else {
             if let currentPendingDeepLink = self.pendingDeepLink {

@@ -136,13 +136,13 @@ struct HomeDashboardView: View {
     var body: some View {
         VStack(spacing: 12) {
             Button("Start Checkout Flow") {
-                navigationIntent.send(.go(.checkoutFlow))
+                navigationIntent(.go(.checkoutFlow))
             }
             Button("Show Profile Sheet") {
-                modalIntent.send(.present(.profile, style: .sheet))
+                modalIntent(.present(.profile, style: .sheet))
             }
             Button("Show Onboarding Full Screen") {
-                modalIntent.send(.present(.onboarding, style: .fullScreenCover))
+                modalIntent(.present(.onboarding, style: .fullScreenCover))
             }
         }
         .navigationTitle("Home")
@@ -155,7 +155,7 @@ struct SettingsRootView: View {
     var body: some View {
         VStack(spacing: 12) {
             Button("Open Settings Detail") {
-                navigationIntent.send(.go(.detail))
+                navigationIntent(.go(.detail))
             }
         }
         .navigationTitle("Settings")
@@ -169,7 +169,7 @@ struct AppShellProfileModalView: View {
         VStack(spacing: 12) {
             Text("Profile Modal")
             Button("Dismiss") {
-                modalIntent.send(.dismiss)
+                modalIntent(.dismiss)
             }
         }
         .padding()
@@ -184,7 +184,7 @@ struct AppShellOnboardingModalView: View {
             VStack(spacing: 12) {
                 Text("Onboarding Full Screen")
                 Button("Dismiss") {
-                    modalIntent.send(.dismiss)
+                    modalIntent(.dismiss)
                 }
             }
             .padding()

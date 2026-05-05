@@ -221,17 +221,17 @@ private func bindingName(
     for param: EnumCaseParameterSyntax,
     index: Int
 ) -> String {
-    if let firstName = param.firstName?.text, firstName != "_" {
-        return firstName
+    if let firstName = param.firstName, firstName.text != "_" {
+        return escapedIdentifier(firstName)
     }
 
-    return param.secondName?.text ?? "v\(index)"
+    return param.secondName.map(escapedIdentifier) ?? "v\(index)"
 }
 
 private func emittedLabel(for param: EnumCaseParameterSyntax) -> String? {
-    guard let firstName = param.firstName?.text, firstName != "_" else {
+    guard let firstName = param.firstName, firstName.text != "_" else {
         return nil
     }
 
-    return firstName
+    return escapedIdentifier(firstName)
 }

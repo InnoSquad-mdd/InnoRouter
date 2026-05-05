@@ -19,4 +19,6 @@ The handler mirrors the core semantics explicitly:
 - batch execution
 - transaction execution
 
-It also stores the last single and last batch result for boundary-local decision making.
+It also exposes `events: AsyncStream<NavigationEffectHandlerEvent<R>>`
+so boundary code can observe single, batch, and transaction outcomes
+without polling mutable "last result" properties.

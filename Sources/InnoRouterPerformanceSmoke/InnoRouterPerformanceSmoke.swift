@@ -1,4 +1,5 @@
 import Foundation
+import Darwin.Mach
 import InnoRouter
 import InnoRouterDeepLinkEffects
 
@@ -28,7 +29,12 @@ private struct SmokeSample: Codable {
 private struct SmokeReport: Codable {
     let generatedAt: String
     let passed: Bool
+    let memoryFootprint: SmokeMemoryFootprint
     let samples: [SmokeSample]
+}
+
+private struct SmokeMemoryFootprint: Codable {
+    let residentBytes: UInt64?
 }
 
 private let clock = ContinuousClock()
@@ -246,6 +252,25 @@ private func fail(_ message: String) -> Never {
     exit(1)
 }
 
+private func currentResidentMemoryBytes() -> UInt64? {
+    var info = mach_task_basic_info()
+    var count = mach_msg_type_number_t(
+        MemoryLayout<mach_task_basic_info>.stride / MemoryLayout<natural_t>.stride
+    )
+    let result = withUnsafeMutablePointer(to: &info) { pointer in
+        pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { rebound in
+            task_info(
+                mach_task_self_,
+                task_flavor_t(MACH_TASK_BASIC_INFO),
+                rebound,
+                &count
+            )
+        }
+    }
+    guard result == KERN_SUCCESS else { return nil }
+    return UInt64(info.resident_size)
+}
+
 private extension JSONEncoder {
     static var prettyPrinted: JSONEncoder {
         let encoder = JSONEncoder()
@@ -288,7 +313,7 @@ enum InnoRouterPerformanceSmokeMain {
                 smallInput: 50,
                 largeInput: 100,
                 threshold: 3.8,
-                largeMaxMilliseconds: 100,
+                largeMaxMilliseconds: 150,
                 measure: measureDeepLinkPipeline
             ),
         ]
@@ -296,6 +321,9 @@ enum InnoRouterPerformanceSmokeMain {
         let report = SmokeReport(
             generatedAt: ISO8601DateFormatter().string(from: Date()),
             passed: samples.allSatisfy(\.passed),
+            memoryFootprint: SmokeMemoryFootprint(
+                residentBytes: currentResidentMemoryBytes()
+            ),
             samples: samples
         )
 

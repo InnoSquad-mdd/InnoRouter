@@ -18,7 +18,7 @@ import InnoRouterEffects
 struct NavigationEffectHandlerTests {
     @Test("execute(_:stopOnFailure:) returns batch result and preserves middleware order")
     @MainActor
-    func testExecuteStopOnFailure() throws {
+    func testExecuteStopOnFailure() async throws {
         var changeCount = 0
         let store = NavigationStore<TestRoute>(
             configuration: NavigationStoreConfiguration(
@@ -43,6 +43,7 @@ struct NavigationEffectHandlerTests {
         )
 
         let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        var iterator = handler.events.makeAsyncIterator()
         let batch = handler.execute(
             [
                 .push(.home),
@@ -62,8 +63,12 @@ struct NavigationEffectHandlerTests {
         #expect(willExecuteCount == 2)
         #expect(didExecuteCount == 2)
         #expect(changeCount == 1)
-        #expect(handler.lastBatchResult == batch)
-        #expect(handler.lastResult == .insufficientStackDepth(requested: 5, available: 1))
+        guard case .batch(let commands, let eventBatch) = await iterator.next() else {
+            Issue.record("Expected .batch event")
+            return
+        }
+        #expect(commands == [.push(.home), .popCount(5), .push(.settings)])
+        #expect(eventBatch == batch)
     }
 
     @Test("AnyBatchNavigator convenience methods surface typed results")
@@ -80,28 +85,37 @@ struct NavigationEffectHandlerTests {
 
     @Test("single execute clears stale batch result")
     @MainActor
-    func testSingleExecuteClearsBatchResult() {
+    func testSingleExecuteClearsBatchResult() async {
         let store = NavigationStore<TestRoute>()
         let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        var iterator = handler.events.makeAsyncIterator()
 
         let batch = handler.execute([.push(.home), .push(.settings)])
         #expect(batch.results == [.success, .success])
-        #expect(handler.lastBatchResult == batch)
-        #expect(handler.lastResult == .success)
+        guard case .batch(_, let eventBatch) = await iterator.next() else {
+            Issue.record("Expected .batch event")
+            return
+        }
+        #expect(eventBatch == batch)
 
         let single = handler.execute(.pop)
 
         #expect(single == .success)
-        #expect(handler.lastResult == .success)
-        #expect(handler.lastBatchResult == nil)
+        guard case .command(let command, let result) = await iterator.next() else {
+            Issue.record("Expected .command event")
+            return
+        }
+        #expect(command == .pop)
+        #expect(result == .success)
         #expect(store.state.path == [.home])
     }
 
     @Test("executeTransaction returns atomic transaction result")
     @MainActor
-    func testExecuteTransaction() throws {
+    func testExecuteTransaction() async throws {
         let store = NavigationStore<TestRoute>()
         let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        var iterator = handler.events.makeAsyncIterator()
 
         let transaction = handler.executeTransaction([.push(.home), .push(.settings)])
 
@@ -109,8 +123,12 @@ struct NavigationEffectHandlerTests {
         #expect(transaction.results == [.success, .success])
         #expect(transaction.stateAfter == (try validatedStack([.home, .settings])))
         #expect(store.state.path == [.home, .settings])
-        #expect(handler.lastResult == .success)
-        #expect(handler.lastBatchResult == nil)
+        guard case .transaction(let commands, let eventTransaction) = await iterator.next() else {
+            Issue.record("Expected .transaction event")
+            return
+        }
+        #expect(commands == [.push(.home), .push(.settings)])
+        #expect(eventTransaction == transaction)
     }
 
     @Test("executeGuarded cancels without mutating state")
@@ -118,14 +136,19 @@ struct NavigationEffectHandlerTests {
     func testExecuteGuardedCancel() async {
         let store = NavigationStore<TestRoute>()
         let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        var iterator = handler.events.makeAsyncIterator()
 
         let result = await handler.executeGuarded(.push(.home)) { command in
             .cancel(.middleware(debugName: "guard", command: command))
         }
 
         #expect(result == .cancelled(.middleware(debugName: "guard", command: .push(.home))))
-        #expect(handler.lastResult == result)
-        #expect(handler.lastBatchResult == nil)
+        guard case .command(let command, let eventResult) = await iterator.next() else {
+            Issue.record("Expected .command event")
+            return
+        }
+        #expect(command == .push(.home))
+        #expect(eventResult == result)
         #expect(store.state.path.isEmpty)
     }
 
@@ -134,13 +157,19 @@ struct NavigationEffectHandlerTests {
     func testExecuteGuardedProceed() async {
         let store = NavigationStore<TestRoute>()
         let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
+        var iterator = handler.events.makeAsyncIterator()
 
         let result = await handler.executeGuarded(.push(.home)) { command in
             .proceed(command)
         }
 
         #expect(result == .success)
-        #expect(handler.lastResult == .success)
+        guard case .command(let command, let eventResult) = await iterator.next() else {
+            Issue.record("Expected .command event")
+            return
+        }
+        #expect(command == .push(.home))
+        #expect(eventResult == .success)
         #expect(store.state.path == [.home])
     }
 }

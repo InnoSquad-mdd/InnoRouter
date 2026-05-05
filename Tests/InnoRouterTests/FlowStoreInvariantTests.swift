@@ -146,4 +146,28 @@ struct FlowStoreInvariantTests {
         )
         #expect(store.path.isEmpty)
     }
+
+    @Test("validating initial path throws instead of silently coercing invalid input")
+    @MainActor
+    func validatingInitialPathThrowsOnInvalidInput() {
+        do {
+            _ = try FlowStore<FlowRoute>(
+                validating: [.sheet(.login), .push(.welcome)]
+            )
+            Issue.record("Expected FlowPlanValidationError.modalNotAtTail")
+        } catch let error as FlowPlanValidationError {
+            #expect(error == .modalNotAtTail)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("validating initial path preserves valid modal tail state")
+    @MainActor
+    func validatingInitialPathPreservesValidState() throws {
+        let store = try FlowStore<FlowRoute>(
+            validating: [.push(.login), .sheet(.terms)]
+        )
+        #expect(store.path == [.push(.login), .sheet(.terms)])
+    }
 }

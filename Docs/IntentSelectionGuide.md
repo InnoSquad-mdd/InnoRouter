@@ -22,7 +22,7 @@ fires every middleware in the registry.
 
 `NavigationIntent<R>` is the view-layer vocabulary: `.go(R)`,
 `.back`, `.backTo(R)`, `.backOrPush(R)`, `.pushUniqueRoot(R)`,
-`.replaceStack([R])`, `.resetTo([R])`. It is dispatched through the
+`.replaceStack([R])`. It is dispatched through the
 SwiftUI environment from a child view that does not hold a store
 reference. The store maps each intent to one or more commands and
 runs them through the same pipeline.

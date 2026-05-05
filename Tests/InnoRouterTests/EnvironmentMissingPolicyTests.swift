@@ -131,7 +131,7 @@ private struct MissingNavigationEnvProbeView: View {
 
     var body: some View {
         Color.clear.onAppear {
-            dispatcher.send(.go(.home))
+            dispatcher(.go(.home))
             onAppear()
         }
     }
@@ -145,7 +145,7 @@ private struct MissingModalEnvProbeView: View {
 
     var body: some View {
         Color.clear.onAppear {
-            dispatcher.send(.present(.home, style: .sheet))
+            dispatcher(.present(.home, style: .sheet))
             onAppear()
         }
     }
@@ -159,7 +159,7 @@ private struct MissingFlowEnvProbeView: View {
 
     var body: some View {
         Color.clear.onAppear {
-            dispatcher.send(.push(.home))
+            dispatcher(.push(.home))
             onAppear()
         }
     }

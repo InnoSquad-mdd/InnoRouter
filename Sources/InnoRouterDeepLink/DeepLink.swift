@@ -7,9 +7,10 @@ import InnoRouterCore
 ///
 /// Strict-mode diagnostic promotion is intentionally not a case on this
 /// enum; promotion is only available through the throwing
-/// ``DeepLinkMatcher/init(strict:logger:mappings:)`` initializer, which
-/// validates without going through `DeepLinkMatcherConfiguration` at
-/// all. Splitting the diagnostics surface this way removes a previous
+/// ``DeepLinkMatcher/init(strict:logger:inputLimits:mappings:)``
+/// initializer, which validates without going through
+/// `DeepLinkMatcherConfiguration` at all. Splitting the diagnostics
+/// surface this way removes a previous
 /// release-crash trap where a non-throwing init paired with a `.strict`
 /// configuration would `preconditionFailure` at runtime.
 public enum DeepLinkMatcherDiagnosticsMode: Sendable, Equatable {
@@ -19,14 +20,17 @@ public enum DeepLinkMatcherDiagnosticsMode: Sendable, Equatable {
     case debugWarnings
 }
 
-/// Error thrown by ``DeepLinkMatcher/init(strict:mappings:)`` when a
-/// structural diagnostic is encountered in `.strict` mode.
+/// Error thrown by strict matcher initializers when a structural
+/// diagnostic is encountered.
 public struct DeepLinkMatcherStrictError: Error, Sendable, Equatable {
-    /// The diagnostics that triggered the failure. Always non-empty.
+    /// The diagnostics that triggered the failure.
+    ///
+    /// Strict matcher initializers only throw this error with a non-empty
+    /// collection, but the public initializer accepts any array so tests and
+    /// custom validators cannot accidentally crash the host app.
     public let diagnostics: [DeepLinkMatcherDiagnostic]
 
     public init(diagnostics: [DeepLinkMatcherDiagnostic]) {
-        precondition(!diagnostics.isEmpty, "DeepLinkMatcherStrictError requires at least one diagnostic")
         self.diagnostics = diagnostics
     }
 }
@@ -51,6 +55,9 @@ public enum DeepLinkMatcherDiagnostic: Sendable, Equatable {
         shadowedPattern: String,
         shadowedIndex: Int
     )
+    /// Indicates that a `:parameter` segment has an invalid Swift-like
+    /// identifier name.
+    case invalidParameterName(pattern: String, index: Int, name: String)
 
     /// A human-readable diagnostic message suitable for logs or debug output.
     public var message: String {
@@ -63,6 +70,66 @@ public enum DeepLinkMatcherDiagnostic: Sendable, Equatable {
             return "DeepLinkMatcher pattern '\(pattern)' at index \(index) shadows '\(shadowedPattern)' at index \(shadowedIndex) because its wildcard matches first."
         case .parameterShadowing(let pattern, let index, let shadowedPattern, let shadowedIndex):
             return "DeepLinkMatcher pattern '\(pattern)' at index \(index) shadows more specific pattern '\(shadowedPattern)' at index \(shadowedIndex)."
+        case .invalidParameterName(let pattern, let index, let name):
+            return "DeepLinkMatcher pattern '\(pattern)' declares invalid parameter name '\(name)' at segment \(index). Parameter names must match ^[A-Za-z_][A-Za-z0-9_]*$."
+        }
+    }
+}
+
+/// Input-size guardrails applied before deep-link matching.
+public struct DeepLinkInputLimits: Sendable, Equatable {
+    public var maxURLLength: Int?
+    public var maxPathSegments: Int?
+    public var maxQueryItems: Int?
+
+    public init(
+        maxURLLength: Int? = 8_192,
+        maxPathSegments: Int? = 128,
+        maxQueryItems: Int? = 256
+    ) {
+        self.maxURLLength = maxURLLength
+        self.maxPathSegments = maxPathSegments
+        self.maxQueryItems = maxQueryItems
+    }
+
+    public static let `default` = DeepLinkInputLimits()
+    public static let unlimited = DeepLinkInputLimits(
+        maxURLLength: nil,
+        maxPathSegments: nil,
+        maxQueryItems: nil
+    )
+
+    public func violation(for url: URL) -> DeepLinkInputLimitViolation? {
+        if let maxURLLength, url.absoluteString.count > maxURLLength {
+            return .urlLengthExceeded(actual: url.absoluteString.count, max: maxURLLength)
+        }
+        let parsed = DeepLinkParser.parse(url)
+        if let maxPathSegments, parsed.path.count > maxPathSegments {
+            return .pathSegmentCountExceeded(actual: parsed.path.count, max: maxPathSegments)
+        }
+        if let maxQueryItems {
+            let queryItemCount = parsed.queryItems.values.reduce(0) { $0 + $1.count }
+            if queryItemCount > maxQueryItems {
+                return .queryItemCountExceeded(actual: queryItemCount, max: maxQueryItems)
+            }
+        }
+        return nil
+    }
+}
+
+public enum DeepLinkInputLimitViolation: Sendable, Equatable {
+    case urlLengthExceeded(actual: Int, max: Int)
+    case pathSegmentCountExceeded(actual: Int, max: Int)
+    case queryItemCountExceeded(actual: Int, max: Int)
+
+    public var localizedDescription: String {
+        switch self {
+        case .urlLengthExceeded(let actual, let max):
+            return "Deep-link URL is too long (\(actual) characters, maximum \(max))."
+        case .pathSegmentCountExceeded(let actual, let max):
+            return "Deep-link path has too many segments (\(actual), maximum \(max))."
+        case .queryItemCountExceeded(let actual, let max):
+            return "Deep-link query has too many items (\(actual), maximum \(max))."
         }
     }
 }
@@ -73,21 +140,21 @@ public struct DeepLinkMatcherConfiguration: Sendable {
     public var diagnosticsMode: DeepLinkMatcherDiagnosticsMode
     /// Optional logger for diagnostic output.
     public var logger: Logger?
+    /// Optional input-size limits enforced by matcher `match` calls.
+    public var inputLimits: DeepLinkInputLimits
 
     /// Creates a matcher configuration.
     public init(
         diagnosticsMode: DeepLinkMatcherDiagnosticsMode,
-        logger: Logger? = nil
+        logger: Logger? = nil,
+        inputLimits: DeepLinkInputLimits = .default
     ) {
         self.diagnosticsMode = diagnosticsMode
         self.logger = logger
+        self.inputLimits = inputLimits
     }
 
-    #if DEBUG
     public static var `default`: Self { .init(diagnosticsMode: .debugWarnings) }
-    #else
-    public static var `default`: Self { .init(diagnosticsMode: .disabled) }
-    #endif
 }
 
 /// Parses a string captured from a deep-link path or query item into a typed value.
@@ -354,6 +421,7 @@ public struct DeepLinkPattern: Sendable {
 
     public func match(_ path: String) -> MatchResult? {
         guard nonTerminalWildcardIndex == nil else { return nil }
+        guard invalidParameterNameDiagnostics.isEmpty else { return nil }
 
         let pathParts = path.split(separator: "/").map(String.init)
 
@@ -425,6 +493,37 @@ public struct DeepLinkPattern: Sendable {
         return wildcardIndex
     }
 
+    fileprivate var invalidParameterNameDiagnostics: [DeepLinkMatcherDiagnostic] {
+        patternParts.enumerated().compactMap { index, part in
+            guard case .parameter(let name) = part,
+                  !Self.isValidParameterName(name)
+            else {
+                return nil
+            }
+            return .invalidParameterName(
+                pattern: rawPattern,
+                index: index,
+                name: name
+            )
+        }
+    }
+
+    private static func isValidParameterName(_ name: String) -> Bool {
+        guard let first = name.unicodeScalars.first else { return false }
+        guard isASCIILetter(first) || first == "_" else { return false }
+        return name.unicodeScalars.dropFirst().allSatisfy { scalar in
+            isASCIILetter(scalar) || isASCIIDigit(scalar) || scalar == "_"
+        }
+    }
+
+    private static func isASCIILetter(_ scalar: Unicode.Scalar) -> Bool {
+        (65 ... 90).contains(scalar.value) || (97 ... 122).contains(scalar.value)
+    }
+
+    private static func isASCIIDigit(_ scalar: Unicode.Scalar) -> Bool {
+        (48 ... 57).contains(scalar.value)
+    }
+
     fileprivate func shadows(_ other: DeepLinkPattern) -> DeepLinkMatcherDiagnostic.Kind? {
         guard nonTerminalWildcardIndex == nil else {
             return nil
@@ -490,6 +589,7 @@ public struct DeepLinkPattern: Sendable {
                     )
                 )
             }
+            diagnostics.append(contentsOf: pattern.invalidParameterNameDiagnostics)
         }
 
         for earlierIndex in patterns.indices {
@@ -545,6 +645,7 @@ public struct DeepLinkPattern: Sendable {
 
 public struct DeepLinkMatcher<R: Route>: Sendable {
     private let mappings: [DeepLinkMapping<R>]
+    private let inputLimits: DeepLinkInputLimits
     public let diagnostics: [DeepLinkMatcherDiagnostic]
 
     public init(@DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]) {
@@ -557,6 +658,7 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
     ) {
         let resolvedMappings = mappings()
         self.mappings = resolvedMappings
+        self.inputLimits = configuration.inputLimits
         self.diagnostics = DeepLinkPattern.makeDiagnostics(
             for: resolvedMappings.map(\.pattern)
         )
@@ -573,6 +675,7 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
     public init(
         strict: Void = (),
         logger: Logger? = nil,
+        inputLimits: DeepLinkInputLimits = .default,
         @DeepLinkMappingBuilder<R> mappings: () -> [DeepLinkMapping<R>]
     ) throws {
         let resolvedMappings = mappings()
@@ -588,10 +691,12 @@ public struct DeepLinkMatcher<R: Route>: Sendable {
             throw DeepLinkMatcherStrictError(diagnostics: resolvedDiagnostics)
         }
         self.mappings = resolvedMappings
+        self.inputLimits = inputLimits
         self.diagnostics = resolvedDiagnostics
     }
 
     public func match(_ url: URL) -> R? {
+        guard inputLimits.violation(for: url) == nil else { return nil }
         let parsed = DeepLinkParser.parse(url)
         for mapping in mappings {
             if let route = mapping.match(parsed) {

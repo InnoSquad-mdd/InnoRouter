@@ -16,6 +16,8 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
     public var navigation: NavigationStoreConfiguration<R>
     /// Configuration applied to the inner `ModalStore`.
     public var modal: ModalStoreConfiguration<R>
+    /// Structured telemetry sink used for flow-level and wrapped inner-store events.
+    public var telemetrySink: AnyFlowTelemetrySink<R>?
     /// Called whenever `FlowStore.path` changes, with (old, new) snapshots.
     public var onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
     /// Called whenever `FlowStore.send(_:)` refuses to apply an intent.
@@ -43,6 +45,7 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
     public init(
         navigation: NavigationStoreConfiguration<R> = .init(),
         modal: ModalStoreConfiguration<R> = .init(),
+        telemetrySink: AnyFlowTelemetrySink<R>? = nil,
         onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil,
         onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil,
         eventBufferingPolicy: EventBufferingPolicy = .default,
@@ -50,6 +53,7 @@ public struct FlowStoreConfiguration<R: Route>: Sendable {
     ) {
         self.navigation = navigation
         self.modal = modal
+        self.telemetrySink = telemetrySink
         self.onPathChanged = onPathChanged
         self.onIntentRejected = onIntentRejected
         self.eventBufferingPolicy = eventBufferingPolicy

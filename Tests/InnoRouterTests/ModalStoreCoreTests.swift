@@ -375,7 +375,7 @@ struct ModalStoreTests {
         }
     }
 
-    @Test("Telemetry recorder captures replaceCurrent as an intercept without lifecycle events")
+    @Test("Telemetry recorder captures replaceCurrent as replacement before command intercept")
     @MainActor
     func testModalTelemetryRecorderReplaceCurrent() {
         let recorder = Mutex<[ModalStoreTelemetryEvent<TestBoundModalRoute>]>([])
@@ -394,10 +394,17 @@ struct ModalStoreTests {
         store.replaceCurrent(.profile(id: "99"), style: .sheet)
 
         let events = recorder.withLock { $0 }
-        #expect(events.count == 1)
+        #expect(events.count == 2)
 
-        guard case .commandIntercepted(let command, let outcome, let cancellationReason) = events[0] else {
-            Issue.record("Expected replaceCurrent to emit only a commandIntercepted event")
+        guard case .replaced(let old, let new) = events[0] else {
+            Issue.record("Expected replaceCurrent to emit a replaced event first")
+            return
+        }
+        #expect(old.route == .profile(id: "42"))
+        #expect(new.route == .profile(id: "99"))
+
+        guard case .commandIntercepted(let command, let outcome, let cancellationReason) = events[1] else {
+            Issue.record("Expected replaceCurrent to emit commandIntercepted second")
             return
         }
 
