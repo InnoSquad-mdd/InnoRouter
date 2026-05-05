@@ -39,7 +39,7 @@ subscriber cannot balloon memory in production.
 
 The policy is set per store at construction time via its configuration:
 
-```swift
+```swift skip doc-fragment
 let store = try NavigationStore<HomeRoute>(
     initialPath: [.list],
     configuration: NavigationStoreConfiguration(
