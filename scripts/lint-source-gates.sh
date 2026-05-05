@@ -21,7 +21,7 @@ fi
 
 echo "[lint-source-gates] Checking swiftformat in lint mode when available"
 if command -v swiftformat >/dev/null 2>&1; then
-  swiftformat --lint Sources Tests Examples ExamplesSmoke
+  swiftformat Sources Tests Examples ExamplesSmoke --lint
 else
   echo "[lint-source-gates] swiftformat not found; skipping check-only gate"
 fi

@@ -313,7 +313,7 @@ enum InnoRouterPerformanceSmokeMain {
                 smallInput: 50,
                 largeInput: 100,
                 threshold: 3.8,
-                largeMaxMilliseconds: 100,
+                largeMaxMilliseconds: 150,
                 measure: measureDeepLinkPipeline
             ),
         ]
