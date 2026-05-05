@@ -21,14 +21,22 @@ fi
 
 echo "[lint-source-gates] Checking swiftformat in lint mode when available"
 if command -v swiftformat >/dev/null 2>&1; then
-  swiftformat Sources Tests Examples ExamplesSmoke --lint
+  if [[ -f .swiftformat ]]; then
+    swiftformat Sources Tests Examples ExamplesSmoke --lint
+  else
+    echo "[lint-source-gates] .swiftformat not found; skipping swiftformat check-only gate"
+  fi
 else
   echo "[lint-source-gates] swiftformat not found; skipping check-only gate"
 fi
 
 echo "[lint-source-gates] Checking swiftlint in lint mode when available"
 if command -v swiftlint >/dev/null 2>&1; then
-  swiftlint lint --strict
+  if [[ -f .swiftlint.yml || -f .swiftlint.yaml ]]; then
+    swiftlint lint --strict
+  else
+    echo "[lint-source-gates] .swiftlint.yml not found; skipping swiftlint check-only gate"
+  fi
 else
   echo "[lint-source-gates] swiftlint not found; skipping check-only gate"
 fi
