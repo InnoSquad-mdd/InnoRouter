@@ -1157,6 +1157,42 @@ Task {
 `onCommandIntercepted` などのコールバックはソース互換のままです。`events`
 ストリームは置換ではなく追加チャネルです。
 
+### バックプレッシャー
+
+各ストアはサブスクライバーごとの `AsyncStream.Continuation` を通じてすべての
+イベントをすべてのサブスクライバーに fan-out します。負荷の下でサブスクライバー
+ごとのキューを制限するため、すべてのストアは設定で `eventBufferingPolicy`
+を受け入れます:
+
+- `.bufferingNewest(1024)`(デフォルト)— サブスクライバーごとに最新 1024
+  イベントを保持し、バッファがいっぱいになると古いイベントをドロップします。
+  現実的なナビゲーションバーストに対応するサイズで、保持されるワーキングセット
+  を制限します。
+- `.bufferingOldest(N)` — サブスクライバーごとに最古の N 個のイベントを保持し、
+  バッファがいっぱいになると新しいイベントをドロップします。
+- `.unbounded` — サブスクライバーが排出するまですべてのイベントをバッファ
+  します。ライフタイムを制御し、決定論的かつロスレスな順序を必要とする
+  テストハーネスや短命のサブスクライバーに使用してください。
+
+```swift skip doc-fragment
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        eventBufferingPolicy: .bufferingNewest(2048)
+    )
+)
+```
+
+`ModalStoreConfiguration.eventBufferingPolicy` と `FlowStoreConfiguration`
+(内部のナビゲーション / モーダル設定に委任)も同じノブを公開します。
+ドロップは静かです — アナリティクスパイプラインが「イベントが発生しなかった」
+を「イベントがバッファ外にドロップされた」と区別する必要がある場合は、
+`.unbounded` で購読し、自分でペーシングしてください。
+
+完全な契約は
+[`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md)
+に文書化されています。
+
 ## ロードマップ
 
 [`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md)

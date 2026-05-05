@@ -1150,6 +1150,42 @@ Individual `onChange`, `onPresented`, `onCommandIntercepted`, etc.
 callbacks on each `*Configuration` type remain source-compatible;
 the `events` stream is an additional channel, not a replacement.
 
+### Backpressure
+
+Each store fans every event out to every subscriber through a
+per-subscriber `AsyncStream.Continuation`. To bound the per-subscriber
+queue under load, every store accepts an `eventBufferingPolicy` in
+its configuration:
+
+- `.bufferingNewest(1024)` (default) — retain the most recent 1024
+  events per subscriber, drop older events when the buffer fills.
+  Sized for realistic navigation bursts while keeping the retained
+  working set bounded.
+- `.bufferingOldest(N)` — retain the oldest N events per subscriber,
+  drop newer events when the buffer fills.
+- `.unbounded` — buffer every event until the subscriber drains it.
+  Use this for test harnesses or short-lived subscribers where you
+  control lifetime and require deterministic, lossless ordering.
+
+```swift skip doc-fragment
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        eventBufferingPolicy: .bufferingNewest(2048)
+    )
+)
+```
+
+`ModalStoreConfiguration.eventBufferingPolicy` and
+`FlowStoreConfiguration` (which delegates to its inner navigation /
+modal configurations) expose the same knob. Drops are silent — if
+your analytics pipeline must distinguish "no event happened" from
+"an event was buffered out", subscribe with `.unbounded` and pace
+yourself instead.
+
+The full contract is documented in
+[`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md).
+
 ## Roadmap
 
 Tracked in

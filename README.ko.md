@@ -1088,6 +1088,38 @@ Task {
 각 `*Configuration` 타입의 개별 `onChange`, `onPresented`, `onCommandIntercepted` 등
 콜백은 source-호환으로 유지됩니다. `events` 스트림은 추가 채널이지 대체가 아닙니다.
 
+### Backpressure (역압)
+
+각 store는 모든 이벤트를 subscriber별 `AsyncStream.Continuation`을 통해
+모든 subscriber에게 fan-out합니다. 부하 상황에서 subscriber별 queue를 제한하기
+위해, 모든 store는 configuration에서 `eventBufferingPolicy`를 받습니다:
+
+- `.bufferingNewest(1024)` (기본값) — subscriber당 가장 최근 1024개 이벤트만
+  유지, 버퍼가 차면 오래된 이벤트를 drop. 현실적인 navigation 폭주를 견딜
+  크기이면서 유지되는 working set를 한정.
+- `.bufferingOldest(N)` — subscriber당 가장 오래된 N개 이벤트만 유지, 버퍼가
+  차면 새 이벤트를 drop.
+- `.unbounded` — subscriber가 drain할 때까지 모든 이벤트를 버퍼링. 결정적이고
+  무손실 순서가 필요한 테스트 하네스 또는 lifetime을 통제할 수 있는
+  단명 subscriber에서 사용.
+
+```swift skip doc-fragment
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        eventBufferingPolicy: .bufferingNewest(2048)
+    )
+)
+```
+
+`ModalStoreConfiguration.eventBufferingPolicy`와 `FlowStoreConfiguration`
+(내부 navigation / modal configuration에 위임)도 동일한 knob를 노출합니다.
+drop은 silent하게 일어납니다. analytics pipeline이 "이벤트 없음"과
+"이벤트가 버퍼 밖으로 밀려남"을 구분해야 한다면 `.unbounded`로 구독하고
+스스로 pacing하세요.
+
+전체 계약은 [`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md)에 문서화되어 있습니다.
+
 ## 로드맵
 
 [`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md)에서 추적합니다.

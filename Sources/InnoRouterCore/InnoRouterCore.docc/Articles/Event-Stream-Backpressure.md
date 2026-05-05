@@ -1,0 +1,98 @@
+# Event Stream Backpressure
+
+How the `events` stream of every store handles slow or stuck subscribers.
+
+## Overview
+
+Every `NavigationStore`, `ModalStore`, `FlowStore`, and `SceneStore`
+publishes an `events: AsyncStream` that fans every observation event
+out to every subscriber. The fan-out is implemented as a per-subscriber
+`AsyncStream.Continuation`, which means a slow or cancelled subscriber
+that never drains its stream would otherwise retain every event
+indefinitely — behaving as an unbounded leak when the broadcaster
+outlives all consumers.
+
+To bound that growth, every store accepts an
+``EventBufferingPolicy`` in its configuration.
+
+## Default policy
+
+The default is ``EventBufferingPolicy/default``, which is
+``EventBufferingPolicy/bufferingNewest(_:)`` with a 1024-event ceiling.
+The number is sized for realistic navigation bursts (a few hundred
+events for the longest deep-link replay we have measured) while
+keeping the retained working set bounded so a stuck subscriber cannot
+balloon memory in production.
+
+## Choosing a policy
+
+| Policy | Behaviour | When to use |
+|---|---|---|
+| ``EventBufferingPolicy/bufferingNewest(_:)`` | Retain at most `limit` most-recently-broadcast events per subscriber, dropping older events when the buffer fills. | Production code that prefers loss-of-history over memory growth under contention. The default. |
+| ``EventBufferingPolicy/bufferingOldest(_:)`` | Retain at most `limit` oldest-broadcast events per subscriber, dropping newer events when the buffer fills. | Audit pipelines that care about the *first* burst more than the latest tail (rare). |
+| ``EventBufferingPolicy/unbounded`` | Buffer every event until the subscriber drains it. | Test harnesses or short-lived subscribers where you control lifetime and require deterministic, lossless ordering. |
+
+## Configuring per store
+
+The policy is set per store at construction time via its configuration:
+
+```swift
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        eventBufferingPolicy: .bufferingNewest(2048)
+    )
+)
+```
+
+Modal and Flow stores expose the same knob:
+
+- `NavigationStoreConfiguration.eventBufferingPolicy`
+- `ModalStoreConfiguration.eventBufferingPolicy`
+- `FlowStoreConfiguration.navigation.eventBufferingPolicy` and
+  `FlowStoreConfiguration.modal.eventBufferingPolicy`
+
+The flow configuration delegates to the inner navigation/modal
+configurations rather than introducing a separate composite policy.
+
+## Drop semantics under load
+
+Under sustained backpressure, the store keeps emitting events. Whether
+the event reaches a slow subscriber depends on the policy chosen for
+that subscriber's store:
+
+- `.bufferingNewest(N)`: oldest events are dropped silently. The
+  subscriber sees a contiguous tail of the most recent N events the
+  store emitted.
+- `.bufferingOldest(N)`: newer events are dropped silently after the
+  buffer fills. The subscriber sees the first N events emitted after
+  it started subscribing.
+- `.unbounded`: nothing is dropped, but the per-subscriber queue can
+  grow without bound while the subscriber falls behind.
+
+Drops are not surfaced as an event. If your analytics pipeline must
+distinguish "no event happened" from "an event was buffered out", use
+``EventBufferingPolicy/unbounded`` for that subscriber and rely on
+your own pacing rather than the broadcaster.
+
+## Lifetime contract
+
+Each subscriber owns one `AsyncStream`. When the subscriber's
+iterator goes out of scope, `AsyncStream.Continuation.onTermination`
+fires and the broadcaster releases its slot. Stores also finish all
+outstanding continuations on `isolated deinit`, so `for await` loops
+terminate naturally when their store is released — no manual cleanup
+required.
+
+## Topics
+
+### Backpressure primitives
+
+- ``EventBufferingPolicy``
+- ``EventBufferingPolicy/default``
+
+### Configurations that adopt the policy
+
+- `NavigationStoreConfiguration` (in `InnoRouterSwiftUI`)
+- `ModalStoreConfiguration` (in `InnoRouterSwiftUI`)
+- `FlowStoreConfiguration` (in `InnoRouterSwiftUI`)

@@ -1139,6 +1139,44 @@ Individuelle `onChange`-, `onPresented`-, `onCommandIntercepted`- usw.-Callbacks
 auf jedem `*Configuration`-Typ bleiben source-kompatibel; der `events`-Stream ist
 ein zusätzlicher Kanal, kein Ersatz.
 
+### Backpressure (Gegendruck)
+
+Jeder Store fächert jedes Ereignis über eine `AsyncStream.Continuation` pro
+Subscriber an jeden Subscriber aus. Um die Warteschlange pro Subscriber unter
+Last zu begrenzen, akzeptiert jeder Store ein `eventBufferingPolicy` in seiner
+Konfiguration:
+
+- `.bufferingNewest(1024)` (Standard) — behält die jüngsten 1024 Ereignisse
+  pro Subscriber, verwirft ältere Ereignisse wenn der Puffer voll ist.
+  Dimensioniert für realistische Navigations-Bursts und hält das gehaltene
+  Working Set begrenzt.
+- `.bufferingOldest(N)` — behält die ältesten N Ereignisse pro Subscriber,
+  verwirft neuere Ereignisse wenn der Puffer voll ist.
+- `.unbounded` — puffert jedes Ereignis, bis der Subscriber es entleert.
+  Verwenden Sie dies für Test-Harnesses oder kurzlebige Subscriber, deren
+  Lebensdauer Sie kontrollieren und die deterministische, verlustfreie
+  Reihenfolge erfordern.
+
+```swift skip doc-fragment
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        eventBufferingPolicy: .bufferingNewest(2048)
+    )
+)
+```
+
+`ModalStoreConfiguration.eventBufferingPolicy` und `FlowStoreConfiguration`
+(das an seine inneren Navigation-/Modal-Konfigurationen delegiert) bieten
+denselben Regler. Verluste sind still — wenn Ihre Analytics-Pipeline
+"kein Ereignis aufgetreten" von "ein Ereignis wurde aus dem Puffer
+verworfen" unterscheiden muss, abonnieren Sie mit `.unbounded` und tunen
+Sie selbst das Tempo.
+
+Der vollständige Vertrag ist in
+[`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md)
+dokumentiert.
+
 ## Roadmap
 
 Verfolgt in

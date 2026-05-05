@@ -1073,6 +1073,36 @@ Task {
 `onCommandIntercepted` 等回调保持源代码兼容;`events` 流是附加通道,
 而不是替代品。
 
+### 背压 (Backpressure)
+
+每个 store 通过每订阅者一个的 `AsyncStream.Continuation` 将每个事件 fan-out
+给每个订阅者。为了在负载下限制每订阅者的队列,每个 store 在其配置中
+接受一个 `eventBufferingPolicy`:
+
+- `.bufferingNewest(1024)`(默认)— 每订阅者保留最近 1024 个事件,缓冲区
+  填满时丢弃较旧的事件。为现实的导航突发量设计,同时保持保留的工作集有界。
+- `.bufferingOldest(N)` — 每订阅者保留最早的 N 个事件,缓冲区填满时丢弃
+  较新的事件。
+- `.unbounded` — 缓冲每个事件直到订阅者排空它。用于你控制生命周期且
+  需要确定性、无损排序的测试 harness 或短命订阅者。
+
+```swift skip doc-fragment
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        eventBufferingPolicy: .bufferingNewest(2048)
+    )
+)
+```
+
+`ModalStoreConfiguration.eventBufferingPolicy` 和 `FlowStoreConfiguration`
+(委托给其内部的 navigation / modal 配置)暴露相同的 knob。丢弃是静默的 —
+如果你的分析 pipeline 必须区分"无事件发生"和"事件被缓冲外丢弃",请用
+`.unbounded` 订阅并自行调节节奏。
+
+完整契约文档化于
+[`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md)。
+
 ## 路线图
 
 在 [`Docs/competitive-analysis-and-roadmap.md`](Docs/competitive-analysis-and-roadmap.md)

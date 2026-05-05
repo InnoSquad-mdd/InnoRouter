@@ -1170,6 +1170,43 @@ Task {
 и т. д. на каждом типе `*Configuration` остаются source-совместимыми;
 поток `events` — дополнительный канал, не замена.
 
+### Backpressure (противодавление)
+
+Каждый store распределяет каждое событие на каждого subscriber через
+`AsyncStream.Continuation` для каждого subscriber. Чтобы ограничить
+очередь на subscriber под нагрузкой, каждый store принимает
+`eventBufferingPolicy` в своей конфигурации:
+
+- `.bufferingNewest(1024)` (по умолчанию) — удерживает 1024 самых
+  последних события на subscriber, отбрасывает более старые события,
+  когда буфер заполнен. Размер подобран под реалистичные всплески
+  навигации, сохраняя удерживаемое рабочее множество ограниченным.
+- `.bufferingOldest(N)` — удерживает N самых старых событий на
+  subscriber, отбрасывает более новые события, когда буфер заполнен.
+- `.unbounded` — буферизует каждое событие до тех пор, пока subscriber
+  его не осушит. Используйте это для тестовых harness или
+  короткоживущих subscribers, где вы контролируете время жизни и
+  требуете детерминированного упорядочения без потерь.
+
+```swift skip doc-fragment
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        eventBufferingPolicy: .bufferingNewest(2048)
+    )
+)
+```
+
+`ModalStoreConfiguration.eventBufferingPolicy` и `FlowStoreConfiguration`
+(который делегирует своим внутренним конфигурациям navigation / modal)
+выставляют ту же ручку. Отбросы происходят бесшумно — если ваш
+analytics pipeline должен отличать "событие не произошло" от
+"событие было выбито из буфера", подписывайтесь с `.unbounded` и
+задавайте темп самостоятельно.
+
+Полный контракт задокументирован в
+[`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md).
+
 ## Roadmap
 
 Отслеживается в

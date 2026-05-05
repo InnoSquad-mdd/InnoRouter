@@ -1148,6 +1148,40 @@ Los callbacks individuales `onChange`, `onPresented`, `onCommandIntercepted`,
 etc. en cada tipo `*Configuration` permanecen source-compatibles; el flujo
 `events` es un canal adicional, no un reemplazo.
 
+### Contrapresión (Backpressure)
+
+Cada store distribuye todos los eventos a cada subscriber a través de una
+`AsyncStream.Continuation` por subscriber. Para acotar la cola por subscriber
+bajo carga, cada store acepta un `eventBufferingPolicy` en su configuración:
+
+- `.bufferingNewest(1024)` (predeterminado) — retiene los 1024 eventos más
+  recientes por subscriber, descarta eventos más antiguos cuando el búfer
+  se llena. Dimensionado para ráfagas de navegación realistas mientras
+  mantiene el working set retenido acotado.
+- `.bufferingOldest(N)` — retiene los N eventos más antiguos por subscriber,
+  descarta eventos nuevos cuando el búfer se llena.
+- `.unbounded` — almacena todos los eventos hasta que el subscriber los
+  drene. Use esto para harness de test o subscribers de vida corta donde
+  controla el lifetime y requiere ordenamiento determinístico y sin pérdidas.
+
+```swift skip doc-fragment
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        eventBufferingPolicy: .bufferingNewest(2048)
+    )
+)
+```
+
+`ModalStoreConfiguration.eventBufferingPolicy` y `FlowStoreConfiguration`
+(que delega en sus configuraciones internas de navigation / modal) exponen la
+misma perilla. Los descartes son silenciosos — si su pipeline de analítica
+debe distinguir "no ocurrió evento" de "un evento se descartó del búfer",
+suscríbase con `.unbounded` y haga el pacing usted mismo.
+
+El contrato completo está documentado en
+[`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md).
+
 ## Roadmap
 
 Rastreado en
