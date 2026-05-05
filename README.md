@@ -1,5 +1,7 @@
 # InnoRouter
 
+[English](README.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [简体中文](README.zh-Hans.md) | [日本語](README.ja.md) | [Русский](README.ru.md)
+
 InnoRouter is a SwiftUI-native navigation framework built around typed state, explicit command execution, and app-boundary deep-link planning.
 
 It treats navigation as a first-class state machine instead of a scattering of view-local side effects.
