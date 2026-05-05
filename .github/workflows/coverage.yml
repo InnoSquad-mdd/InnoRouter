@@ -46,12 +46,18 @@ jobs:
             echo "::error::default.profdata not found under .build/"
             exit 1
           fi
-          TEST_BIN=$(find .build -path '*.xctest/Contents/MacOS/*' -type f -print -quit)
-          if [[ -z "${TEST_BIN}" ]]; then
-            TEST_BIN=$(find .build -name 'InnoRouterPackageTests' -type f -perm -u+x -print -quit || true)
+          # Locate the .xctest bundle and derive the binary path explicitly
+          # rather than globbing inside Contents/MacOS, which would also
+          # match files nested under the .dSYM (e.g. Relocations YAML).
+          XCTEST_BUNDLE=$(find .build -type d -name '*.xctest' -print -quit)
+          if [[ -z "${XCTEST_BUNDLE}" ]]; then
+            echo "::error::.xctest bundle not found under .build/"
+            exit 1
           fi
-          if [[ -z "${TEST_BIN}" ]]; then
-            echo "::error::Test binary not found under .build/"
+          BUNDLE_NAME=$(basename "${XCTEST_BUNDLE}" .xctest)
+          TEST_BIN="${XCTEST_BUNDLE}/Contents/MacOS/${BUNDLE_NAME}"
+          if [[ ! -x "${TEST_BIN}" ]]; then
+            echo "::error::Test binary not executable at ${TEST_BIN}"
             exit 1
           fi
           echo "Using profdata: ${PROF_DATA}"
