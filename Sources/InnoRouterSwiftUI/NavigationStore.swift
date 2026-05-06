@@ -455,6 +455,36 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         )
     }
 
+    /// A path binding that overrides the store-wide
+    /// ``NavigationPathMismatchPolicy`` for any non-prefix
+    /// reconciliations driven through this binding only.
+    ///
+    /// Use this when one specific binding site needs a different
+    /// mismatch behavior than the store's default — for example,
+    /// `.ignore` on a binding that is known to receive transient
+    /// non-prefix writes during a sheet dismissal, while every
+    /// other binding stays on the configured `.replace` /
+    /// `.assertAndReplace` policy.
+    ///
+    /// The override applies *only* to reconciliations triggered by
+    /// writes through the returned binding. Writes that flow
+    /// through ``execute(_:)``, ``executeBatch(_:stopOnFailure:)``,
+    /// or any other entry point continue to use
+    /// ``NavigationStoreConfiguration/pathMismatchPolicy``.
+    public func pathBinding(
+        policy: NavigationPathMismatchPolicy<R>
+    ) -> Binding<[R]> {
+        Binding(
+            get: { self.state.path },
+            set: { newPath in
+                self.reconcileNavigationPath(
+                    with: newPath,
+                    policyOverride: policy
+                )
+            }
+        )
+    }
+
     /// A binding that reflects the top-of-stack route when it matches the given case.
     ///
     /// Writing a non-nil value pushes the embedded route through the regular command
@@ -527,13 +557,20 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
-    private func reconcileNavigationPath(with newPath: [R]) {
+    private func reconcileNavigationPath(
+        with newPath: [R],
+        policyOverride: NavigationPathMismatchPolicy<R>? = nil
+    ) {
         pathReconciler.reconcile(
             from: state.path,
             to: newPath,
             resolveMismatch: { [weak self] oldPath, newPath in
                 guard let self else { return .single(.replace(newPath)) }
-                return self.resolvePathMismatch(from: oldPath, to: newPath)
+                return self.resolvePathMismatch(
+                    from: oldPath,
+                    to: newPath,
+                    policyOverride: policyOverride
+                )
             },
             execute: { [weak self] command in
                 guard let self else { return }
@@ -663,12 +700,14 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
     private func resolvePathMismatch(
         from oldPath: [R],
-        to newPath: [R]
+        to newPath: [R],
+        policyOverride: NavigationPathMismatchPolicy<R>? = nil
     ) -> NavigationPathMismatchResolution<R> {
         let policy: NavigationStoreTelemetryEvent<R>.PathMismatchPolicy
         let resolution: NavigationPathMismatchResolution<R>
 
-        switch pathMismatchPolicy {
+        let effectivePolicy = policyOverride ?? pathMismatchPolicy
+        switch effectivePolicy {
         case .replace:
             policy = .replace
             resolution = .single(.replace(newPath))

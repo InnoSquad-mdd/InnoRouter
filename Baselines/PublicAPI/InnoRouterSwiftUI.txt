@@ -236,6 +236,7 @@ relationship | memberOf | NavigationStore.middlewareMetadata | NavigationStore |
 relationship | memberOf | NavigationStore.moveMiddleware(_:to:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.observe(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.pathBinding | NavigationStore |  |
+relationship | memberOf | NavigationStore.pathBinding(policy:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.removeMiddleware(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.replaceMiddleware(_:with:debugName:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.send(_:) | NavigationStore |  |
@@ -628,6 +629,7 @@ symbol | swift.method | NavigationStore.executeTransaction(_:) | executeTransact
 symbol | swift.method | NavigationStore.insertMiddleware(_:at:debugName:) | insertMiddleware(_:at:debugName:) | @discardableResult @MainActor func insertMiddleware(_ middleware: AnyNavigationMiddleware<R>, at index: Int, debugName: String? = nil) -> NavigationMiddlewareHandle | []
 symbol | swift.method | NavigationStore.moveMiddleware(_:to:) | moveMiddleware(_:to:) | @discardableResult @MainActor func moveMiddleware(_ handle: NavigationMiddlewareHandle, to index: Int) -> Bool | []
 symbol | swift.method | NavigationStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where R == O.RouteType, O : StoreObserver | []
+symbol | swift.method | NavigationStore.pathBinding(policy:) | pathBinding(policy:) | @MainActor func pathBinding(policy: NavigationPathMismatchPolicy<R>) -> Binding<[R]> | []
 symbol | swift.method | NavigationStore.removeMiddleware(_:) | removeMiddleware(_:) | @discardableResult @MainActor func removeMiddleware(_ handle: NavigationMiddlewareHandle) -> AnyNavigationMiddleware<R>? | []
 symbol | swift.method | NavigationStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: NavigationMiddlewareHandle, with middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> Bool | []
 symbol | swift.method | NavigationStore.send(_:) | send(_:) | @MainActor func send(_ intent: NavigationIntent<R>) | []
