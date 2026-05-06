@@ -46,8 +46,8 @@ jobs:
       - name: Swift Version
         run: swift --version
 
-      - name: Install ripgrep
-        run: brew install ripgrep
+      - name: Install gate tools
+        run: brew install ripgrep swiftformat swiftlint
 
       - name: Validate Release Tag
         id: version
