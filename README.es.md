@@ -138,6 +138,10 @@ Dentro de los releases `4.x.y`, InnoRouter sigue
   genérica, o cambie el comportamiento documentado en runtime de una forma que
   pueda sorprender a los sitios de llamada existentes.
 
+Excepción: la limpieza histórica `4.1.0` descrita abajo es una excepción
+documentada y única. Después de esa línea base de adopción, los releases
+menores 4.x son solo aditivos bajo este contrato.
+
 Las etiquetas de pre-release usan la forma `4.1.0-rc.1` / `4.2.0-beta.2`. La
 expresión regular `^[0-9]+\.[0-9]+\.[0-9]+$` del workflow de release solo acepta
 etiquetas finales; las etiquetas pre-release se publican a través de un flujo
@@ -170,13 +174,14 @@ cualquier release menor:
 El barrido completo de la línea base 4.0 se resume en
 [`CHANGELOG.md`](CHANGELOG.md).
 
-### Limpieza rompedora 4.1.0
+### Excepción: limpieza histórica 4.1.0
 
 `4.1.0` es la línea base de adopción después del paso de limpieza pre-usuario.
 Elimina APIs de objetos dispatcher no usadas, mantiene `replaceStack` como el
 único intent de reemplazo de stack completo, y mueve la observación de efectos
-a flujos de eventos explícitos. Las nuevas apps deberían comenzar desde
-`4.1.0`; la etiqueta `4.0.0` permanece disponible como la primera instantánea OSS.
+a flujos de eventos explícitos. Es la única excepción source-breaking
+documentada en la línea 4.x. Las nuevas apps deberían comenzar desde `4.1.0`;
+la etiqueta `4.0.0` permanece disponible como la primera instantánea OSS.
 
 ### Imports
 
@@ -1173,11 +1178,14 @@ let store = try NavigationStore<HomeRoute>(
 )
 ```
 
-`ModalStoreConfiguration.eventBufferingPolicy` y `FlowStoreConfiguration`
-(que delega en sus configuraciones internas de navigation / modal) exponen la
-misma perilla. Los descartes son silenciosos — si su pipeline de analítica
-debe distinguir "no ocurrió evento" de "un evento se descartó del búfer",
-suscríbase con `.unbounded` y haga el pacing usted mismo.
+`ModalStoreConfiguration.eventBufferingPolicy` controla `ModalStore.events`.
+`FlowStoreConfiguration.eventBufferingPolicy` controla el fan-out flow-level de
+`FlowStore.events`, mientras que
+`FlowStoreConfiguration.navigation.eventBufferingPolicy` y
+`FlowStoreConfiguration.modal.eventBufferingPolicy` controlan los streams de los
+stores internos envueltos. Los descartes son silenciosos — si su pipeline de
+analítica debe distinguir "no ocurrió evento" de "un evento se descartó del
+búfer", suscríbase con `.unbounded` y haga el pacing usted mismo.
 
 El contrato completo está documentado en
 [`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md).

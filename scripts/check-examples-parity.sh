@@ -43,6 +43,7 @@ SMOKE_ONLY_ALLOWLIST=(
 )
 
 errors=0
+missing_required_file=0
 
 report() {
     echo "❌ $*" >&2
@@ -57,6 +58,15 @@ contains() {
         [[ "$item" == "$needle" ]] && return 0
     done
     return 1
+}
+
+require_readable_file() {
+    local path="$1"
+    local description="$2"
+    if [[ ! -r "$path" ]]; then
+        report "$description is required at $path and must be readable"
+        missing_required_file=1
+    fi
 }
 
 # Collect Example basenames: "Standalone", "Coordinator", ...
@@ -100,6 +110,13 @@ done
 
 # 3) Manifest must reference every example source and every smoke source.
 #    The main gate must also build every human-facing example target.
+require_readable_file "$MANIFEST" "Swift package manifest"
+require_readable_file "$PRINCIPLE_GATES" "principle gates script"
+if (( missing_required_file > 0 )); then
+    echo "" >&2
+    echo "Examples↔ExamplesSmoke parity gate failed with $errors violation(s)." >&2
+    exit 1
+fi
 manifest_text="$(cat "$MANIFEST")"
 principle_gates_text="$(cat "$PRINCIPLE_GATES")"
 

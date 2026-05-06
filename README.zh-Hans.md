@@ -119,6 +119,9 @@ _ = compileCheckedStack.path
 - **`4.x.y` → `5.0.0`** 主版本发布:任何破坏源代码兼容性、删除公开符号、
   收窄泛型约束,或以可能令现有调用点惊讶的方式更改文档化运行时行为的事项。
 
+例外:下面的 `4.1.0` 历史性清理是文档化的一次性例外。在该采用基线之后,
+4.x 次版本发布按此合约仅允许添加。
+
 预发布标签使用 `4.1.0-rc.1` / `4.2.0-beta.2` 形式。发布工作流的
 `^[0-9]+\.[0-9]+\.[0-9]+$` 正则表达式只接受最终标签;预发布标签通过
 [`RELEASING.md`](RELEASING.md) 中文档化的单独手动流程发布。
@@ -144,11 +147,12 @@ _ = compileCheckedStack.path
 
 完整的 4.0 基线扫描总结在 [`CHANGELOG.md`](CHANGELOG.md) 中。
 
-### 4.1.0 破坏性清理
+### 例外:4.1.0 历史性清理
 
 `4.1.0` 是预用户清理 pass 之后的采用基线。它移除了未使用的 dispatcher 对象 API,
 将 `replaceStack` 保留为唯一的全栈替换 intent,并将 effect 观察转移到显式事件流。
-新应用应从 `4.1.0` 开始;`4.0.0` 标签仍可用作首个 OSS 快照。
+这是 4.x 线中唯一文档化的源码破坏性例外。新应用应从 `4.1.0` 开始;
+`4.0.0` 标签仍可用作首个 OSS 快照。
 
 ### Imports
 
@@ -1002,7 +1006,7 @@ Harness 涵盖:
   将 `send`、`execute`、`executeBatch`、`executeTransaction` 不变地
   转发到底层 store。
 - **`ModalTestStore<M>`** — `onPresented`、`onDismissed`、`onQueueChanged`、
-  `onCommandIntercepted`、`onMiDdlewareMutation`。
+  `onCommandIntercepted`、`onMiddlewareMutation`。
 - **`FlowTestStore<R>`** — FlowStore 级别的 `onPathChanged` + `onIntentRejected`,
   加上围绕单个队列上内部 store 发射的 `.navigation(...)` 和 `.modal(...)` 包装器。
   一个测试可以断言由单个 `FlowIntent` 触发的完整链,包括 middleware 取消路径。
@@ -1095,10 +1099,12 @@ let store = try NavigationStore<HomeRoute>(
 )
 ```
 
-`ModalStoreConfiguration.eventBufferingPolicy` 和 `FlowStoreConfiguration`
-(委托给其内部的 navigation / modal 配置)暴露相同的 knob。丢弃是静默的 —
-如果你的分析 pipeline 必须区分"无事件发生"和"事件被缓冲外丢弃",请用
-`.unbounded` 订阅并自行调节节奏。
+`ModalStoreConfiguration.eventBufferingPolicy` 控制 `ModalStore.events`。
+`FlowStoreConfiguration.eventBufferingPolicy` 控制 flow-level `FlowStore.events`
+fan-out,而 `FlowStoreConfiguration.navigation.eventBufferingPolicy` 和
+`FlowStoreConfiguration.modal.eventBufferingPolicy` 控制被包装的内部 store stream。
+丢弃是静默的 — 如果你的分析 pipeline 必须区分"无事件发生"和"事件被缓冲外丢弃",
+请用 `.unbounded` 订阅并自行调节节奏。
 
 完整契约文档化于
 [`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md)。

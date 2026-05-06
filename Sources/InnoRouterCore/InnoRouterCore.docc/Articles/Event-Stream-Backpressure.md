@@ -48,15 +48,16 @@ let store = try NavigationStore<HomeRoute>(
 )
 ```
 
-Modal and Flow stores expose the same knob:
+Modal and Flow stores expose the same knob, with one policy per
+published stream:
 
 - `NavigationStoreConfiguration.eventBufferingPolicy`
 - `ModalStoreConfiguration.eventBufferingPolicy`
+- `FlowStoreConfiguration.eventBufferingPolicy` for the flow-level
+  `FlowStore.events` fan-out
 - `FlowStoreConfiguration.navigation.eventBufferingPolicy` and
-  `FlowStoreConfiguration.modal.eventBufferingPolicy`
-
-The flow configuration delegates to the inner navigation/modal
-configurations rather than introducing a separate composite policy.
+  `FlowStoreConfiguration.modal.eventBufferingPolicy` for the wrapped
+  inner store streams
 
 ## Drop semantics under load
 

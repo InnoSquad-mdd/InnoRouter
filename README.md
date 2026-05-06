@@ -138,6 +138,10 @@ Within `4.x.y` releases, InnoRouter follows
   constraint, or changes documented runtime behavior in a way that
   can surprise existing call sites.
 
+Exception: `4.1.0` is the documented one-time historical cleanup
+described below. After that adoption baseline, 4.x minor releases are
+additive-only under this contract.
+
 Pre-release tags use the `4.1.0-rc.1` / `4.2.0-beta.2` form. The
 release workflow's `^[0-9]+\.[0-9]+\.[0-9]+$` regex only accepts
 final tags; pre-release tags ship through a separate manual flow
@@ -170,12 +174,13 @@ minor release:
 The full 4.0 baseline sweep is summarized in
 [`CHANGELOG.md`](CHANGELOG.md).
 
-### 4.1.0 breaking cleanup
+### Exception: 4.1.0 historical cleanup
 
 `4.1.0` is the adoption baseline after the pre-user cleanup pass. It
 removes unused dispatcher-object APIs, keeps `replaceStack` as the
 single full-stack replacement intent, and moves effect observation to
-explicit event streams. New apps should start from `4.1.0`; the
+explicit event streams. This is the only documented source-breaking
+exception in the 4.x line; new apps should start from `4.1.0`, and the
 `4.0.0` tag remains available as the first OSS snapshot.
 
 ### Imports
@@ -1176,12 +1181,14 @@ let store = try NavigationStore<HomeRoute>(
 )
 ```
 
-`ModalStoreConfiguration.eventBufferingPolicy` and
-`FlowStoreConfiguration` (which delegates to its inner navigation /
-modal configurations) expose the same knob. Drops are silent — if
-your analytics pipeline must distinguish "no event happened" from
-"an event was buffered out", subscribe with `.unbounded` and pace
-yourself instead.
+`ModalStoreConfiguration.eventBufferingPolicy` controls `ModalStore.events`.
+`FlowStoreConfiguration.eventBufferingPolicy` controls the flow-level
+`FlowStore.events` fan-out, while
+`FlowStoreConfiguration.navigation.eventBufferingPolicy` and
+`FlowStoreConfiguration.modal.eventBufferingPolicy` control the wrapped
+inner store streams. Drops are silent — if your analytics pipeline must
+distinguish "no event happened" from "an event was buffered out", subscribe
+with `.unbounded` and pace yourself instead.
 
 The full contract is documented in
 [`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md).

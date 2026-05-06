@@ -46,24 +46,32 @@ jobs:
             echo "::error::default.profdata not found under .build/"
             exit 1
           fi
-          # Locate the .xctest bundle and derive the binary path explicitly
-          # rather than globbing inside Contents/MacOS, which would also
-          # match files nested under the .dSYM (e.g. Relocations YAML).
-          XCTEST_BUNDLE=$(find .build -type d -name '*.xctest' -print -quit)
-          if [[ -z "${XCTEST_BUNDLE}" ]]; then
+          # Collect every .xctest bundle and derive each primary binary path
+          # explicitly rather than globbing inside Contents/MacOS, which would
+          # also match files nested under the .dSYM (e.g. Relocations YAML).
+          TEST_BINS=()
+          while IFS= read -r XCTEST_BUNDLE; do
+            BUNDLE_NAME=$(basename "${XCTEST_BUNDLE}" .xctest)
+            TEST_BIN="${XCTEST_BUNDLE}/Contents/MacOS/${BUNDLE_NAME}"
+            if [[ ! -x "${TEST_BIN}" ]]; then
+              echo "::error::Test binary not executable at ${TEST_BIN}"
+              exit 1
+            fi
+            TEST_BINS+=("${TEST_BIN}")
+          done < <(find .build -type d -name '*.xctest' | sort)
+          if [[ "${#TEST_BINS[@]}" -eq 0 ]]; then
             echo "::error::.xctest bundle not found under .build/"
             exit 1
           fi
-          BUNDLE_NAME=$(basename "${XCTEST_BUNDLE}" .xctest)
-          TEST_BIN="${XCTEST_BUNDLE}/Contents/MacOS/${BUNDLE_NAME}"
-          if [[ ! -x "${TEST_BIN}" ]]; then
-            echo "::error::Test binary not executable at ${TEST_BIN}"
-            exit 1
-          fi
+          PRIMARY_BIN="${TEST_BINS[0]}"
+          LLVM_COV_ARGS=("${PRIMARY_BIN}")
+          for TEST_BIN in "${TEST_BINS[@]:1}"; do
+            LLVM_COV_ARGS+=(-object "${TEST_BIN}")
+          done
           echo "Using profdata: ${PROF_DATA}"
-          echo "Using binary:   ${TEST_BIN}"
+          printf 'Using binary:   %s\n' "${TEST_BINS[@]}"
           xcrun llvm-cov export \
-            "${TEST_BIN}" \
+            "${LLVM_COV_ARGS[@]}" \
             -instr-profile "${PROF_DATA}" \
             -format=lcov \
             -ignore-filename-regex='Tests|\.build|Examples|ExamplesSmoke' \
@@ -71,8 +79,9 @@ jobs:
           wc -l coverage.lcov
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage.lcov
+          token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
           verbose: true

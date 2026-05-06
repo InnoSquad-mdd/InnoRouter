@@ -14,7 +14,7 @@ import InnoRouterEffects
 
 // MARK: - NavigationCommand Tests
 
-@Suite("NavigationCommand Tests")
+@Suite("NavigationCommand Tests", .tags(.unit))
 struct NavigationCommandTests {
 
     @Test("Execute push command")
@@ -93,12 +93,12 @@ struct NavigationCommandTests {
             .push(.settings)
         ]))
 
-        if case .multiple(let results) = result {
-            #expect(results.count == 3)
-            #expect(results.allSatisfy { $0 == .success })
-        } else {
+        guard case .multiple(let results) = result else {
             Issue.record("Expected multiple result")
+            return
         }
+        #expect(results.count == 3)
+        #expect(results.allSatisfy { $0 == .success })
 
         #expect(store.state.path.count == 3)
     }

@@ -14,7 +14,7 @@ import InnoRouterEffects
 
 // MARK: - Coordinator Tests
 
-@Suite("Coordinator Tests")
+@Suite("Coordinator Tests", .tags(.unit))
 struct CoordinatorTests {
 
     @Observable
@@ -23,8 +23,8 @@ struct CoordinatorTests {
         typealias RouteType = TestRoute
         typealias Destination = EmptyView
 
-        let store = NavigationStore<TestRoute>()
-        var handleCount = 0
+        let store: NavigationStore<TestRoute> = NavigationStore()
+        var handleCount: Int = 0
 
         func handle(_ intent: NavigationIntent<TestRoute>) {
             handleCount += 1
@@ -48,7 +48,7 @@ struct CoordinatorTests {
         typealias RouteType = TestRoute
         typealias Destination = EmptyView
 
-        let store = NavigationStore<TestRoute>()
+        let store: NavigationStore<TestRoute> = NavigationStore()
 
         @ViewBuilder
         func destination(for route: TestRoute) -> EmptyView {

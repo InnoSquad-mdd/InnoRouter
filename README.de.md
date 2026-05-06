@@ -138,6 +138,10 @@ Innerhalb der `4.x.y`-Releases folgt InnoRouter
   einengt oder das dokumentierte Laufzeitverhalten so ändert, dass bestehende
   Aufrufstellen überrascht werden können.
 
+Ausnahme: Die unten beschriebene historische Bereinigung in `4.1.0` ist eine
+dokumentierte einmalige Ausnahme. Nach dieser Adoptionsbasis sind Minor-Releases
+der 4.x-Linie unter diesem Vertrag nur additiv.
+
 Pre-Release-Tags verwenden die Form `4.1.0-rc.1` / `4.2.0-beta.2`. Die Regex
 `^[0-9]+\.[0-9]+\.[0-9]+$` des Release-Workflows akzeptiert nur finale Tags;
 Pre-Release-Tags werden über einen separaten manuellen Flow ausgeliefert,
@@ -170,12 +174,13 @@ landen:
 
 Der vollständige 4.0-Basisdurchlauf ist in [`CHANGELOG.md`](CHANGELOG.md) zusammengefasst.
 
-### 4.1.0 Breaking-Cleanup
+### Ausnahme: Historische Bereinigung in 4.1.0
 
 `4.1.0` ist die Adoptionsbasis nach dem Pre-User-Cleanup-Durchlauf. Es
 entfernt ungenutzte Dispatcher-Object-APIs, behält `replaceStack` als das
 einzige vollständige Stack-Replacement-Intent und verschiebt Effect-Beobachtung
-zu expliziten Event-Streams. Neue Apps sollten von `4.1.0` ausgehen; das
+zu expliziten Event-Streams. Das ist die einzige dokumentierte source-breaking
+Ausnahme in der 4.x-Linie. Neue Apps sollten von `4.1.0` ausgehen; das
 `4.0.0`-Tag bleibt als erster OSS-Snapshot verfügbar.
 
 ### Imports
@@ -1166,12 +1171,14 @@ let store = try NavigationStore<HomeRoute>(
 )
 ```
 
-`ModalStoreConfiguration.eventBufferingPolicy` und `FlowStoreConfiguration`
-(das an seine inneren Navigation-/Modal-Konfigurationen delegiert) bieten
-denselben Regler. Verluste sind still — wenn Ihre Analytics-Pipeline
-"kein Ereignis aufgetreten" von "ein Ereignis wurde aus dem Puffer
-verworfen" unterscheiden muss, abonnieren Sie mit `.unbounded` und tunen
-Sie selbst das Tempo.
+`ModalStoreConfiguration.eventBufferingPolicy` steuert `ModalStore.events`.
+`FlowStoreConfiguration.eventBufferingPolicy` steuert das flow-level
+`FlowStore.events` fan-out, während
+`FlowStoreConfiguration.navigation.eventBufferingPolicy` und
+`FlowStoreConfiguration.modal.eventBufferingPolicy` die umhüllten inneren
+Store-Streams steuern. Verluste sind still — wenn Ihre Analytics-Pipeline
+"kein Ereignis aufgetreten" von "ein Ereignis wurde aus dem Puffer verworfen"
+unterscheiden muss, abonnieren Sie mit `.unbounded` und tunen Sie selbst das Tempo.
 
 Der vollständige Vertrag ist in
 [`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md)
