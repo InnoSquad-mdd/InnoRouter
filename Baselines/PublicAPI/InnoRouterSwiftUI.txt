@@ -2,6 +2,7 @@
 relationship | conformsTo | AnyFlowTelemetrySink | FlowTelemetrySink |  |
 relationship | conformsTo | AnyModalTelemetrySink | ModalTelemetrySink |  |
 relationship | conformsTo | AnyNavigationTelemetrySink | NavigationTelemetrySink |  |
+relationship | conformsTo | FlowStore | FlowStateReading |  |
 relationship | conformsTo | OSLogFlowTelemetrySink | FlowTelemetrySink |  |
 relationship | conformsTo | OSLogModalTelemetrySink | ModalTelemetrySink |  |
 relationship | conformsTo | OSLogNavigationTelemetrySink | NavigationTelemetrySink |  |
@@ -79,10 +80,12 @@ relationship | memberOf | FlowIntent.replaceStack(_:) | FlowIntent |  |
 relationship | memberOf | FlowIntent.reset(_:) | FlowIntent |  |
 relationship | memberOf | FlowStore.RouteType | FlowStore |  |
 relationship | memberOf | FlowStore.apply(_:) | FlowStore |  |
+relationship | memberOf | FlowStore.currentModalRoute | FlowStore |  |
 relationship | memberOf | FlowStore.events | FlowStore |  |
 relationship | memberOf | FlowStore.init(initial:configuration:) | FlowStore |  |
 relationship | memberOf | FlowStore.init(validating:configuration:) | FlowStore |  |
 relationship | memberOf | FlowStore.intentDispatcher | FlowStore |  |
+relationship | memberOf | FlowStore.navigationPath | FlowStore |  |
 relationship | memberOf | FlowStore.observe(_:) | FlowStore |  |
 relationship | memberOf | FlowStore.path | FlowStore |  |
 relationship | memberOf | FlowStore.send(_:) | FlowStore |  |
@@ -386,6 +389,10 @@ relationship | requirementOf | FlowCoordinator.onComplete | FlowCoordinator |  |
 relationship | requirementOf | FlowNavigating.RouteType | FlowNavigating |  |
 relationship | requirementOf | FlowNavigating.flowStore | FlowNavigating |  |
 relationship | requirementOf | FlowNavigating.handle(_:) | FlowNavigating |  |
+relationship | requirementOf | FlowStateReading.R | FlowStateReading |  |
+relationship | requirementOf | FlowStateReading.currentModalRoute | FlowStateReading |  |
+relationship | requirementOf | FlowStateReading.navigationPath | FlowStateReading |  |
+relationship | requirementOf | FlowStateReading.path | FlowStateReading |  |
 relationship | requirementOf | FlowStep.index | FlowStep |  |
 relationship | requirementOf | FlowTelemetrySink.RouteType | FlowTelemetrySink |  |
 relationship | requirementOf | FlowTelemetrySink.record(_:) | FlowTelemetrySink |  |
@@ -410,6 +417,7 @@ symbol | swift.associatedtype | Coordinator.RouteType | RouteType | associatedty
 symbol | swift.associatedtype | FlowCoordinator.Result | Result | associatedtype Result | []
 symbol | swift.associatedtype | FlowCoordinator.Step | Step | associatedtype Step : FlowStep | []
 symbol | swift.associatedtype | FlowNavigating.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | FlowStateReading.R | R | associatedtype R : Route | []
 symbol | swift.associatedtype | FlowTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | ModalTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationPathReconciling.R | R | associatedtype R : Route | []
@@ -728,9 +736,14 @@ symbol | swift.property | FlowCoordinatorView.body | body | @MainActor var body:
 symbol | swift.property | FlowEvent.description | description | var description: String { get } | []
 symbol | swift.property | FlowHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | FlowNavigating.flowStore | flowStore | @MainActor var flowStore: FlowStore<Self.RouteType> { get } | []
+symbol | swift.property | FlowStateReading.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: Self.R? { get } | []
+symbol | swift.property | FlowStateReading.navigationPath | navigationPath | @MainActor var navigationPath: [Self.R] { get } | []
+symbol | swift.property | FlowStateReading.path | path | @MainActor var path: [RouteStep<Self.R>] { get } | []
 symbol | swift.property | FlowStep.index | index | var index: Int { get } | []
+symbol | swift.property | FlowStore.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: R? { get } | []
 symbol | swift.property | FlowStore.events | events | @MainActor var events: AsyncStream<FlowEvent<R>> { get } | []
 symbol | swift.property | FlowStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: @MainActor (FlowIntent<R>) -> Void { get } | []
+symbol | swift.property | FlowStore.navigationPath | navigationPath | @MainActor var navigationPath: [R] { get } | []
 symbol | swift.property | FlowStore.path | path | @MainActor var path: [RouteStep<R>] { get set } | []
 symbol | swift.property | FlowStoreConfiguration.eventBufferingPolicy | eventBufferingPolicy | var eventBufferingPolicy: EventBufferingPolicy | []
 symbol | swift.property | FlowStoreConfiguration.modal | modal | var modal: ModalStoreConfiguration<R> | []
@@ -826,6 +839,7 @@ symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor proto
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
 symbol | swift.protocol | FlowCoordinator | FlowCoordinator | @MainActor protocol FlowCoordinator : AnyObject, Observable | []
 symbol | swift.protocol | FlowNavigating | FlowNavigating | @MainActor protocol FlowNavigating : AnyObject | []
+symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<R> | []
 symbol | swift.protocol | FlowStep | FlowStep | protocol FlowStep : CaseIterable, Hashable, Sendable | []
 symbol | swift.protocol | FlowTelemetrySink | FlowTelemetrySink | @MainActor protocol FlowTelemetrySink : Sendable | []
 symbol | swift.protocol | ModalTelemetrySink | ModalTelemetrySink | @MainActor protocol ModalTelemetrySink : Sendable | []
