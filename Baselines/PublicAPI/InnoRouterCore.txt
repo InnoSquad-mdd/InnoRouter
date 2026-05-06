@@ -9,6 +9,7 @@ relationship | conformsTo | AnyNavigator | NavigationCommandExecutor |  |
 relationship | conformsTo | AnyNavigator | NavigationStateReader |  |
 relationship | conformsTo | NavigationBatchResult | NavigationExecutionResult |  |
 relationship | conformsTo | NavigationTransactionResult | NavigationExecutionResult |  |
+relationship | defaultImplementationOf | AsyncNavigationMiddleware.didExecute(_:result:state:) | AsyncNavigationMiddleware.didExecute(_:result:state:) |  |
 relationship | memberOf | AnyBatchNavigator.RouteType | AnyBatchNavigator |  |
 relationship | memberOf | AnyBatchNavigator.execute(_:) | AnyBatchNavigator |  |
 relationship | memberOf | AnyBatchNavigator.executeBatch(_:stopOnFailure:) | AnyBatchNavigator |  |
@@ -184,6 +185,9 @@ relationship | memberOf | VolumetricSize.init(x:y:z:) | VolumetricSize |  |
 relationship | memberOf | VolumetricSize.x | VolumetricSize |  |
 relationship | memberOf | VolumetricSize.y | VolumetricSize |  |
 relationship | memberOf | VolumetricSize.z | VolumetricSize |  |
+relationship | requirementOf | AsyncNavigationMiddleware.RouteType | AsyncNavigationMiddleware |  |
+relationship | requirementOf | AsyncNavigationMiddleware.didExecute(_:result:state:) | AsyncNavigationMiddleware |  |
+relationship | requirementOf | AsyncNavigationMiddleware.willExecute(_:state:) | AsyncNavigationMiddleware |  |
 relationship | requirementOf | FlowPlanApplier.RouteType | FlowPlanApplier |  |
 relationship | requirementOf | FlowPlanApplier.apply(_:) | FlowPlanApplier |  |
 relationship | requirementOf | ModalMiddleware.RouteType | ModalMiddleware |  |
@@ -207,6 +211,7 @@ relationship | requirementOf | NavigationStateReader.RouteType | NavigationState
 relationship | requirementOf | NavigationStateReader.state | NavigationStateReader |  |
 relationship | requirementOf | NavigationTransactionExecutor.RouteType | NavigationTransactionExecutor |  |
 relationship | requirementOf | NavigationTransactionExecutor.executeTransaction(_:) | NavigationTransactionExecutor |  |
+symbol | swift.associatedtype | AsyncNavigationMiddleware.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | FlowPlanApplier.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | ModalMiddleware.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationBatchExecutor.RouteType | RouteType | associatedtype RouteType : Route | []
@@ -350,6 +355,8 @@ symbol | swift.method | AnyNavigator.pop() | pop() | @discardableResult @MainAct
 symbol | swift.method | AnyNavigator.popToRoot() | popToRoot() | @discardableResult @MainActor func popToRoot() -> NavigationResult<R> | []
 symbol | swift.method | AnyNavigator.push(_:) | push(_:) | @discardableResult @MainActor func push(_ route: R) -> NavigationResult<R> | []
 symbol | swift.method | AnyNavigator.replace(with:) | replace(with:) | @discardableResult @MainActor func replace(with routes: [R]) -> NavigationResult<R> | []
+symbol | swift.method | AsyncNavigationMiddleware.didExecute(_:result:state:) | didExecute(_:result:state:) | @MainActor func didExecute(_ command: NavigationCommand<Self.RouteType>, result: NavigationResult<Self.RouteType>, state: RouteStack<Self.RouteType>) async -> NavigationResult<Self.RouteType> | []
+symbol | swift.method | AsyncNavigationMiddleware.willExecute(_:state:) | willExecute(_:state:) | @MainActor func willExecute(_ command: NavigationCommand<Self.RouteType>, state: RouteStack<Self.RouteType>) async -> NavigationInterception<Self.RouteType> | []
 symbol | swift.method | CasePath.appending(path:) | appending(path:) | func appending<AppendedValue>(path: CasePath<Value, AppendedValue>) -> CasePath<Root, AppendedValue> | []
 symbol | swift.method | CasePath.callAsFunction() | callAsFunction() | func callAsFunction() -> Root | []
 symbol | swift.method | FlowPlanApplier.apply(_:) | apply(_:) | @MainActor func apply(_ plan: FlowPlan<Self.RouteType>) -> FlowPlanApplyResult<Self.RouteType> | []
@@ -415,6 +422,7 @@ symbol | swift.property | RouteStep.route | route | var route: R { get } | []
 symbol | swift.property | VolumetricSize.x | x | let x: Double | []
 symbol | swift.property | VolumetricSize.y | y | let y: Double | []
 symbol | swift.property | VolumetricSize.z | z | let z: Double | []
+symbol | swift.protocol | AsyncNavigationMiddleware | AsyncNavigationMiddleware | @MainActor protocol AsyncNavigationMiddleware<RouteType> : Sendable | []
 symbol | swift.protocol | FlowPlanApplier | FlowPlanApplier | @MainActor protocol FlowPlanApplier<RouteType> : AnyObject, Sendable | []
 symbol | swift.protocol | ModalMiddleware | ModalMiddleware | @MainActor protocol ModalMiddleware | []
 symbol | swift.protocol | NavigationBatchExecutor | NavigationBatchExecutor | @MainActor protocol NavigationBatchExecutor : AnyObject | []
