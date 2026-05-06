@@ -64,7 +64,23 @@ public final class FlowStore<R: Route> {
 
     // Bookkeeping toggled while FlowStore drives its own inner stores, so
     // observer callbacks can distinguish user / system-initiated changes.
-    private var isApplyingInternalMutation: Bool = false
+    //
+    // Implemented as a depth counter rather than a Bool so nested
+    // invocations (FlowStore-driven inner-store mutation that itself
+    // re-enters withInternalMutation) account correctly. The
+    // counter is read through ``isApplyingInternalMutation`` to keep
+    // every call site syntactically identical to the previous Bool.
+    // The runtime contract — "any non-zero depth means FlowStore is
+    // driving the inner stores" — is enforced through a release-mode
+    // `precondition` on decrement so an underflow surfaces immediately
+    // instead of silently inverting the guard.
+    private var mutationDepth: Int = 0
+
+    /// `true` while `FlowStore` is itself driving an inner-store
+    /// mutation. The four `guard` sites in the inner-store reverse-
+    /// sync callbacks read this to skip the projection refresh that
+    /// would otherwise loop back through the path projection.
+    private var isApplyingInternalMutation: Bool { mutationDepth > 0 }
 
     /// A closure that forwards `FlowIntent` values to this store's
     /// ``send(_:)`` entry point.
@@ -664,26 +680,27 @@ public final class FlowStore<R: Route> {
     }
 
     private func withInternalMutation<T>(_ body: () -> T) -> T {
-        // The flag is *only* safe under MainActor + synchronous body
-        // execution. Every current call site (`apply(_:intent:)` and
-        // `applyQueueCoalescePolicyIfNeeded`) is synchronous, so the
-        // flag's "set → run → restore" pattern works. If a future
-        // refactor wires an async path through here without first
-        // converting the flag to a counter / actor, the reverse-sync
-        // guards (`isApplyingInternalMutation` checks in the four
-        // inner-store callbacks) silently misbehave on suspension
-        // boundaries. Catch that regression at the source instead of
-        // shipping a quiet bug — DEBUG-only so production keeps the
-        // existing zero-cost flag pattern.
-        #if DEBUG
-        assert(
-            !isApplyingInternalMutation,
-            "FlowStore.withInternalMutation is not re-entrant; nested invocation indicates a sync invariant break."
-        )
-        #endif
-        let wasApplying = isApplyingInternalMutation
-        isApplyingInternalMutation = true
-        defer { isApplyingInternalMutation = wasApplying }
+        // The previous Bool flag was not safe under reentrant call
+        // sites — a nested invocation would silently restore
+        // `false` on the inner `defer` while the outer scope still
+        // expected the flag to be set. The depth counter records
+        // *how many* nested mutations are in flight; the inner-store
+        // reverse-sync guards keep reading
+        // ``isApplyingInternalMutation`` (depth > 0) and so behave
+        // identically when not nested but stay correct when nested.
+        //
+        // The release-mode `precondition` on decrement catches an
+        // imbalance (decrement without matching increment) loudly
+        // instead of letting the counter go negative and quietly
+        // re-enabling the reverse-sync guards.
+        mutationDepth += 1
+        defer {
+            mutationDepth -= 1
+            precondition(
+                mutationDepth >= 0,
+                "FlowStore.withInternalMutation depth counter underflowed — invariant break."
+            )
+        }
         return body()
     }
 
