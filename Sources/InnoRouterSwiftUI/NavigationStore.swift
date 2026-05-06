@@ -16,7 +16,10 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private let onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)?
     private let telemetrySink: NavigationStoreTelemetrySink<R>
     private let observationTelemetrySink: AnyNavigationTelemetrySink<R>?
-    private let middlewareRegistry: NavigationMiddlewareRegistry<R>
+    // `middlewareRegistry` is `internal` rather than `private`
+    // because middleware management methods live in
+    // `NavigationStore+Middleware.swift`.
+    internal let middlewareRegistry: NavigationMiddlewareRegistry<R>
     private let pathReconciler: NavigationPathReconciler<R>
     private let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
     private let pathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void
@@ -235,41 +238,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
-    @discardableResult
-    public func addMiddleware(
-        _ middleware: AnyNavigationMiddleware<R>,
-        debugName: String? = nil
-    ) -> NavigationMiddlewareHandle {
-        middlewareRegistry.add(middleware, debugName: debugName)
-    }
-
-    @discardableResult
-    public func insertMiddleware(
-        _ middleware: AnyNavigationMiddleware<R>,
-        at index: Int,
-        debugName: String? = nil
-    ) -> NavigationMiddlewareHandle {
-        middlewareRegistry.insert(middleware, at: index, debugName: debugName)
-    }
-
-    @discardableResult
-    public func removeMiddleware(_ handle: NavigationMiddlewareHandle) -> AnyNavigationMiddleware<R>? {
-        middlewareRegistry.remove(handle)
-    }
-
-    @discardableResult
-    public func replaceMiddleware(
-        _ handle: NavigationMiddlewareHandle,
-        with middleware: AnyNavigationMiddleware<R>,
-        debugName: String? = nil
-    ) -> Bool {
-        middlewareRegistry.replace(handle, with: middleware, debugName: debugName)
-    }
-
-    @discardableResult
-    public func moveMiddleware(_ handle: NavigationMiddlewareHandle, to index: Int) -> Bool {
-        middlewareRegistry.move(handle, to: index)
-    }
+    // Note: middleware CRUD (add/insert/remove/replace/move) lives
+    // in `NavigationStore+Middleware.swift`.
 
     @discardableResult
     public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
@@ -406,153 +376,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
-    public func send(_ intent: NavigationIntent<R>) {
-        let plan = commands(for: intent)
-        switch plan.count {
-        case 0:
-            return
-        case 1:
-            _ = execute(plan[0])
-        default:
-            _ = executeBatch(plan, stopOnFailure: false)
-        }
-    }
+    // Note: send(_:) and commands(for:) live in
+    // `NavigationStore+Intent.swift`.
 
-    /// Projects a ``NavigationIntent`` into the concrete
-    /// ``NavigationCommand`` plan that ``send(_:)`` would execute
-    /// against the current ``state``.
-    ///
-    /// Some intents are state-dependent
-    /// (`.backBy`, `.backOrPush`, `.pushUniqueRoot`); the projection
-    /// is therefore a method on the store rather than an extension on
-    /// `NavigationIntent` itself, and reads `state.path` exactly once
-    /// to make the decision.
-    ///
-    /// Returned plans interpret as:
-    ///
-    /// - empty — no work for the current state (e.g.
-    ///   `.pushUniqueRoot` of a route already on the stack).
-    /// - single element — a single `.execute(_:)` call's worth.
-    /// - multiple elements — a batch the caller can hand to
-    ///   `.executeBatch(_:stopOnFailure:)`, exactly the way
-    ///   ``send(_:)`` does internally.
-    ///
-    /// This accessor was added in 4.2.0 as preparation for the 5.0
-    /// intent ↔ command unification: today it makes the mapping
-    /// visible without changing call-site behaviour, and tomorrow
-    /// it becomes the single source of truth for the projection.
-    public func commands(for intent: NavigationIntent<R>) -> [NavigationCommand<R>] {
-        switch intent {
-        case .go(let route):
-            return [.push(route)]
-        case .goMany(let routes):
-            switch routes.count {
-            case 0:
-                return []
-            case 1:
-                return [.push(routes[0])]
-            default:
-                return routes.map(NavigationCommand.push)
-            }
-        case .back:
-            return [.pop]
-        case .backBy(let count):
-            if count > 0, count == state.path.count {
-                return [.popToRoot]
-            } else {
-                return [.popCount(count)]
-            }
-        case .backTo(let route):
-            return [.popTo(route)]
-        case .backToRoot:
-            return [.popToRoot]
-        case .replaceStack(let routes):
-            return [.replace(routes)]
-        case .backOrPush(let route):
-            if state.path.contains(route) {
-                return [.popTo(route)]
-            } else {
-                return [.push(route)]
-            }
-        case .pushUniqueRoot(let route):
-            if state.path.contains(route) {
-                return []
-            } else {
-                return [.push(route)]
-            }
-        }
-    }
-
-    public var pathBinding: Binding<[R]> {
-        Binding(
-            get: { self.state.path },
-            set: { newPath in
-                self.reconcileNavigationPath(with: newPath)
-            }
-        )
-    }
-
-    /// A path binding that overrides the store-wide
-    /// ``NavigationPathMismatchPolicy`` for any non-prefix
-    /// reconciliations driven through this binding only.
-    ///
-    /// Use this when one specific binding site needs a different
-    /// mismatch behavior than the store's default — for example,
-    /// `.ignore` on a binding that is known to receive transient
-    /// non-prefix writes during a sheet dismissal, while every
-    /// other binding stays on the configured `.replace` /
-    /// `.assertAndReplace` policy.
-    ///
-    /// The override applies *only* to reconciliations triggered by
-    /// writes through the returned binding. Writes that flow
-    /// through ``execute(_:)``, ``executeBatch(_:stopOnFailure:)``,
-    /// or any other entry point continue to use
-    /// ``NavigationStoreConfiguration/pathMismatchPolicy``.
-    public func pathBinding(
-        policy: NavigationPathMismatchPolicy<R>
-    ) -> Binding<[R]> {
-        Binding(
-            get: { self.state.path },
-            set: { newPath in
-                self.reconcileNavigationPath(
-                    with: newPath,
-                    policyOverride: policy
-                )
-            }
-        )
-    }
-
-    /// A binding that reflects the top-of-stack route when it matches the given case.
-    ///
-    /// Writing a non-nil value pushes the embedded route through the regular command
-    /// pipeline when the active destination is a different case. When the top
-    /// route already matches the case, the binding replaces that top route in
-    /// place instead of pushing a duplicate screen. Writing `nil` pops the top
-    /// route only when it currently matches the case — other stack states are
-    /// left untouched.
-    public func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> {
-        Binding(
-            get: { [weak self] in
-                self?.state.path.last.flatMap(casePath.extract)
-            },
-            set: { [weak self] newValue in
-                guard let self else { return }
-                if let value = newValue {
-                    let route = casePath.embed(value)
-                    if let currentRoute = self.state.path.last,
-                       casePath.extract(currentRoute) != nil {
-                        guard currentRoute != route else { return }
-                        let replacementPath = Array(self.state.path.dropLast()) + [route]
-                        _ = self.execute(.replace(replacementPath))
-                    } else {
-                        _ = self.execute(.push(route))
-                    }
-                } else if self.state.path.last.flatMap(casePath.extract) != nil {
-                    _ = self.execute(.pop)
-                }
-            }
-        )
-    }
+    // Note: pathBinding, pathBinding(policy:), and binding(case:)
+    // live in `NavigationStore+Binding.swift`.
 
     func previewFlowCommand(_ command: NavigationCommand<R>) -> NavigationExecutionJournal<R> {
         previewFlowCommand(command, from: state)
@@ -594,7 +422,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
-    private func reconcileNavigationPath(
+    // `reconcileNavigationPath` is `internal` rather than `private`
+    // because the binding helpers live in
+    // `NavigationStore+Binding.swift`. Access stays within the
+    // InnoRouterSwiftUI module.
+    internal func reconcileNavigationPath(
         with newPath: [R],
         policyOverride: NavigationPathMismatchPolicy<R>? = nil
     ) {
