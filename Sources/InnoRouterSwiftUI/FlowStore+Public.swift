@@ -3,7 +3,7 @@
 // (send / apply) layered over the internal mutation pipeline.
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
-// Extracted from FlowStore.swift in the 4.2.0 cleanup so the store
+// Extracted from FlowStore.swift in the 4.1.0 cleanup so the store
 // core does not have to host the public entry points alongside the
 // FlowMutationPlan dispatch logic. Both methods are thin wrappers
 // that build a FlowMutationPlan via `mutationPlan(for:)` and route

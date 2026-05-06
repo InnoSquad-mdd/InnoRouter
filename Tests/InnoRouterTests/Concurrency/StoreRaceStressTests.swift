@@ -31,6 +31,28 @@ private enum RaceRoute: Route, Hashable {
     case detail(Int)
 }
 
+private actor AsyncSignal {
+    private var didSignal = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func signal() {
+        guard !didSignal else { return }
+        didSignal = true
+        let currentWaiters = waiters
+        waiters.removeAll()
+        for waiter in currentWaiters {
+            waiter.resume()
+        }
+    }
+
+    func wait() async {
+        guard !didSignal else { return }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+}
+
 @Suite("Store race / concurrency stress", .tags(.unit))
 @MainActor
 struct StoreRaceStressTests {
@@ -74,9 +96,12 @@ struct StoreRaceStressTests {
         // Drain in a child Task that lives long enough to receive the
         // whole burst. Using a counted async iterator keeps the test
         // deterministic even if events arrive out of dispatch order.
+        let ready = AsyncSignal()
         let drainTask: Task<Int, Never> = Task { @MainActor in
             var changes = 0
-            for await event in store.events {
+            var iterator = store.events.makeAsyncIterator()
+            await ready.signal()
+            while let event = await iterator.next() {
                 if case .changed = event {
                     changes += 1
                     if changes == burst {
@@ -87,9 +112,7 @@ struct StoreRaceStressTests {
             return changes
         }
 
-        // Hop through main once so the subscriber's continuation is
-        // installed before the burst fires.
-        await Task.yield()
+        await ready.wait()
 
         for index in 0..<burst {
             _ = store.execute(.push(.detail(index)))
@@ -108,9 +131,12 @@ struct StoreRaceStressTests {
 
         // Each subscriber owns its own AsyncStream — fan-out is
         // independent, so both must reach `burst` events.
+        let firstReady = AsyncSignal()
         let firstDrain: Task<Int, Never> = Task { @MainActor in
             var changes = 0
-            for await event in store.events {
+            var iterator = store.events.makeAsyncIterator()
+            await firstReady.signal()
+            while let event = await iterator.next() {
                 if case .changed = event {
                     changes += 1
                     if changes == burst {
@@ -120,9 +146,12 @@ struct StoreRaceStressTests {
             }
             return changes
         }
+        let secondReady = AsyncSignal()
         let secondDrain: Task<Int, Never> = Task { @MainActor in
             var changes = 0
-            for await event in store.events {
+            var iterator = store.events.makeAsyncIterator()
+            await secondReady.signal()
+            while let event = await iterator.next() {
                 if case .changed = event {
                     changes += 1
                     if changes == burst {
@@ -133,7 +162,8 @@ struct StoreRaceStressTests {
             return changes
         }
 
-        await Task.yield()
+        await firstReady.wait()
+        await secondReady.wait()
 
         for index in 0..<burst {
             _ = store.execute(.push(.detail(index)))

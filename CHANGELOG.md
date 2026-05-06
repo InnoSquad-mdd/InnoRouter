@@ -18,6 +18,10 @@ and there are no production adopters yet — folding the work
 into one tag avoids cutting two consecutive churn-heavy
 releases.
 
+This is a one-time pre-adoption exception that folds breaking
+changes into a minor bump; additive-only SemVer guarantees resume
+from the 5.0 line onward.
+
 The migration is documented inline in this entry. Adopters who
 ran the pre-OSS `4.0.0` snapshot follow the diffs under
 "Removed" and "Changed" below; 4.0.x → 4.1.0 is a single hop.
@@ -117,14 +121,14 @@ ran the pre-OSS `4.0.0` snapshot follow the diffs under
   Xcode, bundled Swift host, package floor, swift-syntax pin,
   Apple platform floor) in one table.
 - `.swiftlint.yml` enables `file_length` (warning 1800 / error
-  2200) and `type_body_length` (warning 700 / error 900) as
+  2200) and `type_body_length` (warning 730 / error 900) as
   catastrophic-regression guardrails. Thresholds sit just above
   today's largest fixtures so no current file fails.
 - `SceneStore`, `SceneHost`, and the rest of the visionOS spatial
   scene surface (`SceneAnchor`, `ScenePresentation`,
   `SceneIntent`, `SceneEvent`, `SceneRegistry`,
   `SceneDeclaration`) are documented as **experimental** —
-  outside the 5.x SemVer additive guarantee. Apps adopting them
+  outside the 4.x SemVer additive guarantee. Apps adopting them
   should pin to an exact release until the surface graduates.
   README "Platform support" / "Choosing the right surface"
   tables carry a `⚠ experimental` marker.
@@ -134,6 +138,14 @@ ran the pre-OSS `4.0.0` snapshot follow the diffs under
   (`InnoRouterNavigationEffects`, `InnoRouterDeepLinkEffects`)
   stay available for source compatibility and fold into the
   umbrella in a future major.
+- `ChildCoordinator` requires `lifecycleSignals: LifecycleSignals`.
+  The protocol inherits from the new `LifecycleAware` capability
+  protocol. Adopters add the stored property; the protocol
+  cannot supply a default for a stored requirement.
+  `Coordinator.push(child:)` fires both
+  `lifecycleSignals.fireParentCancel()` and the existing
+  `parentDidCancel()` hook, so adopters can choose closure-style
+  or override-style teardown.
 
 ### Refactor
 
@@ -163,6 +175,17 @@ ran the pre-OSS `4.0.0` snapshot follow the diffs under
   `ExamplesSmoke/README.md` from per-file example targets so
   `-warnings-as-errors` does not surface SwiftPM's "unhandled
   file" warning on the new contributor docs.
+
+### Removed
+
+- `@_spi(FlowStoreInternals)` peephole removed.
+  `FlowStore.navigationStore` and `FlowStore.modalStore` are plain
+  `internal` properties. Adopters that imported
+  `@_spi(FlowStoreInternals) [@testable] import InnoRouterSwiftUI`
+  switch to plain `@testable import` for tests, or to the public
+  `FlowStateReading` protocol for read-only access from production
+  code. Mutations should flow through `FlowStore.send(_:)` /
+  `FlowStore.apply(_:)`.
 
 ### Pre-OSS adoption baseline (folded in)
 
@@ -229,23 +252,6 @@ refresh above.
   pending deep-link replay guards.
 - `swiftformat` and `swiftlint` are wired as check-only source gates
   when those tools are present locally or in CI.
-- `NavigationStoreConfiguration` gains a `pathReconciler:
-  any NavigationPathReconciling<R>` parameter with a `nil` default
-  that resolves to the framework `NavigationPathReconciler<R>()`.
-  Positional callers update their init invocation; keyword-only
-  callers compile unchanged. `NavigationPathReconciling` is
-  `Sendable`-required.
-- `NavigationPathReconciler<R>` is now public so adopters can
-  compose the framework reduction rules inside their own
-  conformances as a fallback.
-- `ChildCoordinator` requires `lifecycleSignals: LifecycleSignals`.
-  The protocol inherits from the new `LifecycleAware` capability
-  protocol. Adopters add the stored property; the protocol
-  cannot supply a default for a stored requirement.
-  `Coordinator.push(child:)` fires both
-  `lifecycleSignals.fireParentCancel()` and the existing
-  `parentDidCancel()` hook, so adopters can choose closure-style
-  or override-style teardown.
 
 #### Fixed
 
@@ -269,14 +275,6 @@ refresh above.
   are removed. Environment intent wrappers now return direct closures.
 - `NavigationEffectHandler.lastResult` and `lastBatchResult` are
   removed. Subscribe to `NavigationEffectHandler.events` instead.
-- `@_spi(FlowStoreInternals)` peephole removed.
-  `FlowStore.navigationStore` and `FlowStore.modalStore` are plain
-  `internal` properties. Adopters that imported
-  `@_spi(FlowStoreInternals) [@testable] import InnoRouterSwiftUI`
-  switch to plain `@testable import` for tests, or to the public
-  `FlowStateReading` protocol for read-only access from production
-  code. Mutations should flow through `FlowStore.send(_:)` /
-  `FlowStore.apply(_:)`.
 
 ## 4.0.0 - 2026-04-28
 

@@ -14,7 +14,7 @@ machine-generated.
 
 ## File format
 
-```
+```text
 .changes/<short-slug>.<category>.md
 ```
 
@@ -22,7 +22,7 @@ Where `<category>` is one of: `added`, `changed`, `fixed`,
 `deprecated`, `removed`, `security`. The slug should describe
 the change (kebab-case, ~3–6 words):
 
-```
+```text
 .changes/async-middleware-slot.added.md
 .changes/flow-reentrancy-counter.changed.md
 .changes/legacy-effect-products.deprecated.md

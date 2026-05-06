@@ -3,7 +3,7 @@
 // ModalStore.
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
-// Extracted from ModalStore.swift in the 4.2.0 cleanup so the
+// Extracted from ModalStore.swift in the 4.1.0 cleanup so the
 // store core does not have to host the middleware management
 // surface alongside command execution.
 

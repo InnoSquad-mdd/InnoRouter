@@ -21,15 +21,15 @@ import InnoRouterCore
 ///   `resolveMismatch` closure (which today routes through
 ///   ``NavigationPathMismatchPolicy``).
 @MainActor
-public protocol NavigationPathReconciling<R>: Sendable {
-    associatedtype R: Route
+public protocol NavigationPathReconciling<RouteType>: Sendable {
+    associatedtype RouteType: Route
 
     func reconcile(
-        from oldPath: [R],
-        to newPath: [R],
-        resolveMismatch: @MainActor ([R], [R]) -> NavigationPathMismatchResolution<R>,
-        execute: @MainActor (NavigationCommand<R>) -> Void,
-        executeBatch: @MainActor ([NavigationCommand<R>]) -> Void
+        from oldPath: [RouteType],
+        to newPath: [RouteType],
+        resolveMismatch: @MainActor ([RouteType], [RouteType]) -> NavigationPathMismatchResolution<RouteType>,
+        execute: @MainActor (NavigationCommand<RouteType>) -> Void,
+        executeBatch: @MainActor ([NavigationCommand<RouteType>]) -> Void
     )
 }
 

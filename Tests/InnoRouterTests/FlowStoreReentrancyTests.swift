@@ -44,7 +44,7 @@ struct FlowStoreReentrancyTests {
     }
 
     @Test("apply(_:) of a no-op plan does not mutate path or fire spurious events")
-    func noOpApply_isIdempotent() async {
+    func noOpApply_isIdempotent() {
         let flow = FlowStore<FlowReentrancyRoute>()
         flow.apply(FlowPlan(steps: [.push(.home)]))
 

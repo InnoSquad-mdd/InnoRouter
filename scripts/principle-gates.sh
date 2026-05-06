@@ -214,6 +214,7 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
   REQUESTED="$NORMALIZED_PLATFORMS_ARG"
 
   MATCHED_PLATFORM_COUNT=0
+  BUILT_DESTINATIONS="|"
 
   for entry in "${PLATFORM_ENTRIES[@]}"; do
     name="${entry%%|*}"
@@ -223,6 +224,13 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
     if [[ "$REQUESTED" != "all" && ! " $REQUESTED " =~ " $name_lc " ]]; then
       continue
     fi
+
+    destination_key="|$dest|"
+    if [[ "$BUILT_DESTINATIONS" == *"$destination_key"* ]]; then
+      echo "[principle-gates] Skipping duplicate destination for $name ($dest)"
+      continue
+    fi
+    BUILT_DESTINATIONS+="$dest|"
 
     MATCHED_PLATFORM_COUNT=$((MATCHED_PLATFORM_COUNT + 1))
     echo "[principle-gates] xcodebuild build -scheme InnoRouterSwiftUI ($name)"

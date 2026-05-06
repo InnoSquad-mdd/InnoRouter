@@ -108,15 +108,16 @@ struct MacroPerformanceTests {
     @Test("1,000 CasePath round-trips on a 100-case enum stay within a generous budget")
     func hundredCases_thousandRoundtrips_within500ms() {
         let path = Route100Cases.Cases.c050
+        var lastExtracted: Void?
         let start = Date()
 
         for _ in 0..<1000 {
             let embedded = path.embed(())
-            let extracted: Void? = path.extract(embedded)
-            #expect(extracted != nil)
+            lastExtracted = path.extract(embedded)
         }
 
         let elapsed = Date().timeIntervalSince(start)
+        #expect(lastExtracted != nil)
         // Generous ceiling — this is a catastrophic-regression guard,
         // not a micro-benchmark. Tighten only when a real perf
         // dashboard exists and we have measured headroom.

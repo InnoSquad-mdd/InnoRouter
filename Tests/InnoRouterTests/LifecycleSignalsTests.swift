@@ -52,5 +52,10 @@ struct LifecycleSignalsTests {
 
         #expect(parentFired == 1)
         #expect(teardownFired == 0)
+
+        signals.fireTeardown()
+
+        #expect(parentFired == 1)
+        #expect(teardownFired == 1)
     }
 }

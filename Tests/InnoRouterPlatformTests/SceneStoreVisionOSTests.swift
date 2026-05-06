@@ -21,12 +21,47 @@
 import Testing
 
 import InnoRouterCore
-import InnoRouterSwiftUI
+@testable import InnoRouterSwiftUI
 
 private enum SpatialRoute: String, Route {
     case main
     case detail
     case theatre
+}
+
+@MainActor
+private func registerDispatcherHost(
+    in store: SceneStore<SpatialRoute>
+) -> UUID {
+    let token = UUID()
+    #expect(store.registerDispatcherHost(token) == true)
+    return token
+}
+
+@MainActor
+private func claimPendingIntent(
+    in store: SceneStore<SpatialRoute>,
+    dispatcherToken: UUID
+) throws -> SceneIntent<SpatialRoute> {
+    let requestID = try #require(store.currentPendingRequestID)
+    return try #require(store.claimPendingRequest(requestID, dispatcherToken: dispatcherToken))
+}
+
+@MainActor
+private func claimPendingOpen(
+    in store: SceneStore<SpatialRoute>,
+    dispatcherToken: UUID
+) throws -> ScenePresentation<SpatialRoute> {
+    let intent = try claimPendingIntent(in: store, dispatcherToken: dispatcherToken)
+    guard case .open(let presentation) = intent else {
+        Issue.record("Expected .open, got \(intent)")
+        throw TestStoreError.unexpectedIntent
+    }
+    return presentation
+}
+
+private enum TestStoreError: Error {
+    case unexpectedIntent
 }
 
 @Suite("visionOS spatial scene routing", .tags(.unit))
@@ -92,49 +127,94 @@ struct SceneStoreVisionOSTests {
     // MARK: - Immersive scenes
 
     @Test("openImmersive(.mixed) does not crash and the store stays usable for dismiss")
-    func openImmersive_mixedStyle_lifecyclePair() {
+    func openImmersive_mixedStyle_lifecyclePair() throws {
         let store = SceneStore<SpatialRoute>()
+        let token = registerDispatcherHost(in: store)
 
         store.openImmersive(.theatre, style: .mixed)
+        let presentation = try claimPendingOpen(in: store, dispatcherToken: token)
+        store.completeOpen(presentation, accepted: true)
+
+        #expect(store.activeScenes == [presentation])
+        #expect(store.currentScene == presentation)
+
         store.dismissImmersive()
+        #expect(try claimPendingIntent(in: store, dispatcherToken: token) == .dismissImmersive)
+        store.completeDismissal(of: presentation)
+
+        #expect(store.activeScenes.isEmpty)
+        #expect(store.currentScene == nil)
     }
 
     @Test("openImmersive(.full) dispatches and dismisses without state corruption")
-    func openImmersive_fullStyle_dispatchesAndDismisses() {
+    func openImmersive_fullStyle_dispatchesAndDismisses() throws {
         let store = SceneStore<SpatialRoute>()
+        let token = registerDispatcherHost(in: store)
 
         store.openImmersive(.theatre, style: .full)
+        let presentation = try claimPendingOpen(in: store, dispatcherToken: token)
+        store.completeOpen(presentation, accepted: true)
+
+        #expect(store.activeScenes == [presentation])
+        #expect(store.currentScene == presentation)
+
         store.dismissImmersive()
+        #expect(try claimPendingIntent(in: store, dispatcherToken: token) == .dismissImmersive)
+        store.completeDismissal(of: presentation)
+
+        #expect(store.activeScenes.isEmpty)
+        #expect(store.currentScene == nil)
     }
 
     // MARK: - Dismissal accounting
 
     @Test("dismissWindow + completeDismissal closes the lifecycle on the original handle")
-    func dismissWindow_closesLifecycle() {
+    func dismissWindow_closesLifecycle() throws {
         let store = SceneStore<SpatialRoute>()
+        let token = registerDispatcherHost(in: store)
         let presentation = store.openWindow(.main)
+        #expect(try claimPendingOpen(in: store, dispatcherToken: token) == presentation)
+        store.completeOpen(presentation, accepted: true)
 
-        // Dispatch the dismissal intent and report its completion. The
-        // store must accept the original handle without crashing — a
-        // regression here would mean the active-scenes accounting drifts.
+        #expect(store.activeScenes == [presentation])
+        #expect(store.currentScene == presentation)
+
         store.dismissWindow(presentation)
+        #expect(
+            try claimPendingIntent(in: store, dispatcherToken: token) == .dismissWindow(presentation)
+        )
         store.completeDismissal(of: presentation)
+
+        #expect(store.activeScenes.isEmpty)
+        #expect(store.currentScene == nil)
     }
 
     @Test("completeOpen(accepted: true) acknowledges a successful environment dispatch")
-    func completeOpen_acceptedTrue_doesNotCrash() {
+    func completeOpen_acceptedTrue_doesNotCrash() throws {
         let store = SceneStore<SpatialRoute>()
+        let token = registerDispatcherHost(in: store)
         let presentation = store.openWindow(.main)
+        #expect(try claimPendingOpen(in: store, dispatcherToken: token) == presentation)
 
         store.completeOpen(presentation, accepted: true)
+
+        #expect(store.activeScenes == [presentation])
+        #expect(store.currentScene == presentation)
+        #expect(store.pendingIntent == nil)
     }
 
     @Test("completeOpen(accepted: false) acknowledges a refused environment dispatch")
-    func completeOpen_acceptedFalse_doesNotCrash() {
+    func completeOpen_acceptedFalse_doesNotCrash() throws {
         let store = SceneStore<SpatialRoute>()
+        let token = registerDispatcherHost(in: store)
         let presentation = store.openWindow(.main)
+        #expect(try claimPendingOpen(in: store, dispatcherToken: token) == presentation)
 
         store.completeOpen(presentation, accepted: false)
+
+        #expect(store.activeScenes.isEmpty)
+        #expect(store.currentScene == nil)
+        #expect(store.pendingIntent == nil)
     }
 }
 

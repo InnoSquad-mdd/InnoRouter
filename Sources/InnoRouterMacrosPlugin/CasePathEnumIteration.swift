@@ -39,7 +39,7 @@ internal struct CasePathEnumCase {
 /// `private` enums. From 4.0.0 the generated members match the
 /// enclosing enum's access level so a `private enum` no longer
 /// produces a public CasePath table.
-internal enum InferredAccessLevel: String {
+internal enum InferredAccessLevel {
     case `public`
     case `package`
     case `internal`

@@ -34,27 +34,17 @@ public final class FlowStore<R: Route> {
     public private(set) var path: [RouteStep<R>]
 
     /// Inner navigation store that owns stack state for `.push` steps.
-    ///
-    /// This is SPI for hosts, examples, and focused tests that must compose
-    /// the projected flow authority with the underlying `NavigationHost`.
-    /// App code should use `path`, `send(_:)`, `apply(_:)`, and `events`
-    /// instead of bypassing FlowStore invariants through this inner store.
-    /// Inner navigation store. Plain `internal`; production code
-    /// should use the public ``FlowStateReading`` projection for
-    /// reads and ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)``
-    /// for mutations.
+    /// Plain `internal`; production code should use the public
+    /// ``FlowStateReading`` projection for reads and
+    /// ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)`` for mutations
+    /// rather than bypassing FlowStore invariants through this inner store.
     internal let navigationStore: NavigationStore<R>
 
     /// Inner modal store that owns presentation state for the tail modal step.
-    ///
-    /// This is SPI for hosts, examples, and focused tests that must compose
-    /// the projected flow authority with the underlying `ModalHost`. App code
-    /// should use `path`, `send(_:)`, `apply(_:)`, and `events` instead of
-    /// bypassing FlowStore invariants through this inner store.
-    /// Inner modal store. Plain `internal`; production code
-    /// should use the public ``FlowStateReading`` projection for
-    /// reads and ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)``
-    /// for mutations.
+    /// Plain `internal`; production code should use the public
+    /// ``FlowStateReading`` projection for reads and
+    /// ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)`` for mutations
+    /// rather than bypassing FlowStore invariants through this inner store.
     internal let modalStore: ModalStore<R>
 
     private let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?

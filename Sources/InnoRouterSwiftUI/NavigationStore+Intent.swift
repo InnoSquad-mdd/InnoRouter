@@ -3,7 +3,7 @@
 // NavigationIntent into NavigationCommand plans.
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
-// Extracted from NavigationStore.swift in the 4.2.0 cleanup so the
+// Extracted from NavigationStore.swift in the 4.1.0 cleanup so the
 // store core stays bounded by initialisation, middleware
 // management, and command execution. Intent translation stays a
 // separate concern with its own audit surface.

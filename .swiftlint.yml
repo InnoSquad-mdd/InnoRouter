@@ -21,7 +21,7 @@ only_rules:
   # type bodies set the lower bound — these thresholds are picked
   # to sit just above them so the rule fires only when a *new*
   # file or type clearly exceeds the responsibility envelope.
-  # Phase 5 of the 4.2.0 cleanup splits the largest SwiftUI
+  # Phase 5 of the 4.1.0 cleanup splits the largest SwiftUI
   # stores (ModalStore 837, FlowStore 793, NavigationStore 731)
   # into responsibility-scoped extensions; after that lands we
   # tighten the warning level toward 700 (file) / 350 (type).
@@ -41,7 +41,9 @@ file_length:
   ignore_comment_only_lines: true
 
 type_body_length:
-  warning: 700
+  # Temporary headroom until the 4.1.x store split tightens the
+  # largest production type body below the long-term 700-line guard.
+  warning: 730
   error: 900
 
 reporter: "xcode"

@@ -4,7 +4,7 @@
 // CasePath-keyed binding(case:) helper.
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
-// Extracted from NavigationStore.swift in the 4.2.0 cleanup so the
+// Extracted from NavigationStore.swift in the 4.1.0 cleanup so the
 // store core does not have to host the SwiftUI Binding glue.
 // Bindings remain stateless — every set routes through the
 // existing command pipeline, so middleware and telemetry observe

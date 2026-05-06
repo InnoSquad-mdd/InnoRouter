@@ -8,8 +8,6 @@
 // that the macro emits. It does not perform any syntax-tree
 // inspection — that belongs in `CasePathEnumIteration.swift`.
 
-import Foundation
-
 internal func buildCasePathMember(
     _ enumCase: CasePathEnumCase,
     enumName: String,

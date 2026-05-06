@@ -396,7 +396,7 @@ relationship | requirementOf | FlowCoordinator.onComplete | FlowCoordinator |  |
 relationship | requirementOf | FlowNavigating.RouteType | FlowNavigating |  |
 relationship | requirementOf | FlowNavigating.flowStore | FlowNavigating |  |
 relationship | requirementOf | FlowNavigating.handle(_:) | FlowNavigating |  |
-relationship | requirementOf | FlowStateReading.R | FlowStateReading |  |
+relationship | requirementOf | FlowStateReading.RouteType | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.currentModalPresentation | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.currentModalRoute | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.hasModalTail | FlowStateReading |  |
@@ -408,7 +408,7 @@ relationship | requirementOf | FlowTelemetrySink.record(_:) | FlowTelemetrySink 
 relationship | requirementOf | LifecycleAware.lifecycleSignals | LifecycleAware |  |
 relationship | requirementOf | ModalTelemetrySink.RouteType | ModalTelemetrySink |  |
 relationship | requirementOf | ModalTelemetrySink.record(_:) | ModalTelemetrySink |  |
-relationship | requirementOf | NavigationPathReconciling.R | NavigationPathReconciling |  |
+relationship | requirementOf | NavigationPathReconciling.RouteType | NavigationPathReconciling |  |
 relationship | requirementOf | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciling |  |
 relationship | requirementOf | NavigationTelemetrySink.RouteType | NavigationTelemetrySink |  |
 relationship | requirementOf | NavigationTelemetrySink.record(_:) | NavigationTelemetrySink |  |
@@ -427,10 +427,10 @@ symbol | swift.associatedtype | Coordinator.RouteType | RouteType | associatedty
 symbol | swift.associatedtype | FlowCoordinator.Result | Result | associatedtype Result | []
 symbol | swift.associatedtype | FlowCoordinator.Step | Step | associatedtype Step : FlowStep | []
 symbol | swift.associatedtype | FlowNavigating.RouteType | RouteType | associatedtype RouteType : Route | []
-symbol | swift.associatedtype | FlowStateReading.R | R | associatedtype R : Route | []
+symbol | swift.associatedtype | FlowStateReading.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | FlowTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | ModalTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
-symbol | swift.associatedtype | NavigationPathReconciling.R | R | associatedtype R : Route | []
+symbol | swift.associatedtype | NavigationPathReconciling.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | StoreObserver.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | TabCoordinator.TabContent | TabContent | associatedtype TabContent : View | []
@@ -674,7 +674,7 @@ symbol | swift.method | ModalStore.replaceMiddleware(_:with:debugName:) | replac
 symbol | swift.method | ModalStore.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
 symbol | swift.method | ModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalTelemetryEvent<Self.RouteType>) | []
 symbol | swift.method | NavigationPathReconciler.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [R], to newPath: [R], resolveMismatch: @MainActor ([R], [R]) -> NavigationPathMismatchResolution<R>, execute: @MainActor (NavigationCommand<R>) -> Void, executeBatch: @MainActor ([NavigationCommand<R>]) -> Void) | []
-symbol | swift.method | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [Self.R], to newPath: [Self.R], resolveMismatch: @MainActor ([Self.R], [Self.R]) -> NavigationPathMismatchResolution<Self.R>, execute: @MainActor (NavigationCommand<Self.R>) -> Void, executeBatch: @MainActor ([NavigationCommand<Self.R>]) -> Void) | []
+symbol | swift.method | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [Self.RouteType], to newPath: [Self.RouteType], resolveMismatch: @MainActor ([Self.RouteType], [Self.RouteType]) -> NavigationPathMismatchResolution<Self.RouteType>, execute: @MainActor (NavigationCommand<Self.RouteType>) -> Void, executeBatch: @MainActor ([NavigationCommand<Self.RouteType>]) -> Void) | []
 symbol | swift.method | NavigationStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> NavigationMiddlewareHandle | []
 symbol | swift.method | NavigationStore.binding(case:) | binding(case:) | @MainActor func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> | []
 symbol | swift.method | NavigationStore.commands(for:) | commands(for:) | @MainActor func commands(for intent: NavigationIntent<R>) -> [NavigationCommand<R>] | []
@@ -748,11 +748,11 @@ symbol | swift.property | FlowCoordinatorView.body | body | @MainActor var body:
 symbol | swift.property | FlowEvent.description | description | var description: String { get } | []
 symbol | swift.property | FlowHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | FlowNavigating.flowStore | flowStore | @MainActor var flowStore: FlowStore<Self.RouteType> { get } | []
-symbol | swift.property | FlowStateReading.currentModalPresentation | currentModalPresentation | @MainActor var currentModalPresentation: ModalPresentation<Self.R>? { get } | []
-symbol | swift.property | FlowStateReading.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: Self.R? { get } | []
+symbol | swift.property | FlowStateReading.currentModalPresentation | currentModalPresentation | @MainActor var currentModalPresentation: ModalPresentation<Self.RouteType>? { get } | []
+symbol | swift.property | FlowStateReading.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: Self.RouteType? { get } | []
 symbol | swift.property | FlowStateReading.hasModalTail | hasModalTail | @MainActor var hasModalTail: Bool { get } | []
-symbol | swift.property | FlowStateReading.navigationPath | navigationPath | @MainActor var navigationPath: [Self.R] { get } | []
-symbol | swift.property | FlowStateReading.path | path | @MainActor var path: [RouteStep<Self.R>] { get } | []
+symbol | swift.property | FlowStateReading.navigationPath | navigationPath | @MainActor var navigationPath: [Self.RouteType] { get } | []
+symbol | swift.property | FlowStateReading.path | path | @MainActor var path: [RouteStep<Self.RouteType>] { get } | []
 symbol | swift.property | FlowStep.index | index | var index: Int { get } | []
 symbol | swift.property | FlowStore.currentModalPresentation | currentModalPresentation | @MainActor var currentModalPresentation: ModalPresentation<R>? { get } | []
 symbol | swift.property | FlowStore.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: R? { get } | []
@@ -857,12 +857,12 @@ symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor proto
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
 symbol | swift.protocol | FlowCoordinator | FlowCoordinator | @MainActor protocol FlowCoordinator : AnyObject, Observable | []
 symbol | swift.protocol | FlowNavigating | FlowNavigating | @MainActor protocol FlowNavigating : AnyObject | []
-symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<R> : Sendable | []
+symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<RouteType> : Sendable | []
 symbol | swift.protocol | FlowStep | FlowStep | protocol FlowStep : CaseIterable, Hashable, Sendable | []
 symbol | swift.protocol | FlowTelemetrySink | FlowTelemetrySink | @MainActor protocol FlowTelemetrySink : Sendable | []
 symbol | swift.protocol | LifecycleAware | LifecycleAware | @MainActor protocol LifecycleAware : AnyObject | []
 symbol | swift.protocol | ModalTelemetrySink | ModalTelemetrySink | @MainActor protocol ModalTelemetrySink : Sendable | []
-symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<R> : Sendable | []
+symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<RouteType> : Sendable | []
 symbol | swift.protocol | NavigationTelemetrySink | NavigationTelemetrySink | @MainActor protocol NavigationTelemetrySink : Sendable | []
 symbol | swift.protocol | StoreObserver | StoreObserver | @MainActor protocol StoreObserver : AnyObject | []
 symbol | swift.protocol | Tab | Tab | protocol Tab : CaseIterable, Hashable, Identifiable, Sendable | []
