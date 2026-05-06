@@ -37,14 +37,28 @@ enum MacroDiagnostic: DiagnosticMessage {
         }
     }
 
+    /// Stable, searchable error code attached to every InnoRouter
+    /// macro diagnostic. The format `InnoRouterMacro.E###` is meant
+    /// to be grep-friendly across build logs, issue trackers, and
+    /// localized release notes; the numeric part will not be
+    /// recycled when a case is removed.
+    var errorCode: String {
+        switch self {
+        case .requiresEnum: return "InnoRouterMacro.E001"
+        case .emptyEnum: return "InnoRouterMacro.E002"
+        case .unsupportedGenericEnum: return "InnoRouterMacro.E003"
+        }
+    }
+
     var message: String {
+        let prefix = "[\(errorCode)] "
         switch self {
         case .requiresEnum(let name):
-            return "@\(name) can only be applied to enum declarations"
+            return prefix + "@\(name) can only be applied to enum declarations"
         case .emptyEnum(let name):
-            return "@\(name) applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro"
+            return prefix + "@\(name) applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro"
         case .unsupportedGenericEnum(let name):
-            return "@\(name) does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum."
+            return prefix + "@\(name) does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum."
         }
     }
 
