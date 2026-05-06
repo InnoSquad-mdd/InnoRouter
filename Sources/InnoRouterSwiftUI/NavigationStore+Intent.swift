@@ -48,10 +48,11 @@ extension NavigationStore {
     ///   `.executeBatch(_:stopOnFailure:)`, exactly the way
     ///   ``send(_:)`` does internally.
     ///
-    /// This accessor was added in 4.2.0 as preparation for the 5.0
-    /// intent ↔ command unification: today it makes the mapping
-    /// visible without changing call-site behaviour, and tomorrow
-    /// it becomes the single source of truth for the projection.
+    /// This accessor surfaces the intent ↔ command projection so
+    /// tests and middleware can preview "what would `send(_:)` do"
+    /// without inspecting side effects. `send(_:)` is itself
+    /// implemented in terms of this projection so the two surfaces
+    /// cannot drift.
     public func commands(for intent: NavigationIntent<R>) -> [NavigationCommand<R>] {
         switch intent {
         case .go(let route):

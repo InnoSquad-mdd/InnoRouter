@@ -1,7 +1,6 @@
 // MARK: - FlowStateReading.swift
 // InnoRouterSwiftUI - public read contract for FlowStore-shaped
-// state. Replaces the @_spi(FlowStoreInternals) inner-store
-// peephole as of 5.0.
+// state. The canonical read surface for flow state.
 // Copyright © 2026 Inno Squad. All rights reserved.
 
 import InnoRouterCore
@@ -12,7 +11,7 @@ import InnoRouterCore
 /// `path` accessor. Tests, telemetry adapters, and migration
 /// helpers should target this protocol rather than reaching into
 /// the inner navigation or modal store — those are deliberately
-/// internal as of 5.0.
+/// internal.
 @MainActor
 public protocol FlowStateReading<R>: Sendable {
     associatedtype R: Route

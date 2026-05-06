@@ -3,22 +3,19 @@
 // Copyright © 2026 Inno Squad. All rights reserved.
 //
 // `Coordinator`, `FlowCoordinator`, `TabCoordinator`, and
-// `ChildCoordinator` each carry one-off lifecycle hooks that don't
-// compose: today only `ChildCoordinator` exposes
-// `parentDidCancel()`, even though every coordinator could benefit
-// from the same parent → child teardown signal.
+// `ChildCoordinator` each have lifecycle moments that benefit
+// from a shared signal bag: parent-driven cancellation, host-
+// driven teardown, etc. `LifecycleSignals` is the value-typed
+// bag of optional `@MainActor @Sendable` callbacks every
+// coordinator type can install once at init and trigger
+// uniformly through the `LifecycleAware` capability protocol.
 //
-// `LifecycleSignals` is a composition layer that 5.0 will adopt
-// across every coordinator type: a small `@MainActor` value-type
-// bag of optional callbacks any coordinator can install once at
-// init and trigger uniformly. It is **not yet wired in 4.x** — the
-// existing coordinator protocols keep their current shape, and
-// `ChildCoordinator.parentDidCancel()` continues to be the only
-// teardown signal.
-//
-// The type ships as additive surface in 4.2.0 so the 5.0 wiring
-// can land without re-introducing a new public type at major-bump
-// time.
+// `ChildCoordinator` adopts `LifecycleAware` unconditionally
+// because `Coordinator.push(child:)` fires
+// `lifecycleSignals.fireParentCancel()` on parent task
+// cancellation. Other coordinator types opt in case-by-case
+// when a host wants to drive `lifecycleSignals.fireTeardown()`
+// from its own release path.
 
 import Foundation
 

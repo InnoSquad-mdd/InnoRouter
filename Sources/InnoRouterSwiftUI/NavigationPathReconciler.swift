@@ -5,13 +5,10 @@ import InnoRouterCore
 /// ``NavigationCommand`` invocations on the store.
 ///
 /// `NavigationStore` ships ``NavigationPathReconciler`` as the
-/// default conformance and uses it internally; the protocol exists
-/// in 4.2.0 as preparation for the 5.0 surface where callers can
-/// inject a custom reconciler through
-/// `NavigationStoreConfiguration`. In 4.x the protocol is
-/// observational — declaring it visible in the public surface
-/// without changing the wiring keeps the future swap source-
-/// compatible.
+/// default conformance. Apps that need a domain-specific repair
+/// rule on every binding-driven update can supply their own
+/// conformance through
+/// ``NavigationStoreConfiguration/pathReconciler``.
 ///
 /// Custom implementations should preserve the three current
 /// reduction rules:

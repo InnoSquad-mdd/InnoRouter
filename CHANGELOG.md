@@ -4,81 +4,23 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
-## 5.0.0 (unreleased)
+## 4.1.0 (unreleased)
 
-5.0.0 is the first major release that breaks 4.x source
-compatibility. Every breaking change is intentional and lands
-behind a ! marker in the matching commit. The migration is
-mechanical for most adopters — see
-[`Docs/migration-4.2-to-5.0.md`](Docs/migration-4.2-to-5.0.md)
-for the per-call-site checklist.
+4.1.0 is the consolidated pre-adoption cleanup release. It folds
+the original 4.1.0 baseline (DeepLinkInputLimits, structured
+telemetry sinks, dispatcher-object cleanup, etc.) together with
+the routing-surface refresh: documentation foundation,
+concurrency / macro test scaffolding, the additive API surface
+that fills the most acute 4.0.x gaps, and the breaking changes
+that wire up the new injection / capability seams. All of it
+ships together because 4.0.x was the only public OSS snapshot
+and there are no production adopters yet — folding the work
+into one tag avoids cutting two consecutive churn-heavy
+releases.
 
-The release wires up the four protocols and capability types that
-4.2.0 shipped as observational additive surface
-(`NavigationPathReconciling`, `FlowStateReading`,
-`LifecycleSignals`, `LifecycleAware`) and removes the
-`@_spi(FlowStoreInternals)` peephole that 4.x kept open for
-tests and `FlowHost`.
-
-### Changed
-
-- **`NavigationStoreConfiguration` gains a required
-  `pathReconciler: any NavigationPathReconciling<R>` property**
-  with a `nil` default that resolves to the framework
-  `NavigationPathReconciler<R>()`. Existing call sites that
-  build the configuration via positional arguments must update
-  to the new init signature; keyword-only call sites compile
-  unchanged. `NavigationPathReconciling` is now `Sendable`-required.
-- **`NavigationPathReconciler<R>` is public.** It was internal in
-  4.2 (the protocol was public; the default conformance was
-  hidden). 5.0 promotes it so adopters can compose the framework
-  reduction rules inside their own conformances as a fallback.
-- **`@_spi(FlowStoreInternals)` peephole removed.** `FlowStore.navigationStore`
-  and `FlowStore.modalStore` are plain `internal` properties now.
-  Adopters that imported `@_spi(FlowStoreInternals) [@testable]
-  import InnoRouterSwiftUI` should switch to plain `@testable import`
-  for tests, or to the public ``FlowStateReading`` protocol for
-  read-only access from production code. Mutations should flow
-  through `FlowStore.send(_:)` / `apply(_:)`.
-- **`FlowStateReading<R>` is the canonical read surface for
-  FlowStore-shaped state.** The protocol now exposes `path`,
-  `navigationPath`, `currentModalRoute`,
-  `currentModalPresentation`, and `hasModalTail`. All accessors
-  derive from the public `path` projection so adopting them is a
-  behaviour-preserving swap.
-- **`ChildCoordinator` requires `lifecycleSignals: LifecycleSignals`.**
-  The protocol now inherits from the new `LifecycleAware`
-  capability protocol. Adopters must add the stored property; the
-  protocol cannot supply a default for a stored requirement.
-  `Coordinator.push(child:)` fires both
-  `lifecycleSignals.fireParentCancel()` and the existing
-  `parentDidCancel()` hook, so adopters can choose closure-style
-  or override-style teardown.
-- **`LifecycleAware` capability protocol** is the canonical
-  surface for cross-cutting coordinator lifecycle hooks.
-  `Coordinator`, `FlowCoordinator`, and `TabCoordinator` opt
-  into it case-by-case; `ChildCoordinator` inherits it
-  unconditionally. The shared `LifecycleSignals` value type now
-  documents itself as the active 5.0 wiring rather than
-  "observational 4.2 prep".
-
-### Removed
-
-- The `@_spi(FlowStoreInternals)` declaration is gone. There is
-  no opt-in path to the removed properties — production code
-  must use `FlowStateReading`; tests must use `@testable import`.
-
-## 4.2.0 (unreleased)
-
-4.2.0 is the routing-surface cleanup minor. It is **additive only**
-under the 4.x SemVer contract — every existing call site keeps
-compiling unchanged. The release pulls together a documentation
-foundation pass, a concurrency / macro test scaffolding pass, and
-several additive API additions that fill the most acute gaps in
-the 4.1 surface.
-
-See [`Docs/migration-4.1-to-4.2.md`](Docs/migration-4.1-to-4.2.md)
-for a one-page summary of what to do (or not do) on upgrade.
+The migration is documented inline in this entry. Adopters who
+ran the pre-OSS `4.0.0` snapshot follow the diffs under
+"Removed" and "Changed" below; 4.0.x → 4.1.0 is a single hop.
 
 ### Added
 
@@ -141,19 +83,24 @@ for a one-page summary of what to do (or not do) on upgrade.
   [NavigationCommand<R>]` — projects an intent into the concrete
   command plan that `send(_:)` would execute. `send(_:)` is now
   implemented in terms of this projection so the two surfaces
-  cannot drift. Prep for the 5.0 intent ↔ command unification.
+  cannot drift.
 - `NavigationPathReconciling<R>` protocol describing the
-  contract today's internal `NavigationPathReconciler` already
-  satisfies. The protocol is observational in 4.2 — 5.0 will
-  hang an injectable reconciler off `NavigationStoreConfiguration`
-  through this protocol.
+  contract the framework `NavigationPathReconciler<R>` (now
+  public) satisfies. `NavigationStoreConfiguration.pathReconciler`
+  injects a custom conformance — the framework default applies
+  when none is supplied.
 - `LifecycleSignals` value type — bag of optional
   parent-cancel / teardown callbacks shared across coordinator
-  types in 5.0. Observational in 4.2 (no SDK producers yet).
-- `FlowStateReading<R>` protocol — non-SPI read-only projection
-  of FlowStore-shaped state (`path`, `navigationPath`,
-  `currentModalRoute`). Observational in 4.2 — 5.0 will move
-  adopters off `@_spi(FlowStoreInternals)` onto this protocol.
+  types.
+- `LifecycleAware` capability protocol — `ChildCoordinator`
+  inherits it unconditionally; `Coordinator`, `FlowCoordinator`,
+  and `TabCoordinator` opt in case-by-case to expose teardown
+  hooks through host code.
+- `FlowStateReading<R>` protocol — public read-only projection of
+  FlowStore-shaped state (`path`, `navigationPath`,
+  `currentModalRoute`, `currentModalPresentation`,
+  `hasModalTail`). Replaces the `@_spi(FlowStoreInternals)`
+  peephole for read-only access.
 
 ### Changed
 
@@ -162,7 +109,7 @@ for a one-page summary of what to do (or not do) on upgrade.
   `Bool`. Reverse-sync guards keep the same shape, but nested
   invocations no longer silently restore the flag on the inner
   `defer`. A release-mode `precondition` on counter underflow
-  catches imbalances loudly. No public surface change.
+  catches imbalances loudly.
 - `scripts/principle-gates.sh` gains inline section comments
   documenting each gate's purpose, failure signal, and local
   repro command.
@@ -172,23 +119,21 @@ for a one-page summary of what to do (or not do) on upgrade.
 - `.swiftlint.yml` enables `file_length` (warning 1800 / error
   2200) and `type_body_length` (warning 700 / error 900) as
   catastrophic-regression guardrails. Thresholds sit just above
-  today's largest fixtures so no current file fails;
-  Phase 5-equivalent store splits will tighten the warning level
-  in a future release.
+  today's largest fixtures so no current file fails.
 - `SceneStore`, `SceneHost`, and the rest of the visionOS spatial
   scene surface (`SceneAnchor`, `ScenePresentation`,
   `SceneIntent`, `SceneEvent`, `SceneRegistry`,
   `SceneDeclaration`) are documented as **experimental** —
-  outside the 4.x SemVer additive guarantee. Apps adopting them
-  should pin to an exact 4.x release until the surface
-  graduates. README "Platform support" / "Choosing the right
-  surface" tables carry a `⚠ experimental` marker.
+  outside the 5.x SemVer additive guarantee. Apps adopting them
+  should pin to an exact release until the surface graduates.
+  README "Platform support" / "Choosing the right surface"
+  tables carry a `⚠ experimental` marker.
 - README "Imports" table is rewritten to recommend
   `InnoRouterEffects` (the umbrella) as the canonical import for
   app-boundary execution helpers. The split products
   (`InnoRouterNavigationEffects`, `InnoRouterDeepLinkEffects`)
-  stay available for source compatibility through the 4.x line
-  and fold into the umbrella in a future major.
+  stay available for source compatibility and fold into the
+  umbrella in a future major.
 
 ### Refactor
 
@@ -210,9 +155,7 @@ for a one-page summary of what to do (or not do) on upgrade.
 - `Sources/InnoRouterSwiftUI/FlowStore.swift` (810 LOC) gets
   the public `send(_:)` / `apply(_:)` dispatch wrappers moved to
   `FlowStore+Public.swift`. Deeper splits of the dispatch spine
-  remain in the core for now — pulling them out would require
-  widening many private members and the value-to-risk ratio is
-  poor while the file is well under the 1800 LOC lint warning.
+  remain in the core for now.
 
 ### Internal
 
@@ -221,15 +164,14 @@ for a one-page summary of what to do (or not do) on upgrade.
   `-warnings-as-errors` does not surface SwiftPM's "unhandled
   file" warning on the new contributor docs.
 
-## 4.1.0 - 2026-05-04
+### Pre-OSS adoption baseline (folded in)
 
-4.1.0 is a breaking pre-adoption cleanup release. It keeps the
-`4.0.0` tag available as the first OSS snapshot, but new apps should
-start from this line: unused dispatcher-object APIs are removed,
-effect observation moves to event streams, deep-link admission is
-stricter, and restoration/telemetry surfaces are explicit.
+The remaining sub-sections list the 4.0.x → 4.1.0 surface
+changes that originally targeted a standalone "4.1.0 baseline"
+release. They ship in the same tag as the routing-surface
+refresh above.
 
-### Added
+#### Added
 
 - `DeepLinkInputLimits` caps absolute URL length, path segment count,
   and query item count before matching. Push-only and flow pipelines
@@ -267,7 +209,7 @@ stricter, and restoration/telemetry surfaces are explicit.
 - The performance smoke report now includes resident memory footprint
   when the platform can provide it.
 
-### Changed
+#### Changed
 
 - Local and CI DocC preview checks now pass `--skip-latest` so preview
   validation does not spend work generating the release-only `latest/`
@@ -287,8 +229,25 @@ stricter, and restoration/telemetry surfaces are explicit.
   pending deep-link replay guards.
 - `swiftformat` and `swiftlint` are wired as check-only source gates
   when those tools are present locally or in CI.
+- `NavigationStoreConfiguration` gains a `pathReconciler:
+  any NavigationPathReconciling<R>` parameter with a `nil` default
+  that resolves to the framework `NavigationPathReconciler<R>()`.
+  Positional callers update their init invocation; keyword-only
+  callers compile unchanged. `NavigationPathReconciling` is
+  `Sendable`-required.
+- `NavigationPathReconciler<R>` is now public so adopters can
+  compose the framework reduction rules inside their own
+  conformances as a fallback.
+- `ChildCoordinator` requires `lifecycleSignals: LifecycleSignals`.
+  The protocol inherits from the new `LifecycleAware` capability
+  protocol. Adopters add the stored property; the protocol
+  cannot supply a default for a stored requirement.
+  `Coordinator.push(child:)` fires both
+  `lifecycleSignals.fireParentCancel()` and the existing
+  `parentDidCancel()` hook, so adopters can choose closure-style
+  or override-style teardown.
 
-### Fixed
+#### Fixed
 
 - `DeepLinkMatcherStrictError.init(diagnostics:)` no longer traps when
   called with an empty diagnostics array. Strict matcher initializers
@@ -301,7 +260,7 @@ stricter, and restoration/telemetry surfaces are explicit.
 - `@CasePathable` generation is more stable for labeled associated
   values that use Swift keywords.
 
-### Removed
+#### Removed
 
 - `NavigationIntent.resetTo` is removed. Use
   `NavigationIntent.replaceStack` for full-stack replacement.
@@ -310,6 +269,14 @@ stricter, and restoration/telemetry surfaces are explicit.
   are removed. Environment intent wrappers now return direct closures.
 - `NavigationEffectHandler.lastResult` and `lastBatchResult` are
   removed. Subscribe to `NavigationEffectHandler.events` instead.
+- `@_spi(FlowStoreInternals)` peephole removed.
+  `FlowStore.navigationStore` and `FlowStore.modalStore` are plain
+  `internal` properties. Adopters that imported
+  `@_spi(FlowStoreInternals) [@testable] import InnoRouterSwiftUI`
+  switch to plain `@testable import` for tests, or to the public
+  `FlowStateReading` protocol for read-only access from production
+  code. Mutations should flow through `FlowStore.send(_:)` /
+  `FlowStore.apply(_:)`.
 
 ## 4.0.0 - 2026-04-28
 

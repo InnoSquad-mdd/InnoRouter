@@ -11,8 +11,8 @@ import SwiftUI
 /// parent owns the strong reference until the returned `Task` resolves.
 /// See `Docs/design-child-coordinator-handoff.md` for the full contract.
 ///
-/// As of 5.0 a child also carries a ``lifecycleSignals`` bag — the
-/// parent push helper fires
+/// A child also carries a ``lifecycleSignals`` bag (via
+/// ``LifecycleAware``) — the parent push helper fires
 /// ``LifecycleSignals/fireParentCancel()`` alongside the legacy
 /// ``parentDidCancel()`` hook so app code can install teardown
 /// handlers without overriding the protocol method.
@@ -100,9 +100,9 @@ public extension Coordinator {
         // so the task-cancellation handler can hop back to the main
         // actor without crossing isolation with a raw `Child`
         // reference (which is non-Sendable AnyObject). The closure
-        // fires both signals — the legacy `parentDidCancel()` hook
-        // and the 5.0 `lifecycleSignals.onParentCancel` handler —
-        // so adopters can opt for either style.
+        // fires both signals — the `parentDidCancel()` protocol
+        // method and the `lifecycleSignals.onParentCancel` handler
+        // — so adopters can opt for either teardown style.
         let invokeParentDidCancel: @Sendable @MainActor () -> Void = { [weak child] in
             guard let child else { return }
             child.parentDidCancel()
