@@ -44,6 +44,19 @@ struct FlowStateReadingTests {
         #expect(flow.currentModalRoute == .settings)
     }
 
+    @Test("currentModalPresentation keeps the active modal identity stable")
+    func modalPresentationIdentity_isStableAcrossReads() throws {
+        let flow = FlowStore<ReadingRoute>()
+        flow.apply(FlowPlan(steps: [.push(.home), .sheet(.settings)]))
+
+        let first = try #require(flow.currentModalPresentation)
+        let second = try #require(flow.currentModalPresentation)
+
+        #expect(first.route == .settings)
+        #expect(first.style == .sheet)
+        #expect(first.id == second.id)
+    }
+
     @Test("trailing cover step also projects to currentModalRoute")
     func coverTail_projection() {
         let flow = FlowStore<ReadingRoute>()

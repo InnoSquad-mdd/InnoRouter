@@ -223,7 +223,8 @@ public final class FlowStore<R: Route> {
             onTransactionExecuted: composedNavOnTransactionExecuted,
             onMiddlewareMutation: composedNavOnMiddlewareMutation,
             onPathMismatch: composedNavOnPathMismatch,
-            eventBufferingPolicy: configuration.navigation.eventBufferingPolicy
+            eventBufferingPolicy: configuration.navigation.eventBufferingPolicy,
+            pathReconciler: configuration.navigation.pathReconciler
         )
 
         let modalConfig = ModalStoreConfiguration<R>(
@@ -236,7 +237,8 @@ public final class FlowStore<R: Route> {
             onQueueChanged: composedModalOnQueueChanged,
             onMiddlewareMutation: composedModalOnMiddlewareMutation,
             onCommandIntercepted: composedModalOnCommandIntercepted,
-            eventBufferingPolicy: configuration.modal.eventBufferingPolicy
+            eventBufferingPolicy: configuration.modal.eventBufferingPolicy,
+            queueCancellationPolicy: configuration.modal.queueCancellationPolicy
         )
 
         let (pushRoutes, modalTail) = Self.decompose(validatedInitial)

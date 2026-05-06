@@ -59,15 +59,7 @@ extension FlowStore: FlowStateReading {
     }
 
     public var currentModalPresentation: ModalPresentation<R>? {
-        guard let last = path.last else { return nil }
-        switch last {
-        case .sheet(let route):
-            return ModalPresentation(route: route, style: .sheet)
-        case .cover(let route):
-            return ModalPresentation(route: route, style: .fullScreenCover)
-        case .push:
-            return nil
-        }
+        modalStore.currentPresentation
     }
 
     public var hasModalTail: Bool {

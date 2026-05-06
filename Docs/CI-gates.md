@@ -78,8 +78,8 @@ Every gate above runs under one of the workflows in `.github/workflows/`:
 | `performance-smoke.yml` | 9 (perf regression detection) |
 | `release.yml` | reruns 1–13 + DocC publishing on bare semver tags |
 
-Tag format is bare semver (`4.2.0`) — leading-`v` or prefixed tags
-(`v4.2.0`, `release-4.2.0`) are rejected by the regex in `release.yml`.
+Tag format is bare semver (`4.2.0`) — leading-`v` or prefixed semver tags
+are rejected by the regex in `release.yml`.
 
 ## When a gate fails
 
