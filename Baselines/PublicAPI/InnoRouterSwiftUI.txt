@@ -91,6 +91,11 @@ relationship | memberOf | FlowStoreConfiguration.onIntentRejected | FlowStoreCon
 relationship | memberOf | FlowStoreConfiguration.onPathChanged | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.queueCoalescePolicy | FlowStoreConfiguration |  |
 relationship | memberOf | FlowStoreConfiguration.telemetrySink | FlowStoreConfiguration |  |
+relationship | memberOf | LifecycleSignals.fireParentCancel() | LifecycleSignals |  |
+relationship | memberOf | LifecycleSignals.fireTeardown() | LifecycleSignals |  |
+relationship | memberOf | LifecycleSignals.init(onParentCancel:onTeardown:) | LifecycleSignals |  |
+relationship | memberOf | LifecycleSignals.onParentCancel | LifecycleSignals |  |
+relationship | memberOf | LifecycleSignals.onTeardown | LifecycleSignals |  |
 relationship | memberOf | MiddlewareMutationEvent.Action | MiddlewareMutationEvent |  |
 relationship | memberOf | MiddlewareMutationEvent.Action.added | MiddlewareMutationEvent.Action |  |
 relationship | memberOf | MiddlewareMutationEvent.Action.inserted | MiddlewareMutationEvent.Action |  |
@@ -553,6 +558,7 @@ symbol | swift.init | FlowHost.init(store:destination:root:) | init(store:destin
 symbol | swift.init | FlowStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: [RouteStep<R>] = [], configuration: FlowStoreConfiguration<R> = .init()) | []
 symbol | swift.init | FlowStore.init(validating:configuration:) | init(validating:configuration:) | @MainActor convenience init(validating initial: [RouteStep<R>], configuration: FlowStoreConfiguration<R> = .init()) throws | []
 symbol | swift.init | FlowStoreConfiguration.init(navigation:modal:telemetrySink:onPathChanged:onIntentRejected:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation:modal:telemetrySink:onPathChanged:onIntentRejected:eventBufferingPolicy:queueCoalescePolicy:) | init(navigation: NavigationStoreConfiguration<R> = .init(), modal: ModalStoreConfiguration<R> = .init(), telemetrySink: AnyFlowTelemetrySink<R>? = nil, onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? = nil, onIntentRejected: (@MainActor (FlowIntent<R>, FlowRejectionReason) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, queueCoalescePolicy: QueueCoalescePolicy<R> = .preserve) | []
+symbol | swift.init | LifecycleSignals.init(onParentCancel:onTeardown:) | init(onParentCancel:onTeardown:) | @MainActor init(onParentCancel: (@MainActor () -> Void)? = nil, onTeardown: (@MainActor () -> Void)? = nil) | []
 symbol | swift.init | MiddlewareMutationEvent.init(action:metadata:index:) | init(action:metadata:index:) | init(action: MiddlewareMutationEvent<R>.Action, metadata: NavigationMiddlewareMetadata, index: Int?) | []
 symbol | swift.init | ModalHost.init(store:destination:content:) | init(store:destination:content:) | @MainActor init(store: ModalStore<M>, @ViewBuilder destination: @escaping (M) -> Destination, @ViewBuilder content: @escaping () -> Content) | []
 symbol | swift.init | ModalMiddlewareHandle.init() | init() | init() | []
@@ -611,6 +617,8 @@ symbol | swift.method | FlowStore.apply(_:) | apply(_:) | @discardableResult @Ma
 symbol | swift.method | FlowStore.observe(_:) | observe(_:) | @MainActor func observe<O>(_ observer: O) -> StoreObserverSubscription where R == O.RouteType, O : StoreObserver | []
 symbol | swift.method | FlowStore.send(_:) | send(_:) | @MainActor func send(_ intent: FlowIntent<R>) | []
 symbol | swift.method | FlowTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: FlowTelemetryEvent<Self.RouteType>) | []
+symbol | swift.method | LifecycleSignals.fireParentCancel() | fireParentCancel() | @MainActor func fireParentCancel() | []
+symbol | swift.method | LifecycleSignals.fireTeardown() | fireTeardown() | @MainActor func fireTeardown() | []
 symbol | swift.method | ModalStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> ModalMiddlewareHandle | []
 symbol | swift.method | ModalStore.binding(case:style:) | binding(case:style:) | @MainActor func binding<Value>(case casePath: CasePath<M, Value>, style: ModalPresentationStyle = .sheet) -> Binding<Value?> | []
 symbol | swift.method | ModalStore.dismissAll() | dismissAll() | @MainActor func dismissAll() | []
@@ -710,6 +718,8 @@ symbol | swift.property | FlowStoreConfiguration.onIntentRejected | onIntentReje
 symbol | swift.property | FlowStoreConfiguration.onPathChanged | onPathChanged | var onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? | []
 symbol | swift.property | FlowStoreConfiguration.queueCoalescePolicy | queueCoalescePolicy | var queueCoalescePolicy: QueueCoalescePolicy<R> | []
 symbol | swift.property | FlowStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyFlowTelemetrySink<R>? | []
+symbol | swift.property | LifecycleSignals.onParentCancel | onParentCancel | @MainActor var onParentCancel: (@MainActor () -> Void)? | []
+symbol | swift.property | LifecycleSignals.onTeardown | onTeardown | @MainActor var onTeardown: (@MainActor () -> Void)? | []
 symbol | swift.property | MiddlewareMutationEvent.action | action | let action: MiddlewareMutationEvent<R>.Action | []
 symbol | swift.property | MiddlewareMutationEvent.index | index | let index: Int? | []
 symbol | swift.property | MiddlewareMutationEvent.metadata | metadata | let metadata: NavigationMiddlewareMetadata | []
@@ -813,6 +823,7 @@ symbol | swift.struct | EnvironmentNavigationIntent | EnvironmentNavigationInten
 symbol | swift.struct | FlowCoordinatorView | FlowCoordinatorView | @MainActor struct FlowCoordinatorView<C, Content> where C : FlowCoordinator, Content : View | []
 symbol | swift.struct | FlowHost | FlowHost | @MainActor struct FlowHost<R, Destination, Root> where R : Route, Destination : View, Root : View | []
 symbol | swift.struct | FlowStoreConfiguration | FlowStoreConfiguration | struct FlowStoreConfiguration<R> where R : Route | []
+symbol | swift.struct | LifecycleSignals | LifecycleSignals | @MainActor struct LifecycleSignals | []
 symbol | swift.struct | MiddlewareMutationEvent | MiddlewareMutationEvent | struct MiddlewareMutationEvent<R> where R : Route | []
 symbol | swift.struct | ModalHost | ModalHost | @MainActor struct ModalHost<M, Destination, Content> where M : Route, Destination : View, Content : View | []
 symbol | swift.struct | ModalMiddlewareHandle | ModalMiddlewareHandle | struct ModalMiddlewareHandle | []
