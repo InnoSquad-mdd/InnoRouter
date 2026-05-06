@@ -20,14 +20,14 @@ jobs:
   # parallelize on PRs.
   lint:
     runs-on: macos-15
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install ripgrep
-        run: brew install ripgrep
+      - name: Install lint tools
+        run: brew install ripgrep swiftformat swiftlint
 
       - name: Run source-level lint gates
         run: ./scripts/lint-source-gates.sh
@@ -74,8 +74,8 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Install ripgrep
-        run: brew install ripgrep
+      - name: Install gate tools
+        run: brew install ripgrep swiftformat swiftlint
 
       - name: Run Principle Gates
         run: ./scripts/principle-gates.sh

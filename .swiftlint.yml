@@ -1,0 +1,21 @@
+included:
+  - Package.swift
+  - Sources
+  - Tests
+  - Examples
+  - ExamplesSmoke
+
+excluded:
+  - .build
+  - .swiftpm
+
+only_rules:
+  - redundant_discardable_let
+  - implicit_optional_initialization
+  - trailing_semicolon
+  - unused_closure_parameter
+  - unused_control_flow_label
+  - unused_enumerated
+  - unused_optional_binding
+
+reporter: "xcode"

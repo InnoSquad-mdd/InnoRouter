@@ -88,6 +88,7 @@ swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterSplitCoordinatorExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterAppShellExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMultiPlatformExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterVisionOSImmersiveExample
+swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterSampleAppExample
 
 echo "[principle-gates] Running performance smoke"
 ./scripts/performance-smoke.sh

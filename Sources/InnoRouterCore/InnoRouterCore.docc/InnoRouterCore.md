@@ -27,3 +27,4 @@ This module does not know about SwiftUI, deep links, or presentation hosts. It o
 ### Reference
 
 - <doc:Rejection-Reasons>
+- <doc:Event-Stream-Backpressure>

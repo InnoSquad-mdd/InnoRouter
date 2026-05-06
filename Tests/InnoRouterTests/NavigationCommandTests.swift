@@ -14,38 +14,38 @@ import InnoRouterEffects
 
 // MARK: - NavigationCommand Tests
 
-@Suite("NavigationCommand Tests")
+@Suite("NavigationCommand Tests", .tags(.unit))
 struct NavigationCommandTests {
-    
+
     @Test("Execute push command")
     @MainActor
     func testExecutePush() {
         let store = NavigationStore<TestRoute>()
-        
+
         let result = store.execute(.push(.home))
-        
+
         #expect(result == .success)
         #expect(store.state.path.last == .home)
     }
-    
+
     @Test("Execute pop command")
     @MainActor
     func testExecutePop() throws {
         let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
-        
+
         let result = store.execute(.pop)
-        
+
         #expect(result == .success)
         #expect(store.state.path.last == .home)
     }
-    
+
     @Test("Execute pop on empty returns emptyStack")
     @MainActor
     func testExecutePopEmpty() {
         let store = NavigationStore<TestRoute>()
-        
+
         let result = store.execute(.pop)
-        
+
         #expect(result == .emptyStack)
     }
 
@@ -81,25 +81,25 @@ struct NavigationCommandTests {
         #expect(result == .insufficientStackDepth(requested: 2, available: 1))
         #expect(store.state.path == [.home])
     }
-    
+
     @Test("Execute sequence of commands")
     @MainActor
     func testExecuteSequence() {
         let store = NavigationStore<TestRoute>()
-        
+
         let result = store.execute(.sequence([
             .push(.home),
             .push(.detail(id: "123")),
             .push(.settings)
         ]))
-        
-        if case .multiple(let results) = result {
-            #expect(results.count == 3)
-            #expect(results.allSatisfy { $0 == .success })
-        } else {
+
+        guard case .multiple(let results) = result else {
             Issue.record("Expected multiple result")
+            return
         }
-        
+        #expect(results.count == 3)
+        #expect(results.allSatisfy { $0 == .success })
+
         #expect(store.state.path.count == 3)
     }
 

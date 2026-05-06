@@ -1,5 +1,12 @@
 # InnoRouter
 
+[English](README.md) | [한국어](README.ko.md) | [Español](README.es.md) | [Deutsch](README.de.md) | [简体中文](README.zh-Hans.md) | [日本語](README.ja.md) | [Русский](README.ru.md)
+
+[![Swift](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FInnoSquadCorp%2FInnoRouter%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
+[![Platforms](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FInnoSquadCorp%2FInnoRouter%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/InnoSquadCorp/InnoRouter)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![codecov](https://codecov.io/gh/InnoSquadCorp/InnoRouter/branch/main/graph/badge.svg)](https://codecov.io/gh/InnoSquadCorp/InnoRouter)
+
 InnoRouter is a SwiftUI-native navigation framework built around typed state, explicit command execution, and app-boundary deep-link planning.
 
 It treats navigation as a first-class state machine instead of a scattering of view-local side effects.
@@ -131,6 +138,10 @@ Within `4.x.y` releases, InnoRouter follows
   constraint, or changes documented runtime behavior in a way that
   can surprise existing call sites.
 
+Exception: `4.1.0` is the documented one-time historical cleanup
+described below. After that adoption baseline, 4.x minor releases are
+additive-only under this contract.
+
 Pre-release tags use the `4.1.0-rc.1` / `4.2.0-beta.2` form. The
 release workflow's `^[0-9]+\.[0-9]+\.[0-9]+$` regex only accepts
 final tags; pre-release tags ship through a separate manual flow
@@ -163,12 +174,13 @@ minor release:
 The full 4.0 baseline sweep is summarized in
 [`CHANGELOG.md`](CHANGELOG.md).
 
-### 4.1.0 breaking cleanup
+### Exception: 4.1.0 historical cleanup
 
 `4.1.0` is the adoption baseline after the pre-user cleanup pass. It
 removes unused dispatcher-object APIs, keeps `replaceStack` as the
 single full-stack replacement intent, and moves effect observation to
-explicit event streams. New apps should start from `4.1.0`; the
+explicit event streams. This is the only documented source-breaking
+exception in the 4.x line; new apps should start from `4.1.0`, and the
 `4.0.0` tag remains available as the first OSS snapshot.
 
 ### Imports
@@ -1142,6 +1154,44 @@ Task {
 Individual `onChange`, `onPresented`, `onCommandIntercepted`, etc.
 callbacks on each `*Configuration` type remain source-compatible;
 the `events` stream is an additional channel, not a replacement.
+
+### Backpressure
+
+Each store fans every event out to every subscriber through a
+per-subscriber `AsyncStream.Continuation`. To bound the per-subscriber
+queue under load, every store accepts an `eventBufferingPolicy` in
+its configuration:
+
+- `.bufferingNewest(1024)` (default) — retain the most recent 1024
+  events per subscriber, drop older events when the buffer fills.
+  Sized for realistic navigation bursts while keeping the retained
+  working set bounded.
+- `.bufferingOldest(N)` — retain the oldest N events per subscriber,
+  drop newer events when the buffer fills.
+- `.unbounded` — buffer every event until the subscriber drains it.
+  Use this for test harnesses or short-lived subscribers where you
+  control lifetime and require deterministic, lossless ordering.
+
+```swift skip doc-fragment
+let store = try NavigationStore<HomeRoute>(
+    initialPath: [.list],
+    configuration: NavigationStoreConfiguration(
+        eventBufferingPolicy: .bufferingNewest(2048)
+    )
+)
+```
+
+`ModalStoreConfiguration.eventBufferingPolicy` controls `ModalStore.events`.
+`FlowStoreConfiguration.eventBufferingPolicy` controls the flow-level
+`FlowStore.events` fan-out, while
+`FlowStoreConfiguration.navigation.eventBufferingPolicy` and
+`FlowStoreConfiguration.modal.eventBufferingPolicy` control the wrapped
+inner store streams. Drops are silent — if your analytics pipeline must
+distinguish "no event happened" from "an event was buffered out", subscribe
+with `.unbounded` and pace yourself instead.
+
+The full contract is documented in
+[`Event-Stream-Backpressure`](Sources/InnoRouterCore/InnoRouterCore.docc/Articles/Event-Stream-Backpressure.md).
 
 ## Roadmap
 

@@ -1,0 +1,35 @@
+# Codecov configuration for InnoRouter.
+#
+# The project status check accepts auto-derived targets (Codecov picks
+# the previous successful coverage as the bar) with a 1% slack window
+# so unrelated test churn doesn't flap PRs. Patch coverage is held at
+# parity with the patched lines themselves.
+#
+# Files in Tests/, Examples/, and ExamplesSmoke/ are excluded so the
+# coverage trend reflects the production library surface only. The
+# diagnostic-only InternalExecutionTrace shim is excluded for the
+# same reason.
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        base: auto
+    patch:
+      default:
+        target: auto
+        threshold: 0%
+
+ignore:
+  - "Tests/**"
+  - "Examples/**"
+  - "ExamplesSmoke/**"
+  - "Sources/**/InternalExecutionTrace.swift"
+  - "Sources/*FailFastProbe/**"
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: false

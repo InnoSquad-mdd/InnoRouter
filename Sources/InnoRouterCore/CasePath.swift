@@ -48,7 +48,7 @@ import Foundation
 /// over `@Sendable` storage so chained paths remain safe to share
 /// across actors.
 public struct CasePath<Root, Value>: Sendable {
-    
+
     /// Wraps an associated-value payload into the matching enum case.
     public let embed: @Sendable (Value) -> Root
 

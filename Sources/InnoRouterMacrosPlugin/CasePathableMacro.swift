@@ -28,7 +28,7 @@ import SwiftDiagnostics
 /// dest.is(\.home)        // false
 /// ```
 public struct CasePathableMacro: MemberMacro {
-    
+
     public static func expansion(
         of node: AttributeSyntax,
         providingMembersOf declaration: some DeclGroupSyntax,

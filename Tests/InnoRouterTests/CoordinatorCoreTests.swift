@@ -14,18 +14,18 @@ import InnoRouterEffects
 
 // MARK: - Coordinator Tests
 
-@Suite("Coordinator Tests")
+@Suite("Coordinator Tests", .tags(.unit))
 struct CoordinatorTests {
-    
+
     @Observable
     @MainActor
     final class TestCoordinator: Coordinator {
         typealias RouteType = TestRoute
         typealias Destination = EmptyView
-        
-        let store = NavigationStore<TestRoute>()
-        var handleCount = 0
-        
+
+        let store: NavigationStore<TestRoute> = NavigationStore()
+        var handleCount: Int = 0
+
         func handle(_ intent: NavigationIntent<TestRoute>) {
             handleCount += 1
             switch intent {
@@ -35,7 +35,7 @@ struct CoordinatorTests {
                 break
             }
         }
-        
+
         @ViewBuilder
         func destination(for route: TestRoute) -> EmptyView {
             EmptyView()
@@ -48,47 +48,47 @@ struct CoordinatorTests {
         typealias RouteType = TestRoute
         typealias Destination = EmptyView
 
-        let store = NavigationStore<TestRoute>()
+        let store: NavigationStore<TestRoute> = NavigationStore()
 
         @ViewBuilder
         func destination(for route: TestRoute) -> EmptyView {
             EmptyView()
         }
     }
-    
+
     @Test("Coordinator routes via send intent")
     @MainActor
     func testNavigate() {
         let coordinator = TestCoordinator()
-        
+
         coordinator.send(.go(.home))
         coordinator.send(.go(.detail(id: "123")))
-        
+
         #expect(coordinator.handleCount == 2)
         #expect(coordinator.store.state.path.count == 2)
     }
-    
+
     @Test("Coordinator send back pops")
     @MainActor
     func testGoBack() {
         let coordinator = DefaultBehaviorCoordinator()
         _ = coordinator.store.execute(.push(.home))
         _ = coordinator.store.execute(.push(.detail(id: "123")))
-        
+
         coordinator.send(.back)
-        
+
         #expect(coordinator.store.state.path.last == .home)
     }
-    
+
     @Test("Coordinator send backToRoot clears stack")
     @MainActor
     func testGoToRoot() {
         let coordinator = DefaultBehaviorCoordinator()
         _ = coordinator.store.execute(.push(.home))
         _ = coordinator.store.execute(.push(.detail(id: "123")))
-        
+
         coordinator.send(.backToRoot)
-        
+
         #expect(coordinator.store.state.path.isEmpty)
     }
 

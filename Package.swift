@@ -114,19 +114,19 @@ let package = Package(
             name: "InnoRouterCore",
             targets: ["InnoRouterCore"]
         ),
-        
+
         // MARK: - SwiftUI Integration
         .library(
             name: "InnoRouterSwiftUI",
             targets: ["InnoRouterSwiftUI"]
         ),
-        
+
         // MARK: - DeepLink
         .library(
             name: "InnoRouterDeepLink",
             targets: ["InnoRouterDeepLink"]
         ),
-        
+
         // MARK: - InnoFlow Adapter
         .library(
             name: "InnoRouterNavigationEffects",
@@ -140,7 +140,7 @@ let package = Package(
             name: "InnoRouterEffects",
             targets: ["InnoRouterEffects"]
         ),
-        
+
         // MARK: - Macros
         .library(
             name: "InnoRouterMacros",
@@ -172,21 +172,21 @@ let package = Package(
             name: "InnoRouterCore",
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
-        
+
         // MARK: - DeepLink Target
         .target(
             name: "InnoRouterDeepLink",
             dependencies: ["InnoRouterCore"],
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
-        
+
         // MARK: - SwiftUI Target
         .target(
             name: "InnoRouterSwiftUI",
             dependencies: ["InnoRouterCore"],
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
-        
+
         // MARK: - Umbrella Target
         .target(
             name: "InnoRouter",
@@ -194,7 +194,7 @@ let package = Package(
             path: "Sources/InnoRouterUmbrella",
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
-        
+
         // MARK: - Effects Target
         .target(
             name: "InnoRouterNavigationEffects",
@@ -289,7 +289,7 @@ let package = Package(
             dependencies: ["InnoRouterCore", "InnoRouterMacrosPlugin"],
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
-        
+
         // MARK: - Test Harness Target
         //
         // Ships `NavigationTestStore`, `ModalTestStore`, and `FlowTestStore` so
@@ -313,7 +313,7 @@ let package = Package(
             ],
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
-        
+
         // MARK: - Tests
         .testTarget(
             name: "InnoRouterTests",
