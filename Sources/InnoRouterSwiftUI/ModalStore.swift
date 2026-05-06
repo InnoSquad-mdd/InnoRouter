@@ -26,6 +26,7 @@ public final class ModalStore<M: Route> {
     private let onReplaced: (@MainActor @Sendable (ModalPresentation<M>, ModalPresentation<M>) -> Void)?
     private let onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)?
     private let onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?
+    private let queueCancellationPolicy: ModalQueueCancellationPolicy<M>
     private let telemetrySink: ModalStoreTelemetrySink<M>
     private let middlewareRegistry: ModalMiddlewareRegistry<M>
     private let broadcaster: EventBroadcaster<ModalEvent<M>>
@@ -123,6 +124,7 @@ public final class ModalStore<M: Route> {
         self.onReplaced = configuration.onReplaced
         self.onQueueChanged = configuration.onQueueChanged
         self.onCommandIntercepted = configuration.onCommandIntercepted
+        self.queueCancellationPolicy = configuration.queueCancellationPolicy
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.broadcaster = broadcaster
@@ -174,6 +176,7 @@ public final class ModalStore<M: Route> {
         self.onReplaced = configuration.onReplaced
         self.onQueueChanged = configuration.onQueueChanged
         self.onCommandIntercepted = configuration.onCommandIntercepted
+        self.queueCancellationPolicy = configuration.queueCancellationPolicy
         self.telemetrySink = telemetrySink
         self.middlewareRegistry = middlewareRegistry
         self.broadcaster = broadcaster
@@ -309,6 +312,15 @@ public final class ModalStore<M: Route> {
             switch outcome.interception {
             case .cancel(let reason):
                 let result: ModalExecutionResult<M> = .cancelled(reason)
+
+                // Apply the configured queue cancellation policy
+                // before the post-execute hooks so observers see
+                // the resulting queue state.
+                applyQueueCancellationPolicy(
+                    command: outcome.command,
+                    reason: reason
+                )
+
                 middlewareRegistry.didExecute(
                     outcome.command,
                     currentPresentation: currentPresentation,
@@ -741,6 +753,36 @@ public final class ModalStore<M: Route> {
         onQueueChanged?(oldQueue, queuedPresentations)
         telemetrySink.recordPresented(promotedPresentation)
         onPresented?(promotedPresentation)
+    }
+
+    /// Applies the configured ``ModalQueueCancellationPolicy`` to
+    /// ``queuedPresentations`` after a middleware cancellation. The
+    /// active presentation is never touched here — only the queue.
+    /// Emits an `onQueueChanged` event when the queue actually
+    /// shrinks so observers (and `events` subscribers) see the
+    /// drop without polling state.
+    private func applyQueueCancellationPolicy(
+        command: ModalCommand<M>,
+        reason: ModalCancellationReason<M>
+    ) {
+        guard !queuedPresentations.isEmpty else { return }
+
+        let action = queueCancellationPolicy.resolve(
+            command: command,
+            reason: reason
+        )
+        switch action {
+        case .preserve:
+            return
+        case .dropQueued:
+            let oldQueue = queuedPresentations
+            queuedPresentations.removeAll()
+            telemetrySink.recordQueueChanged(
+                oldQueue: oldQueue,
+                newQueue: queuedPresentations
+            )
+            onQueueChanged?(oldQueue, queuedPresentations)
+        }
     }
 
     private func emitCommittedEvents(for preview: ModalExecutionJournal<M>) {
