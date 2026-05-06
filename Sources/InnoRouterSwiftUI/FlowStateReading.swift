@@ -1,43 +1,24 @@
 // MARK: - FlowStateReading.swift
-// InnoRouterSwiftUI - non-SPI read contract for FlowStore-shaped
-// state, prepared for 5.0's inner-store encapsulation.
+// InnoRouterSwiftUI - public read contract for FlowStore-shaped
+// state. Replaces the @_spi(FlowStoreInternals) inner-store
+// peephole as of 5.0.
 // Copyright © 2026 Inno Squad. All rights reserved.
-//
-// FlowStore exposes its inner navigation + modal stores through
-// `@_spi(FlowStoreInternals)` so tests and FlowHost can reach the
-// nested authority surface without giving every adopter a foothold
-// into FlowStore's internals. The SPI works, but it leaks the
-// concrete `NavigationStore` / `ModalStore` types — replacing the
-// inner-store implementation later (a 5.0 goal) would necessarily
-// be a breaking change.
-//
-// `FlowStateReading` is the non-SPI read contract that lets host
-// code, telemetry adapters, and migration helpers express what
-// they actually need from a flow store ("current push stack,
-// current modal, queued modals") without holding the inner store
-// references. Today it is purely additive: the existing SPI
-// remains the primary consumer interface, the protocol just
-// documents the shape so 5.0 can swap the SPI for this
-// without churning every call site.
 
 import InnoRouterCore
 
-/// Read-only view of the FlowStore-shaped flow state that 5.0
-/// will adopt as the canonical inner-state accessor.
+/// Read-only view of the FlowStore-shaped flow state.
 ///
-/// > Note: In 4.2.0 this protocol is observational. Adopters
-/// > should not yet drop their SPI imports — the protocol exists
-/// > here so the 5.0 wiring lands as a behaviour-preserving swap
-/// > rather than a new public surface at major-bump time.
+/// `FlowStore` conforms via projections derived from the public
+/// `path` accessor. Tests, telemetry adapters, and migration
+/// helpers should target this protocol rather than reaching into
+/// the inner navigation or modal store — those are deliberately
+/// internal as of 5.0.
 @MainActor
-public protocol FlowStateReading<R> {
+public protocol FlowStateReading<R>: Sendable {
     associatedtype R: Route
 
     /// The full flow timeline — push prefix plus optional
-    /// trailing modal step. This is the same value `FlowStore.path`
-    /// already exposes; the protocol surfaces it as a contract so
-    /// 5.0 implementers can target the protocol rather than a
-    /// specific concrete type.
+    /// trailing modal step. Mirrors `FlowStore.path`.
     var path: [RouteStep<R>] { get }
 
     /// The push prefix of `path` projected as plain routes (i.e.
@@ -48,6 +29,16 @@ public protocol FlowStateReading<R> {
     /// The currently visible modal route if `path` ends in a
     /// `.sheet(_)` or `.cover(_)` step, otherwise `nil`.
     var currentModalRoute: R? { get }
+
+    /// The currently visible modal presentation if `path` ends in
+    /// a modal step, including its presentation style. Returns
+    /// `nil` when there is no trailing modal.
+    var currentModalPresentation: ModalPresentation<R>? { get }
+
+    /// Whether the flow currently has a trailing modal step. Equivalent
+    /// to `currentModalRoute != nil`, surfaced as a named predicate
+    /// so call sites read as intent rather than a nil check.
+    var hasModalTail: Bool { get }
 }
 
 extension FlowStore: FlowStateReading {
@@ -66,5 +57,21 @@ extension FlowStore: FlowStateReading {
         case .push:
             return nil
         }
+    }
+
+    public var currentModalPresentation: ModalPresentation<R>? {
+        guard let last = path.last else { return nil }
+        switch last {
+        case .sheet(let route):
+            return ModalPresentation(route: route, style: .sheet)
+        case .cover(let route):
+            return ModalPresentation(route: route, style: .fullScreenCover)
+        case .push:
+            return nil
+        }
+    }
+
+    public var hasModalTail: Bool {
+        currentModalRoute != nil
     }
 }

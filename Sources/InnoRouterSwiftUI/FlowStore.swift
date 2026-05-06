@@ -39,7 +39,13 @@ public final class FlowStore<R: Route> {
     /// the projected flow authority with the underlying `NavigationHost`.
     /// App code should use `path`, `send(_:)`, `apply(_:)`, and `events`
     /// instead of bypassing FlowStore invariants through this inner store.
-    @_spi(FlowStoreInternals) public let navigationStore: NavigationStore<R>
+    /// Inner navigation store. As of 5.0 this is plain `internal`;
+    /// adopters that previously reached for it via
+    /// `@_spi(FlowStoreInternals)` should use the public
+    /// ``FlowStateReading`` projection instead, or
+    /// ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)`` for
+    /// mutations.
+    internal let navigationStore: NavigationStore<R>
 
     /// Inner modal store that owns presentation state for the tail modal step.
     ///
@@ -47,7 +53,13 @@ public final class FlowStore<R: Route> {
     /// the projected flow authority with the underlying `ModalHost`. App code
     /// should use `path`, `send(_:)`, `apply(_:)`, and `events` instead of
     /// bypassing FlowStore invariants through this inner store.
-    @_spi(FlowStoreInternals) public let modalStore: ModalStore<R>
+    /// Inner modal store. As of 5.0 this is plain `internal`;
+    /// adopters that previously reached for it via
+    /// `@_spi(FlowStoreInternals)` should use the public
+    /// ``FlowStateReading`` projection instead, or
+    /// ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)`` for
+    /// mutations.
+    internal let modalStore: ModalStore<R>
 
     private let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
     private let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?

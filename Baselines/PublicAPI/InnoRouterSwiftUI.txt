@@ -81,8 +81,10 @@ relationship | memberOf | FlowIntent.replaceStack(_:) | FlowIntent |  |
 relationship | memberOf | FlowIntent.reset(_:) | FlowIntent |  |
 relationship | memberOf | FlowStore.RouteType | FlowStore |  |
 relationship | memberOf | FlowStore.apply(_:) | FlowStore |  |
+relationship | memberOf | FlowStore.currentModalPresentation | FlowStore |  |
 relationship | memberOf | FlowStore.currentModalRoute | FlowStore |  |
 relationship | memberOf | FlowStore.events | FlowStore |  |
+relationship | memberOf | FlowStore.hasModalTail | FlowStore |  |
 relationship | memberOf | FlowStore.init(initial:configuration:) | FlowStore |  |
 relationship | memberOf | FlowStore.init(validating:configuration:) | FlowStore |  |
 relationship | memberOf | FlowStore.intentDispatcher | FlowStore |  |
@@ -394,7 +396,9 @@ relationship | requirementOf | FlowNavigating.RouteType | FlowNavigating |  |
 relationship | requirementOf | FlowNavigating.flowStore | FlowNavigating |  |
 relationship | requirementOf | FlowNavigating.handle(_:) | FlowNavigating |  |
 relationship | requirementOf | FlowStateReading.R | FlowStateReading |  |
+relationship | requirementOf | FlowStateReading.currentModalPresentation | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.currentModalRoute | FlowStateReading |  |
+relationship | requirementOf | FlowStateReading.hasModalTail | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.navigationPath | FlowStateReading |  |
 relationship | requirementOf | FlowStateReading.path | FlowStateReading |  |
 relationship | requirementOf | FlowStep.index | FlowStep |  |
@@ -742,12 +746,16 @@ symbol | swift.property | FlowCoordinatorView.body | body | @MainActor var body:
 symbol | swift.property | FlowEvent.description | description | var description: String { get } | []
 symbol | swift.property | FlowHost.body | body | @MainActor var body: some View { get } | []
 symbol | swift.property | FlowNavigating.flowStore | flowStore | @MainActor var flowStore: FlowStore<Self.RouteType> { get } | []
+symbol | swift.property | FlowStateReading.currentModalPresentation | currentModalPresentation | @MainActor var currentModalPresentation: ModalPresentation<Self.R>? { get } | []
 symbol | swift.property | FlowStateReading.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: Self.R? { get } | []
+symbol | swift.property | FlowStateReading.hasModalTail | hasModalTail | @MainActor var hasModalTail: Bool { get } | []
 symbol | swift.property | FlowStateReading.navigationPath | navigationPath | @MainActor var navigationPath: [Self.R] { get } | []
 symbol | swift.property | FlowStateReading.path | path | @MainActor var path: [RouteStep<Self.R>] { get } | []
 symbol | swift.property | FlowStep.index | index | var index: Int { get } | []
+symbol | swift.property | FlowStore.currentModalPresentation | currentModalPresentation | @MainActor var currentModalPresentation: ModalPresentation<R>? { get } | []
 symbol | swift.property | FlowStore.currentModalRoute | currentModalRoute | @MainActor var currentModalRoute: R? { get } | []
 symbol | swift.property | FlowStore.events | events | @MainActor var events: AsyncStream<FlowEvent<R>> { get } | []
+symbol | swift.property | FlowStore.hasModalTail | hasModalTail | @MainActor var hasModalTail: Bool { get } | []
 symbol | swift.property | FlowStore.intentDispatcher | intentDispatcher | @MainActor var intentDispatcher: @MainActor (FlowIntent<R>) -> Void { get } | []
 symbol | swift.property | FlowStore.navigationPath | navigationPath | @MainActor var navigationPath: [R] { get } | []
 symbol | swift.property | FlowStore.path | path | @MainActor var path: [RouteStep<R>] { get set } | []
@@ -846,7 +854,7 @@ symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor proto
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
 symbol | swift.protocol | FlowCoordinator | FlowCoordinator | @MainActor protocol FlowCoordinator : AnyObject, Observable | []
 symbol | swift.protocol | FlowNavigating | FlowNavigating | @MainActor protocol FlowNavigating : AnyObject | []
-symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<R> | []
+symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<R> : Sendable | []
 symbol | swift.protocol | FlowStep | FlowStep | protocol FlowStep : CaseIterable, Hashable, Sendable | []
 symbol | swift.protocol | FlowTelemetrySink | FlowTelemetrySink | @MainActor protocol FlowTelemetrySink : Sendable | []
 symbol | swift.protocol | ModalTelemetrySink | ModalTelemetrySink | @MainActor protocol ModalTelemetrySink : Sendable | []
