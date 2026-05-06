@@ -136,28 +136,75 @@ marker is removed.
 - iOS / macOS / tvOS / watchOS / visionOS platform floors.
 - Swift 6.2 package tools floor.
 
+## Additional new surfaces (followed up in this release)
+
+Items the original migration draft listed as "deferred" but
+that ended up landing in 4.2 after all:
+
+- **Async middleware** — `AsyncNavigationMiddleware<R>` (in
+  `InnoRouterCore`) and `AsyncNavigationMiddlewareExecutor<R>`
+  (in `InnoRouterSwiftUI`) provide the opt-in async middleware
+  slot. The synchronous engine and `NavigationStore.execute(_:)`
+  keep their existing shape; apps adopt async middleware by
+  routing commands through the executor instead of the store
+  directly.
+- **`ModalStoreConfiguration.queueCancellationPolicy`** —
+  `ModalQueueCancellationPolicy<M>` lets standalone ModalStore
+  users decide what happens to `queuedPresentations` when
+  middleware cancels a command. `.preserve` (default), `.dropQueued`,
+  or `.custom((command, reason) -> Action)`.
+- **`InnoRouterEffects` as the canonical import** — README and
+  DocC now recommend `import InnoRouterEffects` for new code.
+  The split products (`InnoRouterNavigationEffects`,
+  `InnoRouterDeepLinkEffects`) stay available for source
+  compatibility through the 4.x line and fold into the umbrella
+  in a future major.
+- **`NavigationStore.commands(for:)`** — exposes the
+  `NavigationIntent → [NavigationCommand]` projection.
+  `send(_:)` is now implemented in terms of this accessor so
+  the two surfaces cannot drift. 5.0 prep for the intent ↔
+  command unification.
+- **`NavigationPathReconciling<R>` protocol** — observational
+  in 4.2. 5.0 will hang an injectable reconciler off
+  `NavigationStoreConfiguration` through this protocol.
+- **`LifecycleSignals` composition type** — observational in
+  4.2 (no SDK producers yet). 5.0 will route parent-cancel /
+  teardown through this bag of optional callbacks across every
+  coordinator type.
+- **`FlowStateReading<R>` protocol** — non-SPI read-only
+  projection of FlowStore-shaped state. Observational in 4.2 —
+  5.0 will move adopters off `@_spi(FlowStoreInternals)` onto
+  this protocol.
+- **Store responsibility splits** —
+  `NavigationStore.swift` shrinks from 807 → ~640 LOC by
+  extracting `+Intent`, `+Binding`, `+Middleware` extensions.
+  `ModalStore.swift` shrinks from 879 → ~810 LOC by extracting
+  `+Middleware` and `+Binding`. `FlowStore.swift` extracts the
+  public `send(_:)` / `apply(_:)` wrappers into
+  `FlowStore+Public.swift`. No public API change.
+- **Macro plugin split** — `CasePathMemberBuilder.swift` (237
+  LOC) is split into iteration / generation / builder files by
+  responsibility.
+
 ## What did *not* land in 4.2
 
-A few items from the original 4.2.0 cleanup plan are deliberately
-deferred to a later release because each needed more design or
-review than fits an additive minor:
-
-- Async middleware slot (`AsyncNavigationMiddleware`) — needs
-  careful threading through the engine's command pipeline; will
-  ship as a focused minor of its own.
-- `ModalStoreConfiguration.queueCoalescePolicy` exposing modal
-  queue policy outside `FlowStore` — needs a non-FlowStore-shaped
-  policy type because `QueueCoalescePolicy` is currently typed in
-  `FlowIntent` / `FlowRejectionReason`.
-- `InnoRouterEffects` product unification — the additive
-  re-export consolidation of `InnoRouterNavigationEffects` +
-  `InnoRouterDeepLinkEffects` is on hold pending review of
-  downstream import patterns.
-- Store-file responsibility splits (`NavigationStore`,
-  `ModalStore`, `FlowStore` are still single-file in 4.2) — the
-  `.swiftlint.yml` guardrail in 4.2 establishes the threshold;
-  the splits land separately.
-- Protocol-driven `NavigationPathReconciler`, `LifecycleSignals`
-  composition, and the rest of the 5.0 deprecation prep —
-  intentionally out of scope until the 5.0 design is fully
-  scoped.
+- **Full FlowStore responsibility split** — the dispatch spine
+  (`dispatchPush`, `dispatchPop`, `dispatchModal`,
+  `dispatchReset`, etc.), `withInternalMutation`, and the queue
+  policy helper stay in the core file because pulling them out
+  would require widening many private members for marginal
+  benefit while the file is well under the lint warning
+  threshold.
+- **Protocol wiring for the 5.0 prep types** — the new
+  protocols (`NavigationPathReconciling`,
+  `FlowStateReading`) and `LifecycleSignals` ship as additive
+  surface only. Wiring them as the canonical replacement for the
+  current internals belongs in 5.0.
+- **Effects product consolidation** — the umbrella
+  (`InnoRouterEffects`) now is recommended in docs, but the
+  split products are not source-deprecated yet. 5.0 folds the
+  splits into the umbrella as the breaking step.
+- **Coordinator protocol re-design** — Coordinator,
+  FlowCoordinator, TabCoordinator, ChildCoordinator keep their
+  current shape. 5.0 will adopt `LifecycleSignals` and
+  re-pivot the responsibility graph.

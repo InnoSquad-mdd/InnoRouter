@@ -56,6 +56,40 @@ for a one-page summary of what to do (or not do) on upgrade.
 - `.changes/` directory holding per-PR changelog fragments;
   contributors drop `<slug>.<category>.md` files instead of
   editing this file directly.
+- `AsyncNavigationMiddleware<R>` protocol (in `InnoRouterCore`)
+  and `AsyncNavigationMiddlewareExecutor<R>` (in
+  `InnoRouterSwiftUI`) — opt-in async middleware slot layered
+  around the synchronous `NavigationStore.execute(_:)`. Stages
+  run in insertion order on `willExecute`, reverse order on
+  `didExecute`. Cancellation short-circuits with a typed reason.
+  The synchronous engine and `NavigationStore.execute(_:)` keep
+  their existing shape; apps that don't add async middleware see
+  no behavioral difference.
+- `ModalQueueCancellationPolicy<M>` and
+  `ModalStoreConfiguration.queueCancellationPolicy` — controls
+  what happens to `ModalStore.queuedPresentations` when a
+  `ModalMiddleware` cancels a command. Defaults to `.preserve`
+  (historical 4.x behaviour). `.dropQueued` and
+  `.custom((command, reason) -> Action)` give standalone
+  ModalStore users the same kind of queue policy that previously
+  only flowed through `FlowStore.QueueCoalescePolicy`.
+- `NavigationStore.commands(for: NavigationIntent<R>) ->
+  [NavigationCommand<R>]` — projects an intent into the concrete
+  command plan that `send(_:)` would execute. `send(_:)` is now
+  implemented in terms of this projection so the two surfaces
+  cannot drift. Prep for the 5.0 intent ↔ command unification.
+- `NavigationPathReconciling<R>` protocol describing the
+  contract today's internal `NavigationPathReconciler` already
+  satisfies. The protocol is observational in 4.2 — 5.0 will
+  hang an injectable reconciler off `NavigationStoreConfiguration`
+  through this protocol.
+- `LifecycleSignals` value type — bag of optional
+  parent-cancel / teardown callbacks shared across coordinator
+  types in 5.0. Observational in 4.2 (no SDK producers yet).
+- `FlowStateReading<R>` protocol — non-SPI read-only projection
+  of FlowStore-shaped state (`path`, `navigationPath`,
+  `currentModalRoute`). Observational in 4.2 — 5.0 will move
+  adopters off `@_spi(FlowStoreInternals)` onto this protocol.
 
 ### Changed
 
@@ -85,6 +119,36 @@ for a one-page summary of what to do (or not do) on upgrade.
   should pin to an exact 4.x release until the surface
   graduates. README "Platform support" / "Choosing the right
   surface" tables carry a `⚠ experimental` marker.
+- README "Imports" table is rewritten to recommend
+  `InnoRouterEffects` (the umbrella) as the canonical import for
+  app-boundary execution helpers. The split products
+  (`InnoRouterNavigationEffects`, `InnoRouterDeepLinkEffects`)
+  stay available for source compatibility through the 4.x line
+  and fold into the umbrella in a future major.
+
+### Refactor
+
+- `Sources/InnoRouterMacrosPlugin/CasePathMemberBuilder.swift`
+  (237 LOC) is split by responsibility into three files:
+  `CasePathEnumIteration.swift` (syntax tree → CasePathEnumCase),
+  `CasePathMemberGeneration.swift` (CasePathEnumCase → rendered
+  source string), and `CasePathMemberBuilder.swift` (entry +
+  diagnostics + orchestration). Helpers widen from `private` to
+  `internal` so the orchestrator can reach them across files;
+  nothing escapes the InnoRouterMacrosPlugin module. No public
+  surface change.
+- `Sources/InnoRouterSwiftUI/NavigationStore.swift` (807 LOC)
+  is split into `NavigationStore.swift` core (~640 LOC) plus
+  `+Intent`, `+Binding`, `+Middleware` extension files.
+- `Sources/InnoRouterSwiftUI/ModalStore.swift` (879 LOC) is
+  split into core (~810 LOC) plus `+Middleware` and `+Binding`
+  extension files.
+- `Sources/InnoRouterSwiftUI/FlowStore.swift` (810 LOC) gets
+  the public `send(_:)` / `apply(_:)` dispatch wrappers moved to
+  `FlowStore+Public.swift`. Deeper splits of the dispatch spine
+  remain in the core for now — pulling them out would require
+  widening many private members and the value-to-risk ratio is
+  poor while the file is well under the 1800 LOC lint warning.
 
 ### Internal
 
