@@ -376,6 +376,8 @@ relationship | requirementOf | FlowTelemetrySink.RouteType | FlowTelemetrySink |
 relationship | requirementOf | FlowTelemetrySink.record(_:) | FlowTelemetrySink |  |
 relationship | requirementOf | ModalTelemetrySink.RouteType | ModalTelemetrySink |  |
 relationship | requirementOf | ModalTelemetrySink.record(_:) | ModalTelemetrySink |  |
+relationship | requirementOf | NavigationPathReconciling.R | NavigationPathReconciling |  |
+relationship | requirementOf | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciling |  |
 relationship | requirementOf | NavigationTelemetrySink.RouteType | NavigationTelemetrySink |  |
 relationship | requirementOf | NavigationTelemetrySink.record(_:) | NavigationTelemetrySink |  |
 relationship | requirementOf | StoreObserver.RouteType | StoreObserver |  |
@@ -395,6 +397,7 @@ symbol | swift.associatedtype | FlowCoordinator.Step | Step | associatedtype Ste
 symbol | swift.associatedtype | FlowNavigating.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | FlowTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | ModalTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | NavigationPathReconciling.R | R | associatedtype R : Route | []
 symbol | swift.associatedtype | NavigationTelemetrySink.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | StoreObserver.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | TabCoordinator.TabContent | TabContent | associatedtype TabContent : View | []
@@ -622,6 +625,7 @@ symbol | swift.method | ModalStore.replaceCurrent(_:style:) | replaceCurrent(_:s
 symbol | swift.method | ModalStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: ModalMiddlewareHandle, with middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> Bool | []
 symbol | swift.method | ModalStore.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
 symbol | swift.method | ModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalTelemetryEvent<Self.RouteType>) | []
+symbol | swift.method | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [Self.R], to newPath: [Self.R], resolveMismatch: @MainActor ([Self.R], [Self.R]) -> NavigationPathMismatchResolution<Self.R>, execute: @MainActor (NavigationCommand<Self.R>) -> Void, executeBatch: @MainActor ([NavigationCommand<Self.R>]) -> Void) | []
 symbol | swift.method | NavigationStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> NavigationMiddlewareHandle | []
 symbol | swift.method | NavigationStore.binding(case:) | binding(case:) | @MainActor func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> | []
 symbol | swift.method | NavigationStore.commands(for:) | commands(for:) | @MainActor func commands(for intent: NavigationIntent<R>) -> [NavigationCommand<R>] | []
@@ -793,6 +797,7 @@ symbol | swift.protocol | FlowNavigating | FlowNavigating | @MainActor protocol 
 symbol | swift.protocol | FlowStep | FlowStep | protocol FlowStep : CaseIterable, Hashable, Sendable | []
 symbol | swift.protocol | FlowTelemetrySink | FlowTelemetrySink | @MainActor protocol FlowTelemetrySink : Sendable | []
 symbol | swift.protocol | ModalTelemetrySink | ModalTelemetrySink | @MainActor protocol ModalTelemetrySink : Sendable | []
+symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<R> | []
 symbol | swift.protocol | NavigationTelemetrySink | NavigationTelemetrySink | @MainActor protocol NavigationTelemetrySink : Sendable | []
 symbol | swift.protocol | StoreObserver | StoreObserver | @MainActor protocol StoreObserver : AnyObject | []
 symbol | swift.protocol | Tab | Tab | protocol Tab : CaseIterable, Hashable, Identifiable, Sendable | []

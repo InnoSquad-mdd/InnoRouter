@@ -1,7 +1,43 @@
 import InnoRouterCore
 
+/// Contract for the component that turns SwiftUI's
+/// `NavigationStack(path:)` mutations into the equivalent
+/// ``NavigationCommand`` invocations on the store.
+///
+/// `NavigationStore` ships ``NavigationPathReconciler`` as the
+/// default conformance and uses it internally; the protocol exists
+/// in 4.2.0 as preparation for the 5.0 surface where callers can
+/// inject a custom reconciler through
+/// `NavigationStoreConfiguration`. In 4.x the protocol is
+/// observational — declaring it visible in the public surface
+/// without changing the wiring keeps the future swap source-
+/// compatible.
+///
+/// Custom implementations should preserve the three current
+/// reduction rules:
+///
+/// - Prefix shrink (`newPath` is a prefix of `oldPath`) →
+///   `.popCount` or `.popToRoot`.
+/// - Prefix expand (`oldPath` is a prefix of `newPath`) → batched
+///   `.push` for the appended suffix.
+/// - Non-prefix mismatch → delegate to the supplied
+///   `resolveMismatch` closure (which today routes through
+///   ``NavigationPathMismatchPolicy``).
 @MainActor
-struct NavigationPathReconciler<R: Route> {
+public protocol NavigationPathReconciling<R> {
+    associatedtype R: Route
+
+    func reconcile(
+        from oldPath: [R],
+        to newPath: [R],
+        resolveMismatch: @MainActor ([R], [R]) -> NavigationPathMismatchResolution<R>,
+        execute: @MainActor (NavigationCommand<R>) -> Void,
+        executeBatch: @MainActor ([NavigationCommand<R>]) -> Void
+    )
+}
+
+@MainActor
+struct NavigationPathReconciler<R: Route>: NavigationPathReconciling {
     func reconcile(
         from oldPath: [R],
         to newPath: [R],
