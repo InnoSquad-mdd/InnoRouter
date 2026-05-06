@@ -72,6 +72,7 @@ relationship | memberOf | ModalCommand.present(_:) | ModalCommand |  |
 relationship | memberOf | ModalCommand.replaceCurrent(_:) | ModalCommand |  |
 relationship | memberOf | ModalDismissalReason.dismiss | ModalDismissalReason |  |
 relationship | memberOf | ModalDismissalReason.dismissAll | ModalDismissalReason |  |
+relationship | memberOf | ModalDismissalReason.middlewareCancelled(reasonDescription:) | ModalDismissalReason |  |
 relationship | memberOf | ModalDismissalReason.systemDismiss | ModalDismissalReason |  |
 relationship | memberOf | ModalInterception.cancel(_:) | ModalInterception |  |
 relationship | memberOf | ModalInterception.proceed(_:) | ModalInterception |  |
@@ -257,6 +258,7 @@ symbol | swift.enum.case | ModalCommand.present(_:) | ModalCommand.present(_:) |
 symbol | swift.enum.case | ModalCommand.replaceCurrent(_:) | ModalCommand.replaceCurrent(_:) | case replaceCurrent(ModalPresentation<M>) | []
 symbol | swift.enum.case | ModalDismissalReason.dismiss | ModalDismissalReason.dismiss | case dismiss | []
 symbol | swift.enum.case | ModalDismissalReason.dismissAll | ModalDismissalReason.dismissAll | case dismissAll | []
+symbol | swift.enum.case | ModalDismissalReason.middlewareCancelled(reasonDescription:) | ModalDismissalReason.middlewareCancelled(reasonDescription:) | case middlewareCancelled(reasonDescription: String) | []
 symbol | swift.enum.case | ModalDismissalReason.systemDismiss | ModalDismissalReason.systemDismiss | case systemDismiss | []
 symbol | swift.enum.case | ModalInterception.cancel(_:) | ModalInterception.cancel(_:) | case cancel(ModalCancellationReason<M>) | []
 symbol | swift.enum.case | ModalInterception.proceed(_:) | ModalInterception.proceed(_:) | case proceed(ModalCommand<M>) | []
