@@ -54,24 +54,56 @@ if [[ -n "$PLATFORMS_ARG" ]]; then
   fi
 fi
 
+# Gate 1 — runtime behavior. The full Swift Testing suite must pass.
+# Failure signal: any @Test failure or build error in Tests/.
+# Local repro: swift test
 echo "[principle-gates] Running swift test"
 swift test --jobs "$SWIFTPM_JOBS"
 
+# Gate 2 — DocC catalogs build cleanly. Catches symbol drift,
+# broken cross-references, and malformed articles before publishing.
+# Failure signal: build-docc-site.sh non-zero (typically missing symbol
+# or broken doc link).
+# Local repro: ./scripts/build-docc-site.sh --version preview --skip-latest
 echo "[principle-gates] Building DocC preview site"
 ./scripts/build-docc-site.sh --version preview --skip-latest
 
+# Gate 3 — public API baseline diffs. Surfaces accidental public
+# symbol additions/removals/signature changes against the recorded
+# baseline; SemVer 4.x is additive only.
+# Failure signal: removed/renamed symbol or non-additive signature change.
+# Local repro: ./scripts/check-public-api.sh
 echo "[principle-gates] Checking public API baselines"
 ./scripts/check-public-api.sh
 
+# Gate 4 — maintainer docs (README, CLAUDE.md, AGENTS.md, RELEASING.md,
+# CHANGELOG.md) stay internally consistent (cross-references, version
+# strings, headings).
+# Failure signal: drift between the documents.
+# Local repro: ./scripts/check-docs-consistency.sh
 echo "[principle-gates] Checking maintainer docs consistency"
 ./scripts/check-docs-consistency.sh
 
+# Gate 5 — Swift code blocks inside DocC and Markdown actually
+# typecheck against the published API. Stops doc snippets from
+# rotting after a rename.
+# Failure signal: snippet fails to compile.
+# Local repro: ./scripts/check-docs-code-blocks.sh
 echo "[principle-gates] Checking documentation Swift code blocks"
 ./scripts/check-docs-code-blocks.sh
 
+# Gate 6 — Examples/ ↔ ExamplesSmoke/ 1:1 alignment. See
+# Examples/README.md for the contributor rules on which side to edit.
+# Failure signal: a file present on one side missing on the other.
+# Local repro: ./scripts/check-examples-parity.sh
 echo "[principle-gates] Checking Examples↔ExamplesSmoke parity"
 ./scripts/check-examples-parity.sh
 
+# Gate 7 — compiler-stable smoke fixtures. ExamplesSmoke targets must
+# build with conservative patterns (no macros) so toolchain churn
+# does not cause spurious example failures.
+# Failure signal: smoke build error.
+# Local repro: swift build --target <name>
 echo "[principle-gates] Building example smoke targets"
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterExamplesSmoke
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterStandaloneExampleSmoke
@@ -80,6 +112,9 @@ swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterNavigationEffects
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterDeepLinkEffects
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterEffects
 
+# Gate 8 — human-facing examples must build. These exercise the
+# macro-driven, idiomatic surface that Examples/ documents.
+# Failure signal: example build error.
 echo "[principle-gates] Building human-facing example targets"
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterStandaloneExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterCoordinatorExample
@@ -90,12 +125,25 @@ swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterMultiPlatformExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterVisionOSImmersiveExample
 swift build --jobs "$SWIFTPM_JOBS" --target InnoRouterSampleAppExample
 
+# Gate 9 — performance smoke. Catches gross regressions in command
+# execution / engine dispatch.
+# Failure signal: timing budget exceeded.
+# Local repro: ./scripts/performance-smoke.sh
 echo "[principle-gates] Running performance smoke"
 ./scripts/performance-smoke.sh
 
+# Gate 10 — source-level lint gates (e.g. forbidden patterns,
+# nonisolated(unsafe), @unchecked Sendable, debug-only fences).
+# Failure signal: forbidden pattern detected.
+# Local repro: ./scripts/lint-source-gates.sh
 echo "[principle-gates] Running source-level lint gates"
 ./scripts/lint-source-gates.sh
 
+# Gate 11 — fail-fast probe verifies that missing NavigationEnvironment
+# wiring crashes deterministically with an explanatory message instead
+# of producing silent fallback behavior.
+# Failure signal: probe succeeded (regression — fallback re-introduced)
+#                 or message missing the expected substring.
 echo "[principle-gates] Checking fail-fast probe (missing NavigationEnvironmentStorage)"
 PROBE_OUTPUT_FILE="$(mktemp)"
 set +e
@@ -119,6 +167,10 @@ fi
 
 rm -f "$PROBE_OUTPUT_FILE"
 
+# Gate 12 — public Bool naming. Public properties of type Bool must
+# start with is/has/can/should so that boolean call sites read as
+# predicates. Catches accidental drift on additive minor releases.
+# Failure signal: a public Bool name violating the prefix rule.
 echo "[principle-gates] Checking public Bool naming"
 PUBLIC_BOOL_NAMES="$(rg -n --no-heading "public (var|let) [A-Za-z_][A-Za-z0-9_]*: Bool" Sources \
   | sed -E 's/.*public (var|let) ([A-Za-z_][A-Za-z0-9_]*) *: Bool.*/\2/' || true)"
@@ -132,6 +184,12 @@ if [[ -n "$PUBLIC_BOOL_NAMES" ]]; then
   fi
 fi
 
+# Gate 13 (optional) — per-platform build probe. Only runs when the
+# caller passes --platforms=…; macOS-only CI runners use this to gate
+# the Apple platform matrix locally without spinning up the full
+# GitHub Actions workflow. Compile-only via xcodebuild against
+# generic simulator destinations.
+# Local repro: ./scripts/principle-gates.sh --platforms=all
 if [[ -n "$PLATFORMS_ARG" ]]; then
   echo "[principle-gates] Running per-platform build probe ($PLATFORMS_ARG)"
   if ! command -v xcodebuild >/dev/null 2>&1; then
