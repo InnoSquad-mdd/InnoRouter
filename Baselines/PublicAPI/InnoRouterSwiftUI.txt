@@ -2,6 +2,7 @@
 relationship | conformsTo | AnyFlowTelemetrySink | FlowTelemetrySink |  |
 relationship | conformsTo | AnyModalTelemetrySink | ModalTelemetrySink |  |
 relationship | conformsTo | AnyNavigationTelemetrySink | NavigationTelemetrySink |  |
+relationship | conformsTo | ChildCoordinator | LifecycleAware |  |
 relationship | conformsTo | FlowStore | FlowStateReading |  |
 relationship | conformsTo | NavigationPathReconciler | NavigationPathReconciling |  |
 relationship | conformsTo | OSLogFlowTelemetrySink | FlowTelemetrySink |  |
@@ -377,7 +378,6 @@ relationship | memberOf | ThrottleNavigationMiddleware.init(interval:clock:key:)
 relationship | memberOf | ThrottleNavigationMiddleware.init(interval:key:) | ThrottleNavigationMiddleware |  |
 relationship | memberOf | ThrottleNavigationMiddleware.willExecute(_:state:) | ThrottleNavigationMiddleware |  |
 relationship | requirementOf | ChildCoordinator.Result | ChildCoordinator |  |
-relationship | requirementOf | ChildCoordinator.lifecycleSignals | ChildCoordinator |  |
 relationship | requirementOf | ChildCoordinator.onCancel | ChildCoordinator |  |
 relationship | requirementOf | ChildCoordinator.onFinish | ChildCoordinator |  |
 relationship | requirementOf | ChildCoordinator.parentDidCancel() | ChildCoordinator |  |
@@ -405,6 +405,7 @@ relationship | requirementOf | FlowStateReading.path | FlowStateReading |  |
 relationship | requirementOf | FlowStep.index | FlowStep |  |
 relationship | requirementOf | FlowTelemetrySink.RouteType | FlowTelemetrySink |  |
 relationship | requirementOf | FlowTelemetrySink.record(_:) | FlowTelemetrySink |  |
+relationship | requirementOf | LifecycleAware.lifecycleSignals | LifecycleAware |  |
 relationship | requirementOf | ModalTelemetrySink.RouteType | ModalTelemetrySink |  |
 relationship | requirementOf | ModalTelemetrySink.record(_:) | ModalTelemetrySink |  |
 relationship | requirementOf | NavigationPathReconciling.R | NavigationPathReconciling |  |
@@ -725,7 +726,6 @@ symbol | swift.method | View.innoRouterSceneAnchor(_:scenes:attachedTo:instanceI
 symbol | swift.method | View.innoRouterSceneHost(_:scenes:) | innoRouterSceneHost(_:scenes:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>) -> some View where R : Route | []
 symbol | swift.method | View.innoRouterSceneHost(_:scenes:attachedTo:) | innoRouterSceneHost(_:scenes:attachedTo:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) -> some View where R : Route | []
 symbol | swift.method | View.innoRouterSceneHost(_:scenes:attachedTo:instanceID:) | innoRouterSceneHost(_:scenes:attachedTo:instanceID:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) -> some View where R : Route | []
-symbol | swift.property | ChildCoordinator.lifecycleSignals | lifecycleSignals | @MainActor var lifecycleSignals: LifecycleSignals { get set } | []
 symbol | swift.property | ChildCoordinator.onCancel | onCancel | @MainActor var onCancel: (@MainActor () -> Void)? { get set } | []
 symbol | swift.property | ChildCoordinator.onFinish | onFinish | @MainActor var onFinish: (@MainActor (Self.Result) -> Void)? { get set } | []
 symbol | swift.property | ChildCoordinatorTaskTracker.activeCount | activeCount | @MainActor var activeCount: Int { get } | []
@@ -768,6 +768,7 @@ symbol | swift.property | FlowStoreConfiguration.onIntentRejected | onIntentReje
 symbol | swift.property | FlowStoreConfiguration.onPathChanged | onPathChanged | var onPathChanged: (@MainActor ([RouteStep<R>], [RouteStep<R>]) -> Void)? | []
 symbol | swift.property | FlowStoreConfiguration.queueCoalescePolicy | queueCoalescePolicy | var queueCoalescePolicy: QueueCoalescePolicy<R> | []
 symbol | swift.property | FlowStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyFlowTelemetrySink<R>? | []
+symbol | swift.property | LifecycleAware.lifecycleSignals | lifecycleSignals | @MainActor var lifecycleSignals: LifecycleSignals { get set } | []
 symbol | swift.property | LifecycleSignals.onParentCancel | onParentCancel | @MainActor var onParentCancel: (@MainActor () -> Void)? | []
 symbol | swift.property | LifecycleSignals.onTeardown | onTeardown | @MainActor var onTeardown: (@MainActor () -> Void)? | []
 symbol | swift.property | MiddlewareMutationEvent.action | action | let action: MiddlewareMutationEvent<R>.Action | []
@@ -852,13 +853,14 @@ symbol | swift.property | Tab.title | title | var title: String { get } | []
 symbol | swift.property | TabCoordinator.selectedTab | selectedTab | @MainActor var selectedTab: Self.TabType { get set } | []
 symbol | swift.property | TabCoordinator.tabBadges | tabBadges | @MainActor var tabBadges: [Self.TabType : Int] { get set } | []
 symbol | swift.property | TabCoordinatorView.body | body | @MainActor var body: some View { get } | []
-symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor protocol ChildCoordinator : AnyObject | []
+symbol | swift.protocol | ChildCoordinator | ChildCoordinator | @MainActor protocol ChildCoordinator : LifecycleAware | []
 symbol | swift.protocol | Coordinator | Coordinator | @MainActor protocol Coordinator : AnyObject, Observable | []
 symbol | swift.protocol | FlowCoordinator | FlowCoordinator | @MainActor protocol FlowCoordinator : AnyObject, Observable | []
 symbol | swift.protocol | FlowNavigating | FlowNavigating | @MainActor protocol FlowNavigating : AnyObject | []
 symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor protocol FlowStateReading<R> : Sendable | []
 symbol | swift.protocol | FlowStep | FlowStep | protocol FlowStep : CaseIterable, Hashable, Sendable | []
 symbol | swift.protocol | FlowTelemetrySink | FlowTelemetrySink | @MainActor protocol FlowTelemetrySink : Sendable | []
+symbol | swift.protocol | LifecycleAware | LifecycleAware | @MainActor protocol LifecycleAware : AnyObject | []
 symbol | swift.protocol | ModalTelemetrySink | ModalTelemetrySink | @MainActor protocol ModalTelemetrySink : Sendable | []
 symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<R> : Sendable | []
 symbol | swift.protocol | NavigationTelemetrySink | NavigationTelemetrySink | @MainActor protocol NavigationTelemetrySink : Sendable | []

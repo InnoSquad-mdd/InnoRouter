@@ -23,29 +23,27 @@
 import Foundation
 
 /// A bag of optional, fire-and-forget lifecycle callbacks shared
-/// across coordinator types in a future release.
+/// across coordinator types via the ``LifecycleAware`` capability
+/// protocol.
 ///
-/// > Important: This type ships as 5.0 preparation. In 4.x it has
-/// > no producers in the SDK — declaring or holding a
-/// > `LifecycleSignals` instance has no observable effect today.
-/// > Adopters should not depend on which signals fire from which
-/// > store until 5.0 finalises the wiring.
+/// As of 5.0 the SDK routes the following signals through this
+/// bag (more may be added in subsequent minors):
 ///
-/// The 5.0 contract will route the following signals through this
-/// type:
-///
-/// - ``onParentCancel`` — fired when the immediate parent cancels
-///   (today exposed only on `ChildCoordinator.parentDidCancel()`).
-/// - ``onTeardown`` — fired when the coordinator is being released
-///   so transient resources (subscriptions, timers, in-flight
-///   network requests) can be cancelled.
+/// - ``onParentCancel`` — fired when a parent task cancels.
+///   `Coordinator.push(child:)` calls this on the child after
+///   invoking ``ChildCoordinator/parentDidCancel()``.
+/// - ``onTeardown`` — fired when the owning coordinator is
+///   released so transient resources (subscriptions, timers,
+///   in-flight network requests) can be cancelled. Hosts and
+///   coordinator-owning code call this from their teardown path.
 ///
 /// Both callbacks are `@MainActor @Sendable` because every current
 /// coordinator surface is `@MainActor`-isolated.
 @MainActor
 public struct LifecycleSignals: Sendable {
 
-    /// Invoked when the immediate parent cancels.
+    /// Invoked when a parent task cancels. `Coordinator.push(child:)`
+    /// fires this through the child's ``LifecycleAware/lifecycleSignals``.
     public var onParentCancel: (@MainActor @Sendable () -> Void)?
 
     /// Invoked when the owning coordinator is being released so
@@ -62,9 +60,6 @@ public struct LifecycleSignals: Sendable {
     }
 
     /// Fires the ``onParentCancel`` handler if installed.
-    ///
-    /// Producers (today: a future 5.0 wiring) call this; consumers
-    /// install handlers at coordinator init.
     public func fireParentCancel() {
         onParentCancel?()
     }
@@ -73,4 +68,22 @@ public struct LifecycleSignals: Sendable {
     public func fireTeardown() {
         onTeardown?()
     }
+}
+
+/// Capability protocol for any coordinator that wants to expose
+/// lifecycle signals through the unified ``LifecycleSignals`` bag.
+///
+/// `ChildCoordinator` requires this conformance because the parent
+/// push helper fires ``LifecycleSignals/fireParentCancel()`` on
+/// task cancellation. Other coordinator types (`Coordinator`,
+/// `FlowCoordinator`, `TabCoordinator`) opt in by adopting
+/// `LifecycleAware` directly and declaring a
+/// ``lifecycleSignals`` storage property.
+@MainActor
+public protocol LifecycleAware: AnyObject {
+    /// The lifecycle-signals bag installed on this coordinator.
+    /// Must be `var` so producers (push helpers, host teardown
+    /// paths, future signal dispatchers) can mutate the installed
+    /// handlers.
+    var lifecycleSignals: LifecycleSignals { get set }
 }

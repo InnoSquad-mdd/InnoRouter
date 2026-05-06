@@ -17,7 +17,7 @@ import SwiftUI
 /// ``parentDidCancel()`` hook so app code can install teardown
 /// handlers without overriding the protocol method.
 @MainActor
-public protocol ChildCoordinator: AnyObject {
+public protocol ChildCoordinator: LifecycleAware {
     associatedtype Result: Sendable
 
     /// Called by the child to report a successful completion.
@@ -25,19 +25,6 @@ public protocol ChildCoordinator: AnyObject {
 
     /// Called by the child to report cancellation or user-driven dismissal.
     var onCancel: (@MainActor @Sendable () -> Void)? { get set }
-
-    /// Cross-cutting lifecycle hooks shared with every other
-    /// coordinator type. The parent ``Coordinator/push(child:)``
-    /// helper fires ``LifecycleSignals/fireParentCancel()`` on the
-    /// configured handler when the parent task is cancelled, in
-    /// addition to invoking ``parentDidCancel()``.
-    ///
-    /// Adopters that need a one-line teardown hook should reach
-    /// for `lifecycleSignals.onParentCancel` instead of overriding
-    /// `parentDidCancel()` — the protocol method remains for
-    /// compatibility with sites that prefer subclass-style
-    /// overrides.
-    var lifecycleSignals: LifecycleSignals { get set }
 
     /// Called on the main actor when the parent `Task` awaiting
     /// ``Coordinator/push(child:)`` is cancelled (e.g. the parent's
