@@ -23,7 +23,10 @@ maintainers to apply to your contribution.
   PRs do not require a CHANGELOG entry.
 - **Improve a smoke fixture.** `ExamplesSmoke/*.swift` is the
   compiler-stable surface that CI guards. Adding coverage there is
-  one of the highest-leverage contributions.
+  one of the highest-leverage contributions. The
+  [`Examples/README.md`](Examples/README.md) and
+  [`ExamplesSmoke/README.md`](ExamplesSmoke/README.md) files
+  document which side to edit for any given change.
 
 ## Development setup
 
