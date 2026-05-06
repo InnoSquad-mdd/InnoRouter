@@ -28,7 +28,7 @@ struct GenericEnumDiagnosticTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@Routable does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum.",
+                    message: "[InnoRouterMacro.E003] @Routable does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum.",
                     line: 2,
                     column: 13
                 )
@@ -53,7 +53,7 @@ struct GenericEnumDiagnosticTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@Routable does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum.",
+                    message: "[InnoRouterMacro.E003] @Routable does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum.",
                     line: 2,
                     column: 17
                 )
@@ -78,7 +78,7 @@ struct GenericEnumDiagnosticTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@CasePathable does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum.",
+                    message: "[InnoRouterMacro.E003] @CasePathable does not support generic enum declarations. Generic parameters cannot be propagated through the generated `CasePath` members. Consider separating generic cases into a non-generic wrapper enum.",
                     line: 2,
                     column: 21
                 )

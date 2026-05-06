@@ -62,7 +62,9 @@ private let smokeSources: [String] = [
 /// Build a per-file `Examples/` target. The exclude list is
 /// derived from `exampleSources` so adding a new example only
 /// requires appending its file name to `exampleSources` and adding
-/// one `exampleTarget(...)` call here.
+/// one `exampleTarget(...)` call here. `README.md` is excluded
+/// explicitly because SwiftPM otherwise warns about unhandled files
+/// when a contributor-facing README sits in the source path.
 private func exampleTarget(
     name: String,
     source: String
@@ -71,7 +73,7 @@ private func exampleTarget(
         name: name,
         dependencies: ["InnoRouter", "InnoRouterMacros"],
         path: "Examples",
-        exclude: exampleSources.filter { $0 != source },
+        exclude: exampleSources.filter { $0 != source } + ["README.md"],
         sources: [source],
         swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
     )
@@ -79,6 +81,7 @@ private func exampleTarget(
 
 /// Build a per-file `ExamplesSmoke/` target. Used only for the
 /// solo smokes whose top-level symbols collide with another smoke.
+/// `README.md` is excluded for the same reason as `exampleTarget`.
 private func soloSmokeTarget(
     name: String,
     source: String
@@ -87,7 +90,7 @@ private func soloSmokeTarget(
         name: name,
         dependencies: ["InnoRouter"],
         path: "ExamplesSmoke",
-        exclude: smokeSources.filter { $0 != source },
+        exclude: smokeSources.filter { $0 != source } + ["README.md"],
         sources: [source],
         swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
     )
@@ -276,7 +279,7 @@ let package = Package(
             name: "InnoRouterExamplesSmoke",
             dependencies: ["InnoRouter", "InnoRouterMacros"],
             path: "ExamplesSmoke",
-            exclude: soloSmokeSources,
+            exclude: soloSmokeSources + ["README.md"],
             sources: smokeSources.filter { !soloSmokeSources.contains($0) },
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),

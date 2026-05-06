@@ -153,6 +153,16 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
     /// ``EventBufferingPolicy/unbounded`` when a deterministic test harness
     /// needs every emitted event.
     public var eventBufferingPolicy: EventBufferingPolicy
+    /// Policy applied to ``ModalStore/queuedPresentations`` when a
+    /// ``ModalMiddleware`` cancels a command.
+    ///
+    /// Defaults to ``ModalQueueCancellationPolicy/preserve`` — the
+    /// historical 4.x behaviour. Switch to ``ModalQueueCancellationPolicy/dropQueued``
+    /// or supply a ``ModalQueueCancellationPolicy/custom(_:)`` closure
+    /// when an app interprets a cancelled command as also voiding the
+    /// queued backlog. The active presentation is never touched by this
+    /// policy — it only governs the queue.
+    public var queueCancellationPolicy: ModalQueueCancellationPolicy<M>
 
     /// Creates a modal store configuration.
     public init(
@@ -165,7 +175,8 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
         onQueueChanged: (@MainActor @Sendable ([ModalPresentation<M>], [ModalPresentation<M>]) -> Void)? = nil,
         onMiddlewareMutation: (@MainActor @Sendable (ModalMiddlewareMutationEvent<M>) -> Void)? = nil,
         onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)? = nil,
-        eventBufferingPolicy: EventBufferingPolicy = .default
+        eventBufferingPolicy: EventBufferingPolicy = .default,
+        queueCancellationPolicy: ModalQueueCancellationPolicy<M> = .preserve
     ) {
         self.logger = logger
         self.telemetrySink = telemetrySink
@@ -177,5 +188,6 @@ public struct ModalStoreConfiguration<M: Route>: Sendable {
         self.onMiddlewareMutation = onMiddlewareMutation
         self.onCommandIntercepted = onCommandIntercepted
         self.eventBufferingPolicy = eventBufferingPolicy
+        self.queueCancellationPolicy = queueCancellationPolicy
     }
 }

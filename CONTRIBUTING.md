@@ -23,7 +23,10 @@ maintainers to apply to your contribution.
   PRs do not require a CHANGELOG entry.
 - **Improve a smoke fixture.** `ExamplesSmoke/*.swift` is the
   compiler-stable surface that CI guards. Adding coverage there is
-  one of the highest-leverage contributions.
+  one of the highest-leverage contributions. The
+  [`Examples/README.md`](Examples/README.md) and
+  [`ExamplesSmoke/README.md`](ExamplesSmoke/README.md) files
+  document which side to edit for any given change.
 
 ## Development setup
 
@@ -65,9 +68,10 @@ If your PR touches the public surface:
 
 1. Update the matching `Baselines/PublicAPI/<Module>.txt` in the same
    commit. The principle-gates baseline diff is intentional.
-2. Add a `## 3.x.y (unreleased)` entry to [`CHANGELOG.md`](CHANGELOG.md)
-   under the right header (`### Added` / `### Changed` / `### Fixed` /
-   `### Removed`).
+2. Drop a changelog fragment under `.changes/<slug>.<category>.md`
+   instead of editing `CHANGELOG.md` directly — see
+   [`.changes/README.md`](.changes/README.md) for the format and
+   categories. The release process collates fragments at cut time.
 3. Update the relevant DocC article under the affected
    `Sources/*/*.docc` catalog if the change affects how a feature is
    *used*, not just *named*. Create an `Articles/` directory in that

@@ -7,7 +7,7 @@ import Foundation
 import Synchronization
 import InnoRouter
 import InnoRouterCore
-@_spi(FlowStoreInternals) @testable import InnoRouterSwiftUI
+@testable import InnoRouterSwiftUI
 
 private enum PersistRoute: String, Route, Codable {
     case root

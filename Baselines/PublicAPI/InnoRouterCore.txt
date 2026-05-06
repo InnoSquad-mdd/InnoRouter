@@ -7,6 +7,9 @@ relationship | conformsTo | AnyModalMiddleware | ModalMiddleware |  |
 relationship | conformsTo | AnyNavigationMiddleware | NavigationMiddleware |  |
 relationship | conformsTo | AnyNavigator | NavigationCommandExecutor |  |
 relationship | conformsTo | AnyNavigator | NavigationStateReader |  |
+relationship | conformsTo | NavigationBatchResult | NavigationExecutionResult |  |
+relationship | conformsTo | NavigationTransactionResult | NavigationExecutionResult |  |
+relationship | defaultImplementationOf | AsyncNavigationMiddleware.didExecute(_:result:state:) | AsyncNavigationMiddleware.didExecute(_:result:state:) |  |
 relationship | memberOf | AnyBatchNavigator.RouteType | AnyBatchNavigator |  |
 relationship | memberOf | AnyBatchNavigator.execute(_:) | AnyBatchNavigator |  |
 relationship | memberOf | AnyBatchNavigator.executeBatch(_:stopOnFailure:) | AnyBatchNavigator |  |
@@ -70,6 +73,7 @@ relationship | memberOf | ModalCommand.present(_:) | ModalCommand |  |
 relationship | memberOf | ModalCommand.replaceCurrent(_:) | ModalCommand |  |
 relationship | memberOf | ModalDismissalReason.dismiss | ModalDismissalReason |  |
 relationship | memberOf | ModalDismissalReason.dismissAll | ModalDismissalReason |  |
+relationship | memberOf | ModalDismissalReason.middlewareCancelled(reasonDescription:) | ModalDismissalReason |  |
 relationship | memberOf | ModalDismissalReason.systemDismiss | ModalDismissalReason |  |
 relationship | memberOf | ModalInterception.cancel(_:) | ModalInterception |  |
 relationship | memberOf | ModalInterception.proceed(_:) | ModalInterception |  |
@@ -123,6 +127,7 @@ relationship | memberOf | NavigationTransactionResult.executedCommands | Navigat
 relationship | memberOf | NavigationTransactionResult.failureIndex | NavigationTransactionResult |  |
 relationship | memberOf | NavigationTransactionResult.init(requestedCommands:executedCommands:results:stateBefore:stateAfter:failureIndex:isCommitted:) | NavigationTransactionResult |  |
 relationship | memberOf | NavigationTransactionResult.isCommitted | NavigationTransactionResult |  |
+relationship | memberOf | NavigationTransactionResult.isSuccess | NavigationTransactionResult |  |
 relationship | memberOf | NavigationTransactionResult.requestedCommands | NavigationTransactionResult |  |
 relationship | memberOf | NavigationTransactionResult.results | NavigationTransactionResult |  |
 relationship | memberOf | NavigationTransactionResult.stateAfter | NavigationTransactionResult |  |
@@ -180,6 +185,9 @@ relationship | memberOf | VolumetricSize.init(x:y:z:) | VolumetricSize |  |
 relationship | memberOf | VolumetricSize.x | VolumetricSize |  |
 relationship | memberOf | VolumetricSize.y | VolumetricSize |  |
 relationship | memberOf | VolumetricSize.z | VolumetricSize |  |
+relationship | requirementOf | AsyncNavigationMiddleware.RouteType | AsyncNavigationMiddleware |  |
+relationship | requirementOf | AsyncNavigationMiddleware.didExecute(_:result:state:) | AsyncNavigationMiddleware |  |
+relationship | requirementOf | AsyncNavigationMiddleware.willExecute(_:state:) | AsyncNavigationMiddleware |  |
 relationship | requirementOf | FlowPlanApplier.RouteType | FlowPlanApplier |  |
 relationship | requirementOf | FlowPlanApplier.apply(_:) | FlowPlanApplier |  |
 relationship | requirementOf | ModalMiddleware.RouteType | ModalMiddleware |  |
@@ -189,6 +197,13 @@ relationship | requirementOf | NavigationBatchExecutor.RouteType | NavigationBat
 relationship | requirementOf | NavigationBatchExecutor.executeBatch(_:stopOnFailure:) | NavigationBatchExecutor |  |
 relationship | requirementOf | NavigationCommandExecutor.RouteType | NavigationCommandExecutor |  |
 relationship | requirementOf | NavigationCommandExecutor.execute(_:) | NavigationCommandExecutor |  |
+relationship | requirementOf | NavigationExecutionResult.R | NavigationExecutionResult |  |
+relationship | requirementOf | NavigationExecutionResult.executedCommands | NavigationExecutionResult |  |
+relationship | requirementOf | NavigationExecutionResult.isSuccess | NavigationExecutionResult |  |
+relationship | requirementOf | NavigationExecutionResult.requestedCommands | NavigationExecutionResult |  |
+relationship | requirementOf | NavigationExecutionResult.results | NavigationExecutionResult |  |
+relationship | requirementOf | NavigationExecutionResult.stateAfter | NavigationExecutionResult |  |
+relationship | requirementOf | NavigationExecutionResult.stateBefore | NavigationExecutionResult |  |
 relationship | requirementOf | NavigationMiddleware.RouteType | NavigationMiddleware |  |
 relationship | requirementOf | NavigationMiddleware.didExecute(_:result:state:) | NavigationMiddleware |  |
 relationship | requirementOf | NavigationMiddleware.willExecute(_:state:) | NavigationMiddleware |  |
@@ -196,10 +211,12 @@ relationship | requirementOf | NavigationStateReader.RouteType | NavigationState
 relationship | requirementOf | NavigationStateReader.state | NavigationStateReader |  |
 relationship | requirementOf | NavigationTransactionExecutor.RouteType | NavigationTransactionExecutor |  |
 relationship | requirementOf | NavigationTransactionExecutor.executeTransaction(_:) | NavigationTransactionExecutor |  |
+symbol | swift.associatedtype | AsyncNavigationMiddleware.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | FlowPlanApplier.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | ModalMiddleware.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationBatchExecutor.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationCommandExecutor.RouteType | RouteType | associatedtype RouteType : Route | []
+symbol | swift.associatedtype | NavigationExecutionResult.R | R | associatedtype R : Route | []
 symbol | swift.associatedtype | NavigationMiddleware.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationStateReader.RouteType | RouteType | associatedtype RouteType : Route | []
 symbol | swift.associatedtype | NavigationTransactionExecutor.RouteType | RouteType | associatedtype RouteType : Route | []
@@ -246,6 +263,7 @@ symbol | swift.enum.case | ModalCommand.present(_:) | ModalCommand.present(_:) |
 symbol | swift.enum.case | ModalCommand.replaceCurrent(_:) | ModalCommand.replaceCurrent(_:) | case replaceCurrent(ModalPresentation<M>) | []
 symbol | swift.enum.case | ModalDismissalReason.dismiss | ModalDismissalReason.dismiss | case dismiss | []
 symbol | swift.enum.case | ModalDismissalReason.dismissAll | ModalDismissalReason.dismissAll | case dismissAll | []
+symbol | swift.enum.case | ModalDismissalReason.middlewareCancelled(reasonDescription:) | ModalDismissalReason.middlewareCancelled(reasonDescription:) | case middlewareCancelled(reasonDescription: String) | []
 symbol | swift.enum.case | ModalDismissalReason.systemDismiss | ModalDismissalReason.systemDismiss | case systemDismiss | []
 symbol | swift.enum.case | ModalInterception.cancel(_:) | ModalInterception.cancel(_:) | case cancel(ModalCancellationReason<M>) | []
 symbol | swift.enum.case | ModalInterception.proceed(_:) | ModalInterception.proceed(_:) | case proceed(ModalCommand<M>) | []
@@ -337,6 +355,8 @@ symbol | swift.method | AnyNavigator.pop() | pop() | @discardableResult @MainAct
 symbol | swift.method | AnyNavigator.popToRoot() | popToRoot() | @discardableResult @MainActor func popToRoot() -> NavigationResult<R> | []
 symbol | swift.method | AnyNavigator.push(_:) | push(_:) | @discardableResult @MainActor func push(_ route: R) -> NavigationResult<R> | []
 symbol | swift.method | AnyNavigator.replace(with:) | replace(with:) | @discardableResult @MainActor func replace(with routes: [R]) -> NavigationResult<R> | []
+symbol | swift.method | AsyncNavigationMiddleware.didExecute(_:result:state:) | didExecute(_:result:state:) | @MainActor func didExecute(_ command: NavigationCommand<Self.RouteType>, result: NavigationResult<Self.RouteType>, state: RouteStack<Self.RouteType>) async -> NavigationResult<Self.RouteType> | []
+symbol | swift.method | AsyncNavigationMiddleware.willExecute(_:state:) | willExecute(_:state:) | @MainActor func willExecute(_ command: NavigationCommand<Self.RouteType>, state: RouteStack<Self.RouteType>) async -> NavigationInterception<Self.RouteType> | []
 symbol | swift.method | CasePath.appending(path:) | appending(path:) | func appending<AppendedValue>(path: CasePath<Value, AppendedValue>) -> CasePath<Root, AppendedValue> | []
 symbol | swift.method | CasePath.callAsFunction() | callAsFunction() | func callAsFunction() -> Root | []
 symbol | swift.method | FlowPlanApplier.apply(_:) | apply(_:) | @MainActor func apply(_ plan: FlowPlan<Self.RouteType>) -> FlowPlanApplyResult<Self.RouteType> | []
@@ -374,6 +394,12 @@ symbol | swift.property | NavigationBatchResult.results | results | let results:
 symbol | swift.property | NavigationBatchResult.stateAfter | stateAfter | let stateAfter: RouteStack<R> | []
 symbol | swift.property | NavigationBatchResult.stateBefore | stateBefore | let stateBefore: RouteStack<R> | []
 symbol | swift.property | NavigationCancellationReason.localizedDescription | localizedDescription | var localizedDescription: String { get } | []
+symbol | swift.property | NavigationExecutionResult.executedCommands | executedCommands | var executedCommands: [NavigationCommand<Self.R>] { get } | []
+symbol | swift.property | NavigationExecutionResult.isSuccess | isSuccess | var isSuccess: Bool { get } | []
+symbol | swift.property | NavigationExecutionResult.requestedCommands | requestedCommands | var requestedCommands: [NavigationCommand<Self.R>] { get } | []
+symbol | swift.property | NavigationExecutionResult.results | results | var results: [NavigationResult<Self.R>] { get } | []
+symbol | swift.property | NavigationExecutionResult.stateAfter | stateAfter | var stateAfter: RouteStack<Self.R> { get } | []
+symbol | swift.property | NavigationExecutionResult.stateBefore | stateBefore | var stateBefore: RouteStack<Self.R> { get } | []
 symbol | swift.property | NavigationResult.isEngineFailure | isEngineFailure | var isEngineFailure: Bool { get } | []
 symbol | swift.property | NavigationResult.isMiddlewareCancellation | isMiddlewareCancellation | var isMiddlewareCancellation: Bool { get } | []
 symbol | swift.property | NavigationResult.isSuccess | isSuccess | var isSuccess: Bool { get } | []
@@ -382,6 +408,7 @@ symbol | swift.property | NavigationStateReader.state | state | @MainActor var s
 symbol | swift.property | NavigationTransactionResult.executedCommands | executedCommands | let executedCommands: [NavigationCommand<R>] | []
 symbol | swift.property | NavigationTransactionResult.failureIndex | failureIndex | let failureIndex: Int? | []
 symbol | swift.property | NavigationTransactionResult.isCommitted | isCommitted | let isCommitted: Bool | []
+symbol | swift.property | NavigationTransactionResult.isSuccess | isSuccess | var isSuccess: Bool { get } | []
 symbol | swift.property | NavigationTransactionResult.requestedCommands | requestedCommands | let requestedCommands: [NavigationCommand<R>] | []
 symbol | swift.property | NavigationTransactionResult.results | results | let results: [NavigationResult<R>] | []
 symbol | swift.property | NavigationTransactionResult.stateAfter | stateAfter | let stateAfter: RouteStack<R> | []
@@ -395,10 +422,12 @@ symbol | swift.property | RouteStep.route | route | var route: R { get } | []
 symbol | swift.property | VolumetricSize.x | x | let x: Double | []
 symbol | swift.property | VolumetricSize.y | y | let y: Double | []
 symbol | swift.property | VolumetricSize.z | z | let z: Double | []
+symbol | swift.protocol | AsyncNavigationMiddleware | AsyncNavigationMiddleware | @MainActor protocol AsyncNavigationMiddleware<RouteType> : Sendable | []
 symbol | swift.protocol | FlowPlanApplier | FlowPlanApplier | @MainActor protocol FlowPlanApplier<RouteType> : AnyObject, Sendable | []
 symbol | swift.protocol | ModalMiddleware | ModalMiddleware | @MainActor protocol ModalMiddleware | []
 symbol | swift.protocol | NavigationBatchExecutor | NavigationBatchExecutor | @MainActor protocol NavigationBatchExecutor : AnyObject | []
 symbol | swift.protocol | NavigationCommandExecutor | NavigationCommandExecutor | @MainActor protocol NavigationCommandExecutor : AnyObject | []
+symbol | swift.protocol | NavigationExecutionResult | NavigationExecutionResult | protocol NavigationExecutionResult<R> : Equatable, Sendable | []
 symbol | swift.protocol | NavigationMiddleware | NavigationMiddleware | @MainActor protocol NavigationMiddleware<RouteType> | []
 symbol | swift.protocol | NavigationStateReader | NavigationStateReader | @MainActor protocol NavigationStateReader : AnyObject | []
 symbol | swift.protocol | NavigationTransactionExecutor | NavigationTransactionExecutor | @MainActor protocol NavigationTransactionExecutor : AnyObject | []

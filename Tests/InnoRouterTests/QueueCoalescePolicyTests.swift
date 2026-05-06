@@ -19,7 +19,7 @@ import Testing
 
 import InnoRouter
 import InnoRouterCore
-@_spi(FlowStoreInternals) import InnoRouterSwiftUI
+@testable import InnoRouterSwiftUI
 
 private enum QueueRoute: Route {
     case home

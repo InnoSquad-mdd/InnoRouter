@@ -28,6 +28,7 @@ private final class ProbeChild: ChildCoordinator {
 
     var onFinish: (@MainActor @Sendable (String) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals: LifecycleSignals = LifecycleSignals()
 }
 
 @MainActor

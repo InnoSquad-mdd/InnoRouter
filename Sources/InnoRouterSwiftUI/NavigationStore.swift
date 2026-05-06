@@ -16,8 +16,14 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     private let onTransactionExecuted: (@MainActor @Sendable (NavigationTransactionResult<R>) -> Void)?
     private let telemetrySink: NavigationStoreTelemetrySink<R>
     private let observationTelemetrySink: AnyNavigationTelemetrySink<R>?
-    private let middlewareRegistry: NavigationMiddlewareRegistry<R>
-    private let pathReconciler: NavigationPathReconciler<R>
+    // `middlewareRegistry` is `internal` rather than `private`
+    // because middleware management methods live in
+    // `NavigationStore+Middleware.swift`.
+    internal let middlewareRegistry: NavigationMiddlewareRegistry<R>
+    // Reconciler is type-erased to the protocol so callers can
+    // inject their own conformance via
+    // `NavigationStoreConfiguration.pathReconciler`.
+    private let pathReconciler: any NavigationPathReconciling<R>
     private let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
     private let pathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void
     private let broadcaster: EventBroadcaster<NavigationEvent<R>>
@@ -109,7 +115,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.telemetrySink = telemetrySink
         self.observationTelemetrySink = observationTelemetrySink
         self.middlewareRegistry = middlewareRegistry
-        self.pathReconciler = NavigationPathReconciler()
+        self.pathReconciler = configuration.pathReconciler
         self.broadcaster = broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
@@ -168,7 +174,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.telemetrySink = telemetrySink
         self.observationTelemetrySink = observationTelemetrySink
         self.middlewareRegistry = middlewareRegistry
-        self.pathReconciler = NavigationPathReconciler()
+        self.pathReconciler = configuration.pathReconciler
         self.broadcaster = broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
@@ -235,41 +241,8 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
-    @discardableResult
-    public func addMiddleware(
-        _ middleware: AnyNavigationMiddleware<R>,
-        debugName: String? = nil
-    ) -> NavigationMiddlewareHandle {
-        middlewareRegistry.add(middleware, debugName: debugName)
-    }
-
-    @discardableResult
-    public func insertMiddleware(
-        _ middleware: AnyNavigationMiddleware<R>,
-        at index: Int,
-        debugName: String? = nil
-    ) -> NavigationMiddlewareHandle {
-        middlewareRegistry.insert(middleware, at: index, debugName: debugName)
-    }
-
-    @discardableResult
-    public func removeMiddleware(_ handle: NavigationMiddlewareHandle) -> AnyNavigationMiddleware<R>? {
-        middlewareRegistry.remove(handle)
-    }
-
-    @discardableResult
-    public func replaceMiddleware(
-        _ handle: NavigationMiddlewareHandle,
-        with middleware: AnyNavigationMiddleware<R>,
-        debugName: String? = nil
-    ) -> Bool {
-        middlewareRegistry.replace(handle, with: middleware, debugName: debugName)
-    }
-
-    @discardableResult
-    public func moveMiddleware(_ handle: NavigationMiddlewareHandle, to index: Int) -> Bool {
-        middlewareRegistry.move(handle, to: index)
-    }
+    // Note: middleware CRUD (add/insert/remove/replace/move) lives
+    // in `NavigationStore+Middleware.swift`.
 
     @discardableResult
     public func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> {
@@ -406,86 +379,11 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
-    public func send(_ intent: NavigationIntent<R>) {
-        switch intent {
-        case .go(let route):
-            _ = execute(.push(route))
-        case .goMany(let routes):
-            switch routes.count {
-            case 0:
-                return
-            case 1:
-                _ = execute(.push(routes[0]))
-            default:
-                _ = executeBatch(routes.map(NavigationCommand.push), stopOnFailure: false)
-            }
-        case .back:
-            _ = execute(.pop)
-        case .backBy(let count):
-            if count > 0, count == state.path.count {
-                _ = execute(.popToRoot)
-            } else {
-                _ = execute(.popCount(count))
-            }
-        case .backTo(let route):
-            _ = execute(.popTo(route))
-        case .backToRoot:
-            _ = execute(.popToRoot)
-        case .replaceStack(let routes):
-            _ = execute(.replace(routes))
-        case .backOrPush(let route):
-            if state.path.contains(route) {
-                _ = execute(.popTo(route))
-            } else {
-                _ = execute(.push(route))
-            }
-        case .pushUniqueRoot(let route):
-            if !state.path.contains(route) {
-                _ = execute(.push(route))
-            }
-        }
-    }
+    // Note: send(_:) and commands(for:) live in
+    // `NavigationStore+Intent.swift`.
 
-    public var pathBinding: Binding<[R]> {
-        Binding(
-            get: { self.state.path },
-            set: { newPath in
-                self.reconcileNavigationPath(with: newPath)
-            }
-        )
-    }
-
-    /// A binding that reflects the top-of-stack route when it matches the given case.
-    ///
-    /// Writing a non-nil value pushes the embedded route through the regular command
-    /// pipeline when the active destination is a different case. When the top
-    /// route already matches the case, the binding replaces that top route in
-    /// place instead of pushing a duplicate screen. Writing `nil` pops the top
-    /// route only when it currently matches the case — other stack states are
-    /// left untouched.
-    public func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> {
-        Binding(
-            get: { [weak self] in
-                self?.state.path.last.flatMap(casePath.extract)
-            },
-            set: { [weak self] newValue in
-                guard let self else { return }
-                if let value = newValue {
-                    let route = casePath.embed(value)
-                    if let currentRoute = self.state.path.last,
-                       casePath.extract(currentRoute) != nil {
-                        guard currentRoute != route else { return }
-                        let replacementPath = Array(self.state.path.dropLast()) + [route]
-                        _ = self.execute(.replace(replacementPath))
-                    } else {
-                        _ = self.execute(.push(route))
-                    }
-                } else if self.state.path.last.flatMap(casePath.extract) != nil {
-                    _ = self.execute(.pop)
-                }
-            }
-        )
-    }
+    // Note: pathBinding, pathBinding(policy:), and binding(case:)
+    // live in `NavigationStore+Binding.swift`.
 
     func previewFlowCommand(_ command: NavigationCommand<R>) -> NavigationExecutionJournal<R> {
         previewFlowCommand(command, from: state)
@@ -527,13 +425,24 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         }
     }
 
-    private func reconcileNavigationPath(with newPath: [R]) {
+    // `reconcileNavigationPath` is `internal` rather than `private`
+    // because the binding helpers live in
+    // `NavigationStore+Binding.swift`. Access stays within the
+    // InnoRouterSwiftUI module.
+    internal func reconcileNavigationPath(
+        with newPath: [R],
+        policyOverride: NavigationPathMismatchPolicy<R>? = nil
+    ) {
         pathReconciler.reconcile(
             from: state.path,
             to: newPath,
             resolveMismatch: { [weak self] oldPath, newPath in
                 guard let self else { return .single(.replace(newPath)) }
-                return self.resolvePathMismatch(from: oldPath, to: newPath)
+                return self.resolvePathMismatch(
+                    from: oldPath,
+                    to: newPath,
+                    policyOverride: policyOverride
+                )
             },
             execute: { [weak self] command in
                 guard let self else { return }
@@ -663,12 +572,14 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
 
     private func resolvePathMismatch(
         from oldPath: [R],
-        to newPath: [R]
+        to newPath: [R],
+        policyOverride: NavigationPathMismatchPolicy<R>? = nil
     ) -> NavigationPathMismatchResolution<R> {
         let policy: NavigationStoreTelemetryEvent<R>.PathMismatchPolicy
         let resolution: NavigationPathMismatchResolution<R>
 
-        switch pathMismatchPolicy {
+        let effectivePolicy = policyOverride ?? pathMismatchPolicy
+        switch effectivePolicy {
         case .replace:
             policy = .replace
             resolution = .single(.replace(newPath))

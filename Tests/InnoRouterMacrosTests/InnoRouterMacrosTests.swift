@@ -560,7 +560,7 @@ struct RoutableMacroTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@Routable can only be applied to enum declarations",
+                    message: "[InnoRouterMacro.E001] @Routable can only be applied to enum declarations",
                     line: 1,
                     column: 1,
                     fixIts: [FixItSpec(message: "Change `struct` to `enum`")]
@@ -587,7 +587,7 @@ struct RoutableMacroTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@Routable applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro",
+                    message: "[InnoRouterMacro.E002] @Routable applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro",
                     line: 1,
                     column: 1,
                     severity: .error
@@ -886,7 +886,7 @@ struct CasePathableMacroTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@CasePathable can only be applied to enum declarations",
+                    message: "[InnoRouterMacro.E001] @CasePathable can only be applied to enum declarations",
                     line: 1,
                     column: 1,
                     fixIts: [FixItSpec(message: "Change `class` to `enum`")]
@@ -910,7 +910,7 @@ struct CasePathableMacroTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@CasePathable applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro",
+                    message: "[InnoRouterMacro.E002] @CasePathable applied to an enum with no cases produces no case paths — consider adding at least one case or removing the macro",
                     line: 1,
                     column: 1,
                     severity: .error

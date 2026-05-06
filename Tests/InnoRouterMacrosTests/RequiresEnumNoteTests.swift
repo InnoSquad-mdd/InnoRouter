@@ -27,7 +27,7 @@ struct RequiresEnumNoteTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@Routable can only be applied to enum declarations",
+                    message: "[InnoRouterMacro.E001] @Routable can only be applied to enum declarations",
                     line: 1,
                     column: 1,
                     notes: [
@@ -58,7 +58,7 @@ struct RequiresEnumNoteTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@Routable can only be applied to enum declarations",
+                    message: "[InnoRouterMacro.E001] @Routable can only be applied to enum declarations",
                     line: 1,
                     column: 1,
                     notes: [
@@ -89,7 +89,7 @@ struct RequiresEnumNoteTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@CasePathable can only be applied to enum declarations",
+                    message: "[InnoRouterMacro.E001] @CasePathable can only be applied to enum declarations",
                     line: 1,
                     column: 1,
                     notes: [
@@ -120,7 +120,7 @@ struct RequiresEnumNoteTests {
             """,
             diagnostics: [
                 DiagnosticSpec(
-                    message: "@Routable can only be applied to enum declarations",
+                    message: "[InnoRouterMacro.E001] @Routable can only be applied to enum declarations",
                     line: 1,
                     column: 1,
                     notes: [],

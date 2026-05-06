@@ -16,6 +16,14 @@ import InnoRouterCore
 
 /// Store that coordinates spatial scene presentations on visionOS.
 ///
+/// > Experimental: ``SceneStore`` and the surrounding spatial scene
+/// > types (``SceneHost``, ``SceneAnchor``, ``ScenePresentation``,
+/// > ``SceneIntent``, ``SceneEvent``) are currently outside the 4.x
+/// > SemVer additive guarantee. Shape and behavior may change between
+/// > minor releases until the surface graduates. Apps adopting it
+/// > should pin to an exact 4.x release until the experimental marker
+/// > is removed.
+///
 /// ``SceneStore`` owns the app's spatial scene inventory and publishes
 /// open/dismiss intents that a ``SceneHost`` view translates into
 /// SwiftUI environment actions (`openWindow`, `openImmersiveSpace`,

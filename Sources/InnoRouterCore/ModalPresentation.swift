@@ -38,6 +38,14 @@ public struct ModalPresentation<M: Route>: Identifiable, Sendable, Hashable {
 }
 
 /// Reason surfaced when the active modal presentation is dismissed.
+///
+/// Producers of dismissal events should use the most specific case
+/// available so analytics and lifecycle telemetry stay informative.
+/// `.systemDismiss` is the default fallback for dismissals that
+/// arrive from the SwiftUI environment without a routed cause —
+/// using it for genuinely middleware-driven dismissals (where a
+/// `ModalMiddleware` cancelled the active presentation) buries an
+/// otherwise actionable signal.
 public enum ModalDismissalReason: Sendable, Equatable {
     /// Dismissed by an explicit `dismiss` intent.
     case dismiss
@@ -45,4 +53,11 @@ public enum ModalDismissalReason: Sendable, Equatable {
     case dismissAll
     /// Dismissed by the system, such as swipe-to-dismiss.
     case systemDismiss
+    /// Dismissed because a `ModalMiddleware` cancelled the active
+    /// presentation through the standard interception pipeline.
+    /// The associated reason carries the typed cancellation source
+    /// (middleware debug name, condition failure, custom string) so
+    /// analytics can distinguish a user dismissal from a policy-
+    /// driven one.
+    case middlewareCancelled(reasonDescription: String)
 }

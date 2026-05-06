@@ -24,6 +24,17 @@ public enum NavigationIntent<R: Route>: Sendable, Equatable {
     case pushUniqueRoot(R)
 }
 
+/// View-layer coordinator that owns a navigation store, dispatches
+/// intents, and renders destinations.
+///
+/// > Lifecycle: A `Coordinator` may opt into the cross-cutting
+/// > ``LifecycleAware`` capability to expose teardown hooks via the
+/// > shared ``LifecycleSignals`` bag. Adopting `LifecycleAware`
+/// > lets host code fire `lifecycleSignals.fireTeardown()` when the
+/// > coordinator is being released so transient state can be
+/// > cancelled. `ChildCoordinator` inherits `LifecycleAware`
+/// > unconditionally because the parent push helper drives
+/// > `onParentCancel` through it.
 @MainActor
 public protocol Coordinator: AnyObject, Observable {
     associatedtype RouteType: Route

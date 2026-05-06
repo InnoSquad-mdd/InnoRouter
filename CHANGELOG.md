@@ -4,15 +4,197 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
-## 4.1.0 - 2026-05-04
+## 4.1.0 (unreleased)
 
-4.1.0 is a breaking pre-adoption cleanup release. It keeps the
-`4.0.0` tag available as the first OSS snapshot, but new apps should
-start from this line: unused dispatcher-object APIs are removed,
-effect observation moves to event streams, deep-link admission is
-stricter, and restoration/telemetry surfaces are explicit.
+4.1.0 is the consolidated pre-adoption cleanup release. It folds
+the original 4.1.0 baseline (DeepLinkInputLimits, structured
+telemetry sinks, dispatcher-object cleanup, etc.) together with
+the routing-surface refresh: documentation foundation,
+concurrency / macro test scaffolding, the additive API surface
+that fills the most acute 4.0.x gaps, and the breaking changes
+that wire up the new injection / capability seams. All of it
+ships together because 4.0.x was the only public OSS snapshot
+and there are no production adopters yet — folding the work
+into one tag avoids cutting two consecutive churn-heavy
+releases.
+
+This is a one-time pre-adoption exception that folds breaking
+changes into a minor bump; additive-only SemVer guarantees resume
+from the 5.0 line onward.
+
+The migration is documented inline in this entry. Adopters who
+ran the pre-OSS `4.0.0` snapshot follow the diffs under
+"Removed" and "Changed" below; 4.0.x → 4.1.0 is a single hop.
 
 ### Added
+
+- `Docs/CI-gates.md` — single-page reference for every gate run
+  by `scripts/principle-gates.sh`, with purpose, failure signal,
+  and local repro command per gate.
+- `Docs/StoreSelectionGuide.md` — decision tree plus four worked
+  examples (single push stack, push + independent modal, atomic
+  URL → push + modal, iPad split) for new adopters choosing
+  between `NavigationStore`, `ModalStore`, `FlowStore`, and the
+  experimental `SceneStore`.
+- `Examples/README.md` and `ExamplesSmoke/README.md` documenting
+  Examples ↔ ExamplesSmoke parity rules and the macro-free
+  constraint on smoke fixtures.
+- `Tests/InnoRouterPlatformTests/SceneStoreVisionOSTests.swift` —
+  visionOS-only platform suite pinning the spatial scene public
+  envelope (handle accounting, ScenePresentation case shape,
+  open/dismiss lifecycle).
+- `Tests/InnoRouterMacrosBehaviorTests/MacroPerformanceTests.swift`
+  with 10/50/100-case `@Routable` fixtures — runtime CasePath
+  baseline and a coarse 1,000-iteration budget at N=100.
+- `Tests/InnoRouterTests/Concurrency/StoreRaceStressTests.swift`
+  — TaskGroup race stress for path consistency, event fan-out
+  under burst, and multi-subscriber parity on `NavigationStore`.
+- `NavigationExecutionResult<R>` protocol unifying the shared
+  shape of `NavigationBatchResult` and `NavigationTransactionResult`.
+  `NavigationTransactionResult.isSuccess` is added as a thin alias
+  for `isCommitted` to satisfy the protocol's predicate.
+- `NavigationStore.pathBinding(policy:)` overload — per-call
+  override of `NavigationPathMismatchPolicy` for one binding
+  site without flipping the store-wide configuration.
+- `ModalDismissalReason.middlewareCancelled(reasonDescription:)`
+  case so middleware-driven dismissals are no longer bucketed
+  into `.systemDismiss` for analytics.
+- Stable error codes (`InnoRouterMacro.E001` / `E002` / `E003`)
+  prefixed onto every `@Routable` / `@CasePathable` diagnostic
+  message, so build logs and localized release notes stay
+  searchable across translations.
+- `.changes/` directory holding per-PR changelog fragments;
+  contributors drop `<slug>.<category>.md` files instead of
+  editing this file directly.
+- `AsyncNavigationMiddleware<R>` protocol (in `InnoRouterCore`)
+  and `AsyncNavigationMiddlewareExecutor<R>` (in
+  `InnoRouterSwiftUI`) — opt-in async middleware slot layered
+  around the synchronous `NavigationStore.execute(_:)`. Stages
+  run in insertion order on `willExecute`, reverse order on
+  `didExecute`. Cancellation short-circuits with a typed reason.
+  The synchronous engine and `NavigationStore.execute(_:)` keep
+  their existing shape; apps that don't add async middleware see
+  no behavioral difference.
+- `ModalQueueCancellationPolicy<M>` and
+  `ModalStoreConfiguration.queueCancellationPolicy` — controls
+  what happens to `ModalStore.queuedPresentations` when a
+  `ModalMiddleware` cancels a command. Defaults to `.preserve`
+  (historical 4.x behaviour). `.dropQueued` and
+  `.custom((command, reason) -> Action)` give standalone
+  ModalStore users the same kind of queue policy that previously
+  only flowed through `FlowStore.QueueCoalescePolicy`.
+- `NavigationStore.commands(for: NavigationIntent<R>) ->
+  [NavigationCommand<R>]` — projects an intent into the concrete
+  command plan that `send(_:)` would execute. `send(_:)` is now
+  implemented in terms of this projection so the two surfaces
+  cannot drift.
+- `NavigationPathReconciling<R>` protocol describing the
+  contract the framework `NavigationPathReconciler<R>` (now
+  public) satisfies. `NavigationStoreConfiguration.pathReconciler`
+  injects a custom conformance — the framework default applies
+  when none is supplied.
+- `LifecycleSignals` value type — bag of optional
+  parent-cancel / teardown callbacks shared across coordinator
+  types.
+- `LifecycleAware` capability protocol — `ChildCoordinator`
+  inherits it unconditionally; `Coordinator`, `FlowCoordinator`,
+  and `TabCoordinator` opt in case-by-case to expose teardown
+  hooks through host code.
+- `FlowStateReading<R>` protocol — public read-only projection of
+  FlowStore-shaped state (`path`, `navigationPath`,
+  `currentModalRoute`, `currentModalPresentation`,
+  `hasModalTail`). Replaces the `@_spi(FlowStoreInternals)`
+  peephole for read-only access.
+
+### Changed
+
+- `FlowStore.isApplyingInternalMutation` is now backed by a depth
+  counter (`mutationDepth: Int`) and surfaced as a computed
+  `Bool`. Reverse-sync guards keep the same shape, but nested
+  invocations no longer silently restore the flag on the inner
+  `defer`. A release-mode `precondition` on counter underflow
+  catches imbalances loudly.
+- `scripts/principle-gates.sh` gains inline section comments
+  documenting each gate's purpose, failure signal, and local
+  repro command.
+- `RELEASING.md` documents the toolchain pin matrix (minimum
+  Xcode, bundled Swift host, package floor, swift-syntax pin,
+  Apple platform floor) in one table.
+- `.swiftlint.yml` enables `file_length` (warning 1800 / error
+  2200) and `type_body_length` (warning 730 / error 900) as
+  catastrophic-regression guardrails. Thresholds sit just above
+  today's largest fixtures so no current file fails.
+- `SceneStore`, `SceneHost`, and the rest of the visionOS spatial
+  scene surface (`SceneAnchor`, `ScenePresentation`,
+  `SceneIntent`, `SceneEvent`, `SceneRegistry`,
+  `SceneDeclaration`) are documented as **experimental** —
+  outside the 4.x SemVer additive guarantee. Apps adopting them
+  should pin to an exact release until the surface graduates.
+  README "Platform support" / "Choosing the right surface"
+  tables carry a `⚠ experimental` marker.
+- README "Imports" table is rewritten to recommend
+  `InnoRouterEffects` (the umbrella) as the canonical import for
+  app-boundary execution helpers. The split products
+  (`InnoRouterNavigationEffects`, `InnoRouterDeepLinkEffects`)
+  stay available for source compatibility and fold into the
+  umbrella in a future major.
+- `ChildCoordinator` requires `lifecycleSignals: LifecycleSignals`.
+  The protocol inherits from the new `LifecycleAware` capability
+  protocol. Adopters add the stored property; the protocol
+  cannot supply a default for a stored requirement.
+  `Coordinator.push(child:)` fires both
+  `lifecycleSignals.fireParentCancel()` and the existing
+  `parentDidCancel()` hook, so adopters can choose closure-style
+  or override-style teardown.
+
+### Refactor
+
+- `Sources/InnoRouterMacrosPlugin/CasePathMemberBuilder.swift`
+  (237 LOC) is split by responsibility into three files:
+  `CasePathEnumIteration.swift` (syntax tree → CasePathEnumCase),
+  `CasePathMemberGeneration.swift` (CasePathEnumCase → rendered
+  source string), and `CasePathMemberBuilder.swift` (entry +
+  diagnostics + orchestration). Helpers widen from `private` to
+  `internal` so the orchestrator can reach them across files;
+  nothing escapes the InnoRouterMacrosPlugin module. No public
+  surface change.
+- `Sources/InnoRouterSwiftUI/NavigationStore.swift` (807 LOC)
+  is split into `NavigationStore.swift` core (~640 LOC) plus
+  `+Intent`, `+Binding`, `+Middleware` extension files.
+- `Sources/InnoRouterSwiftUI/ModalStore.swift` (879 LOC) is
+  split into core (~810 LOC) plus `+Middleware` and `+Binding`
+  extension files.
+- `Sources/InnoRouterSwiftUI/FlowStore.swift` (810 LOC) gets
+  the public `send(_:)` / `apply(_:)` dispatch wrappers moved to
+  `FlowStore+Public.swift`. Deeper splits of the dispatch spine
+  remain in the core for now.
+
+### Internal
+
+- `Package.swift` excludes `Examples/README.md` and
+  `ExamplesSmoke/README.md` from per-file example targets so
+  `-warnings-as-errors` does not surface SwiftPM's "unhandled
+  file" warning on the new contributor docs.
+
+### Removed
+
+- `@_spi(FlowStoreInternals)` peephole removed.
+  `FlowStore.navigationStore` and `FlowStore.modalStore` are plain
+  `internal` properties. Adopters that imported
+  `@_spi(FlowStoreInternals) [@testable] import InnoRouterSwiftUI`
+  switch to plain `@testable import` for tests, or to the public
+  `FlowStateReading` protocol for read-only access from production
+  code. Mutations should flow through `FlowStore.send(_:)` /
+  `FlowStore.apply(_:)`.
+
+### Pre-OSS adoption baseline (folded in)
+
+The remaining sub-sections list the 4.0.x → 4.1.0 surface
+changes that originally targeted a standalone "4.1.0 baseline"
+release. They ship in the same tag as the routing-surface
+refresh above.
+
+#### Added
 
 - `DeepLinkInputLimits` caps absolute URL length, path segment count,
   and query item count before matching. Push-only and flow pipelines
@@ -50,7 +232,7 @@ stricter, and restoration/telemetry surfaces are explicit.
 - The performance smoke report now includes resident memory footprint
   when the platform can provide it.
 
-### Changed
+#### Changed
 
 - Local and CI DocC preview checks now pass `--skip-latest` so preview
   validation does not spend work generating the release-only `latest/`
@@ -71,7 +253,7 @@ stricter, and restoration/telemetry surfaces are explicit.
 - `swiftformat` and `swiftlint` are wired as check-only source gates
   when those tools are present locally or in CI.
 
-### Fixed
+#### Fixed
 
 - `DeepLinkMatcherStrictError.init(diagnostics:)` no longer traps when
   called with an empty diagnostics array. Strict matcher initializers
@@ -84,7 +266,7 @@ stricter, and restoration/telemetry surfaces are explicit.
 - `@CasePathable` generation is more stable for labeled associated
   values that use Swift keywords.
 
-### Removed
+#### Removed
 
 - `NavigationIntent.resetTo` is removed. Use
   `NavigationIntent.replaceStack` for full-stack replacement.

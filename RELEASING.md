@@ -93,6 +93,22 @@ reports Swift 6.3. Treat that as additional validation, not as a raised
 minimum supported Swift version. Raising the Swift floor belongs in a
 major release note.
 
+#### Toolchain pin matrix
+
+| Lever | Current value | Source of truth | Notes |
+| --- | --- | --- | --- |
+| Minimum Xcode for releasing | **26.3** | `xcode-version` in every workflow under `.github/workflows/` | Bumping requires updating every workflow file in the same commit. |
+| Bundled Swift host compiler | Swift 6.3 (with Xcode 26.3) | `swift --version` on the pinned Xcode | Used to validate releases — *not* the supported floor. |
+| Package supported Swift floor | **Swift 6.2** | `swift-tools-version` line in `Package.swift` | Raising belongs in a major release. |
+| `swift-syntax` constraint | `.upToNextMinor(from: "603.0.1")` (i.e. `603.0.x`) | `Package.swift` macro plugin dependency | Allows patch bumps; minor / major bumps require a deliberate audit. |
+| Apple platform floor | iOS 18 / iPadOS 18 / macOS 15 / tvOS 18 / watchOS 11 / visionOS 2 | `platforms` block in `Package.swift` | Raising belongs in a major release. |
+| Macro host availability | macOS only (SwiftSyntax host plugin) | `Tests/InnoRouterMacrosTests`, `Tests/InnoRouterMacrosBehaviorTests` | Linux CI builds the plugin but cannot expand macros. |
+
+To bump the Xcode pin, change `xcode-version` in every workflow file
+in a single commit, regenerate the public-API baseline with the same
+toolchain (`Baselines/PublicAPI` is symbol-graph–sensitive), and rerun
+`./scripts/principle-gates.sh` locally before tagging.
+
 ## What a release publishes
 
 A release tag triggers:

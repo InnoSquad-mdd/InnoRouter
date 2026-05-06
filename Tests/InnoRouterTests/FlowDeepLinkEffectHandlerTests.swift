@@ -6,7 +6,7 @@ import Testing
 import Foundation
 import Synchronization
 import InnoRouter
-@_spi(FlowStoreInternals) import InnoRouterSwiftUI
+@testable import InnoRouterSwiftUI
 import InnoRouterDeepLink
 import InnoRouterDeepLinkEffects
 

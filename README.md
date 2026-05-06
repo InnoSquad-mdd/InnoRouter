@@ -76,7 +76,7 @@ AppKit bridge modules are required.
 | `ModalHost` `.fullScreenCover` native | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
 | `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `SceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `SceneStore` / `SceneHost` (windows, volumetric, immersive) ⚠ experimental | — | — | — | — | — | ✅ |
 | `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrades` means the store API accepts the request unchanged but the
@@ -84,7 +84,11 @@ SwiftUI host renders it as a `.sheet` because `.fullScreenCover` is
 unavailable. `⚠ state only` means the coordinator stores and exposes badge
 state, but `TabCoordinatorView` omits SwiftUI's native visual badge because
 `.badge(_:)` is unavailable. `❌` means the symbol is not declared on that
-platform; build it behind `#if !os(...)`.
+platform; build it behind `#if !os(...)`. `⚠ experimental` means the
+surface is **not under the 4.x SemVer additive guarantee**: shape and
+behavior may change between minor releases until it graduates. See
+[`Docs/v2-principle-scorecard.md`](Docs/v2-principle-scorecard.md) for the
+current experimental list.
 
 ## Installation
 
@@ -210,9 +214,9 @@ evaluated only after measuring `swift package show-traits`,
 |---|---|
 | `InnoRouter` | App code that needs stores, hosts, intents, coordinators, deep links, scenes, or persistence helpers. |
 | `InnoRouterMacros` | Only files that use `@Routable` or `@CasePathable`. |
-| `InnoRouterNavigationEffects` | App-boundary code that executes `NavigationCommand` values outside a SwiftUI view. |
-| `InnoRouterDeepLinkEffects` | App-boundary code that handles or resumes pending deep links. |
-| `InnoRouterEffects` | Compatibility import when both effect modules should be re-exported together. |
+| `InnoRouterEffects` | **Recommended.** App-boundary code that executes `NavigationCommand` values, handles or resumes deep links, or both. As of 4.1.0 this is the canonical entry point for effect adapters. |
+| `InnoRouterNavigationEffects` | Source-compatibility split product — navigation-only execution helpers. New code should import `InnoRouterEffects` instead; this product remains available through the 4.x line and is folded into the umbrella in a future major. |
+| `InnoRouterDeepLinkEffects` | Source-compatibility split product — deep-link execution helpers. New code should import `InnoRouterEffects` instead; this product remains available through the 4.x line and is folded into the umbrella in a future major. |
 | `InnoRouterTesting` | Test targets that want host-less `NavigationTestStore`, `ModalTestStore`, or `FlowTestStore`. |
 
 ## Modules
@@ -221,12 +225,18 @@ evaluated only after measuring `swift package show-traits`,
 - `InnoRouterCore`: route stack, validators, commands, results, batch/transaction executors, middleware
 - `InnoRouterSwiftUI`: stores, stack/split/modal hosts, coordinators, environment intent dispatch
 - `InnoRouterDeepLink`: pattern matching, diagnostics, pipeline planning, pending deep links
-- `InnoRouterNavigationEffects`: synchronous `@MainActor` execution helpers for app boundaries
-- `InnoRouterDeepLinkEffects`: deep-link execution helpers layered on navigation effects
-- `InnoRouterEffects`: compatibility umbrella for both effect modules
+- `InnoRouterEffects`: recommended umbrella for app-boundary execution helpers (re-exports both split products)
+- `InnoRouterNavigationEffects`: source-compatibility split product (navigation-only); prefer `InnoRouterEffects` in new code
+- `InnoRouterDeepLinkEffects`: source-compatibility split product (deep-link); prefer `InnoRouterEffects` in new code
 - `InnoRouterMacros`: `@Routable` and `@CasePathable`
 
 ## Choosing the right surface
+
+> New to InnoRouter? Start with
+> [`Docs/StoreSelectionGuide.md`](Docs/StoreSelectionGuide.md) — a
+> decision tree plus four worked examples (single push stack,
+> push + independent modal, atomic URL → push + modal, iPad split).
+> The table below is the dense reference once you know the shape.
 
 Use the smallest surface that owns the transition authority you need:
 
@@ -238,8 +248,8 @@ Use the smallest surface that owns the transition authority you need:
 | Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL to push-only command plan | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL to push-prefix plus modal-tail flow | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
-| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
-| Reducer, effect, or app-boundary execution | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` ⚠ experimental |
+| Reducer, effect, or app-boundary execution | `InnoRouterEffects` (split products `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` remain for source compatibility) |
 | Router assertions without SwiftUI hosts | `InnoRouterTesting` |
 
 `NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, effects,

@@ -34,20 +34,18 @@ public final class FlowStore<R: Route> {
     public private(set) var path: [RouteStep<R>]
 
     /// Inner navigation store that owns stack state for `.push` steps.
-    ///
-    /// This is SPI for hosts, examples, and focused tests that must compose
-    /// the projected flow authority with the underlying `NavigationHost`.
-    /// App code should use `path`, `send(_:)`, `apply(_:)`, and `events`
-    /// instead of bypassing FlowStore invariants through this inner store.
-    @_spi(FlowStoreInternals) public let navigationStore: NavigationStore<R>
+    /// Plain `internal`; production code should use the public
+    /// ``FlowStateReading`` projection for reads and
+    /// ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)`` for mutations
+    /// rather than bypassing FlowStore invariants through this inner store.
+    internal let navigationStore: NavigationStore<R>
 
     /// Inner modal store that owns presentation state for the tail modal step.
-    ///
-    /// This is SPI for hosts, examples, and focused tests that must compose
-    /// the projected flow authority with the underlying `ModalHost`. App code
-    /// should use `path`, `send(_:)`, `apply(_:)`, and `events` instead of
-    /// bypassing FlowStore invariants through this inner store.
-    @_spi(FlowStoreInternals) public let modalStore: ModalStore<R>
+    /// Plain `internal`; production code should use the public
+    /// ``FlowStateReading`` projection for reads and
+    /// ``FlowStore/send(_:)`` / ``FlowStore/apply(_:)`` for mutations
+    /// rather than bypassing FlowStore invariants through this inner store.
+    internal let modalStore: ModalStore<R>
 
     private let onPathChanged: (@MainActor @Sendable ([RouteStep<R>], [RouteStep<R>]) -> Void)?
     private let onIntentRejected: (@MainActor @Sendable (FlowIntent<R>, FlowRejectionReason) -> Void)?
@@ -55,7 +53,10 @@ public final class FlowStore<R: Route> {
     private let queueCoalescePolicy: QueueCoalescePolicy<R>
     private let link: FlowStoreLink<R>
     private let broadcaster: EventBroadcaster<FlowEvent<R>>
-    private var traceRecorder: InternalExecutionTraceRecorder?
+    // `traceRecorder` is `internal` rather than `private` because
+    // the public dispatch wrappers in `FlowStore+Public.swift` need
+    // to reach it.
+    internal var traceRecorder: InternalExecutionTraceRecorder?
     /// Cached intent closure that lives for the lifetime of this store.
     /// Built on first access by ``intentDispatcher`` so SwiftUI hosts do
     /// not allocate a fresh closure on every render.
@@ -64,7 +65,23 @@ public final class FlowStore<R: Route> {
 
     // Bookkeeping toggled while FlowStore drives its own inner stores, so
     // observer callbacks can distinguish user / system-initiated changes.
-    private var isApplyingInternalMutation: Bool = false
+    //
+    // Implemented as a depth counter rather than a Bool so nested
+    // invocations (FlowStore-driven inner-store mutation that itself
+    // re-enters withInternalMutation) account correctly. The
+    // counter is read through ``isApplyingInternalMutation`` to keep
+    // every call site syntactically identical to the previous Bool.
+    // The runtime contract — "any non-zero depth means FlowStore is
+    // driving the inner stores" — is enforced through a release-mode
+    // `precondition` on decrement so an underflow surfaces immediately
+    // instead of silently inverting the guard.
+    private var mutationDepth: Int = 0
+
+    /// `true` while `FlowStore` is itself driving an inner-store
+    /// mutation. The four `guard` sites in the inner-store reverse-
+    /// sync callbacks read this to skip the projection refresh that
+    /// would otherwise loop back through the path projection.
+    private var isApplyingInternalMutation: Bool { mutationDepth > 0 }
 
     /// A closure that forwards `FlowIntent` values to this store's
     /// ``send(_:)`` entry point.
@@ -196,7 +213,8 @@ public final class FlowStore<R: Route> {
             onTransactionExecuted: composedNavOnTransactionExecuted,
             onMiddlewareMutation: composedNavOnMiddlewareMutation,
             onPathMismatch: composedNavOnPathMismatch,
-            eventBufferingPolicy: configuration.navigation.eventBufferingPolicy
+            eventBufferingPolicy: configuration.navigation.eventBufferingPolicy,
+            pathReconciler: configuration.navigation.pathReconciler
         )
 
         let modalConfig = ModalStoreConfiguration<R>(
@@ -209,7 +227,8 @@ public final class FlowStore<R: Route> {
             onQueueChanged: composedModalOnQueueChanged,
             onMiddlewareMutation: composedModalOnMiddlewareMutation,
             onCommandIntercepted: composedModalOnCommandIntercepted,
-            eventBufferingPolicy: configuration.modal.eventBufferingPolicy
+            eventBufferingPolicy: configuration.modal.eventBufferingPolicy,
+            queueCancellationPolicy: configuration.modal.queueCancellationPolicy
         )
 
         let (pushRoutes, modalTail) = Self.decompose(validatedInitial)
@@ -264,36 +283,8 @@ public final class FlowStore<R: Route> {
 
     /// Dispatches a `FlowIntent`, delegating to inner stores after validating
     /// the request against FlowStore invariants.
-    public func send(_ intent: FlowIntent<R>) {
-        _ = InternalExecutionTrace.withSpan(
-            domain: .flow,
-            operation: "send",
-            recorder: traceRecorder,
-            metadata: ["intent": String(describing: intent)]
-        ) {
-            apply(mutationPlan(for: intent), intent: intent)
-        } outcome: { result in
-            Self.traceOutcome(for: result)
-        }
-    }
-
-    /// Applies a `FlowPlan` to the store, replacing the current path in one
-    /// coordinated mutation. Equivalent to `send(.reset(plan.steps))` but
-    /// communicates intent at the API boundary.
-    @discardableResult
-    public func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> {
-        InternalExecutionTrace.withSpan(
-            domain: .flow,
-            operation: "applyPlan",
-            recorder: traceRecorder,
-            metadata: ["stepCount": String(plan.steps.count)]
-        ) {
-            let intent = FlowIntent<R>.reset(plan.steps)
-            return apply(mutationPlan(for: intent), intent: intent)
-        } outcome: { result in
-            Self.traceOutcome(for: result)
-        }
-    }
+    // Note: `send(_:)` and `apply(_:)` live in
+    // `FlowStore+Public.swift`.
 
     func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
         self.traceRecorder = recorder
@@ -303,7 +294,12 @@ public final class FlowStore<R: Route> {
 
     // MARK: - Dispatch
 
-    private func mutationPlan(for intent: FlowIntent<R>) -> FlowMutationPlan<R> {
+    // `mutationPlan(for:)` and the `apply(_:intent:)` overload are
+    // `internal` rather than `private` because the public entry
+    // points (`send(_:)`, `apply(_:)`) live in
+    // `FlowStore+Public.swift`. Access stays inside the
+    // InnoRouterSwiftUI module.
+    internal func mutationPlan(for intent: FlowIntent<R>) -> FlowMutationPlan<R> {
         let context = currentMutationContext
         switch intent {
         case .push(let route):
@@ -336,7 +332,7 @@ public final class FlowStore<R: Route> {
     }
 
     @discardableResult
-    private func apply(_ plan: FlowMutationPlan<R>, intent: FlowIntent<R>) -> FlowPlanApplyResult<R> {
+    internal func apply(_ plan: FlowMutationPlan<R>, intent: FlowIntent<R>) -> FlowPlanApplyResult<R> {
         if let navigationJournal = plan.navigationJournal {
             withInternalMutation {
                 _ = navigationStore.commitFlowPreview(navigationJournal)
@@ -664,26 +660,27 @@ public final class FlowStore<R: Route> {
     }
 
     private func withInternalMutation<T>(_ body: () -> T) -> T {
-        // The flag is *only* safe under MainActor + synchronous body
-        // execution. Every current call site (`apply(_:intent:)` and
-        // `applyQueueCoalescePolicyIfNeeded`) is synchronous, so the
-        // flag's "set → run → restore" pattern works. If a future
-        // refactor wires an async path through here without first
-        // converting the flag to a counter / actor, the reverse-sync
-        // guards (`isApplyingInternalMutation` checks in the four
-        // inner-store callbacks) silently misbehave on suspension
-        // boundaries. Catch that regression at the source instead of
-        // shipping a quiet bug — DEBUG-only so production keeps the
-        // existing zero-cost flag pattern.
-        #if DEBUG
-        assert(
-            !isApplyingInternalMutation,
-            "FlowStore.withInternalMutation is not re-entrant; nested invocation indicates a sync invariant break."
-        )
-        #endif
-        let wasApplying = isApplyingInternalMutation
-        isApplyingInternalMutation = true
-        defer { isApplyingInternalMutation = wasApplying }
+        // The previous Bool flag was not safe under reentrant call
+        // sites — a nested invocation would silently restore
+        // `false` on the inner `defer` while the outer scope still
+        // expected the flag to be set. The depth counter records
+        // *how many* nested mutations are in flight; the inner-store
+        // reverse-sync guards keep reading
+        // ``isApplyingInternalMutation`` (depth > 0) and so behave
+        // identically when not nested but stay correct when nested.
+        //
+        // The release-mode `precondition` on decrement catches an
+        // imbalance (decrement without matching increment) loudly
+        // instead of letting the counter go negative and quietly
+        // re-enabling the reverse-sync guards.
+        mutationDepth += 1
+        defer {
+            mutationDepth -= 1
+            precondition(
+                mutationDepth >= 0,
+                "FlowStore.withInternalMutation depth counter underflowed — invariant break."
+            )
+        }
         return body()
     }
 
