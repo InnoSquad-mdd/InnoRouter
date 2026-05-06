@@ -76,7 +76,7 @@ AppKit bridge modules are required.
 | `ModalHost` `.fullScreenCover` native | ✅ | ✅ | ⚠ degrades | ✅ | ⚠ degrades | ⚠ degrades |
 | `TabCoordinator.badge` state API / native visual | ✅ | ✅ | ✅ | ⚠ state only | ⚠ state only | ✅ |
 | `DeepLinkPipeline` / `FlowDeepLinkPipeline` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `SceneStore` / `SceneHost` (windows, volumetric, immersive) | — | — | — | — | — | ✅ |
+| `SceneStore` / `SceneHost` (windows, volumetric, immersive) ⚠ experimental | — | — | — | — | — | ✅ |
 | `innoRouterOrnament(_:content:)` view modifier | no-op | no-op | no-op | no-op | no-op | ✅ |
 
 `⚠ degrades` means the store API accepts the request unchanged but the
@@ -84,7 +84,11 @@ SwiftUI host renders it as a `.sheet` because `.fullScreenCover` is
 unavailable. `⚠ state only` means the coordinator stores and exposes badge
 state, but `TabCoordinatorView` omits SwiftUI's native visual badge because
 `.badge(_:)` is unavailable. `❌` means the symbol is not declared on that
-platform; build it behind `#if !os(...)`.
+platform; build it behind `#if !os(...)`. `⚠ experimental` means the
+surface is **not under the 4.x SemVer additive guarantee**: shape and
+behavior may change between minor releases until it graduates. See
+[`Docs/v2-principle-scorecard.md`](Docs/v2-principle-scorecard.md) for the
+current experimental list.
 
 ## Installation
 
@@ -238,7 +242,7 @@ Use the smallest surface that owns the transition authority you need:
 | Push + modal flows, restoration, or multi-step deep links | `FlowStore` + `FlowHost` + `FlowPlan` |
 | URL to push-only command plan | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL to push-prefix plus modal-tail flow | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
-| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` |
+| visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` ⚠ experimental |
 | Reducer, effect, or app-boundary execution | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
 | Router assertions without SwiftUI hosts | `InnoRouterTesting` |
 
