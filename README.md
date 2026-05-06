@@ -232,6 +232,12 @@ evaluated only after measuring `swift package show-traits`,
 
 ## Choosing the right surface
 
+> New to InnoRouter? Start with
+> [`Docs/StoreSelectionGuide.md`](Docs/StoreSelectionGuide.md) — a
+> decision tree plus four worked examples (single push stack,
+> push + independent modal, atomic URL → push + modal, iPad split).
+> The table below is the dense reference once you know the shape.
+
 Use the smallest surface that owns the transition authority you need:
 
 | Need | Use |
