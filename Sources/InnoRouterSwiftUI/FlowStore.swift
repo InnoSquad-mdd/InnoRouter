@@ -55,7 +55,10 @@ public final class FlowStore<R: Route> {
     private let queueCoalescePolicy: QueueCoalescePolicy<R>
     private let link: FlowStoreLink<R>
     private let broadcaster: EventBroadcaster<FlowEvent<R>>
-    private var traceRecorder: InternalExecutionTraceRecorder?
+    // `traceRecorder` is `internal` rather than `private` because
+    // the public dispatch wrappers in `FlowStore+Public.swift` need
+    // to reach it.
+    internal var traceRecorder: InternalExecutionTraceRecorder?
     /// Cached intent closure that lives for the lifetime of this store.
     /// Built on first access by ``intentDispatcher`` so SwiftUI hosts do
     /// not allocate a fresh closure on every render.
@@ -280,36 +283,8 @@ public final class FlowStore<R: Route> {
 
     /// Dispatches a `FlowIntent`, delegating to inner stores after validating
     /// the request against FlowStore invariants.
-    public func send(_ intent: FlowIntent<R>) {
-        _ = InternalExecutionTrace.withSpan(
-            domain: .flow,
-            operation: "send",
-            recorder: traceRecorder,
-            metadata: ["intent": String(describing: intent)]
-        ) {
-            apply(mutationPlan(for: intent), intent: intent)
-        } outcome: { result in
-            Self.traceOutcome(for: result)
-        }
-    }
-
-    /// Applies a `FlowPlan` to the store, replacing the current path in one
-    /// coordinated mutation. Equivalent to `send(.reset(plan.steps))` but
-    /// communicates intent at the API boundary.
-    @discardableResult
-    public func apply(_ plan: FlowPlan<R>) -> FlowPlanApplyResult<R> {
-        InternalExecutionTrace.withSpan(
-            domain: .flow,
-            operation: "applyPlan",
-            recorder: traceRecorder,
-            metadata: ["stepCount": String(plan.steps.count)]
-        ) {
-            let intent = FlowIntent<R>.reset(plan.steps)
-            return apply(mutationPlan(for: intent), intent: intent)
-        } outcome: { result in
-            Self.traceOutcome(for: result)
-        }
-    }
+    // Note: `send(_:)` and `apply(_:)` live in
+    // `FlowStore+Public.swift`.
 
     func installTraceRecorder(_ recorder: InternalExecutionTraceRecorder?) {
         self.traceRecorder = recorder
@@ -319,7 +294,12 @@ public final class FlowStore<R: Route> {
 
     // MARK: - Dispatch
 
-    private func mutationPlan(for intent: FlowIntent<R>) -> FlowMutationPlan<R> {
+    // `mutationPlan(for:)` and the `apply(_:intent:)` overload are
+    // `internal` rather than `private` because the public entry
+    // points (`send(_:)`, `apply(_:)`) live in
+    // `FlowStore+Public.swift`. Access stays inside the
+    // InnoRouterSwiftUI module.
+    internal func mutationPlan(for intent: FlowIntent<R>) -> FlowMutationPlan<R> {
         let context = currentMutationContext
         switch intent {
         case .push(let route):
@@ -352,7 +332,7 @@ public final class FlowStore<R: Route> {
     }
 
     @discardableResult
-    private func apply(_ plan: FlowMutationPlan<R>, intent: FlowIntent<R>) -> FlowPlanApplyResult<R> {
+    internal func apply(_ plan: FlowMutationPlan<R>, intent: FlowIntent<R>) -> FlowPlanApplyResult<R> {
         if let navigationJournal = plan.navigationJournal {
             withInternalMutation {
                 _ = navigationStore.commitFlowPreview(navigationJournal)
