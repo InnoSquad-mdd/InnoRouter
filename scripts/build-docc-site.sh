@@ -318,10 +318,16 @@ render_module_entry_redirect() {
   local module_dir="$1"
   local module_name="$2"
   local module_slug=""
+  local doc_root_dir=""
   local doc_path=""
+  local module_home_path=""
 
   module_slug="$(printf '%s' "$module_name" | tr '[:upper:]' '[:lower:]')"
-  doc_path="./documentation/${module_slug}/"
+  doc_root_dir="$module_dir/documentation/$module_slug"
+  doc_path="./documentation/${module_slug}/${module_slug}/"
+  module_home_path="$doc_root_dir/$module_slug/index.html"
+
+  [[ -f "$module_home_path" ]] || die "failed to locate DocC module home page: $module_home_path"
 
   cat >"$module_dir/index.html" <<EOF
 <!DOCTYPE html>
@@ -335,6 +341,22 @@ render_module_entry_redirect() {
 </head>
 <body>
   <p>Redirecting to <a href="${doc_path}">${module_name}</a>…</p>
+</body>
+</html>
+EOF
+
+  cat >"$doc_root_dir/index.html" <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=./${module_slug}/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Redirecting…</title>
+  <script>window.location.replace('./${module_slug}/');</script>
+</head>
+<body>
+  <p>Redirecting to <a href="./${module_slug}/">${module_name}</a>…</p>
 </body>
 </html>
 EOF
