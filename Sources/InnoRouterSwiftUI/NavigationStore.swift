@@ -407,41 +407,78 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     }
 
     public func send(_ intent: NavigationIntent<R>) {
+        let plan = commands(for: intent)
+        switch plan.count {
+        case 0:
+            return
+        case 1:
+            _ = execute(plan[0])
+        default:
+            _ = executeBatch(plan, stopOnFailure: false)
+        }
+    }
+
+    /// Projects a ``NavigationIntent`` into the concrete
+    /// ``NavigationCommand`` plan that ``send(_:)`` would execute
+    /// against the current ``state``.
+    ///
+    /// Some intents are state-dependent
+    /// (`.backBy`, `.backOrPush`, `.pushUniqueRoot`); the projection
+    /// is therefore a method on the store rather than an extension on
+    /// `NavigationIntent` itself, and reads `state.path` exactly once
+    /// to make the decision.
+    ///
+    /// Returned plans interpret as:
+    ///
+    /// - empty — no work for the current state (e.g.
+    ///   `.pushUniqueRoot` of a route already on the stack).
+    /// - single element — a single `.execute(_:)` call's worth.
+    /// - multiple elements — a batch the caller can hand to
+    ///   `.executeBatch(_:stopOnFailure:)`, exactly the way
+    ///   ``send(_:)`` does internally.
+    ///
+    /// This accessor was added in 4.2.0 as preparation for the 5.0
+    /// intent ↔ command unification: today it makes the mapping
+    /// visible without changing call-site behaviour, and tomorrow
+    /// it becomes the single source of truth for the projection.
+    public func commands(for intent: NavigationIntent<R>) -> [NavigationCommand<R>] {
         switch intent {
         case .go(let route):
-            _ = execute(.push(route))
+            return [.push(route)]
         case .goMany(let routes):
             switch routes.count {
             case 0:
-                return
+                return []
             case 1:
-                _ = execute(.push(routes[0]))
+                return [.push(routes[0])]
             default:
-                _ = executeBatch(routes.map(NavigationCommand.push), stopOnFailure: false)
+                return routes.map(NavigationCommand.push)
             }
         case .back:
-            _ = execute(.pop)
+            return [.pop]
         case .backBy(let count):
             if count > 0, count == state.path.count {
-                _ = execute(.popToRoot)
+                return [.popToRoot]
             } else {
-                _ = execute(.popCount(count))
+                return [.popCount(count)]
             }
         case .backTo(let route):
-            _ = execute(.popTo(route))
+            return [.popTo(route)]
         case .backToRoot:
-            _ = execute(.popToRoot)
+            return [.popToRoot]
         case .replaceStack(let routes):
-            _ = execute(.replace(routes))
+            return [.replace(routes)]
         case .backOrPush(let route):
             if state.path.contains(route) {
-                _ = execute(.popTo(route))
+                return [.popTo(route)]
             } else {
-                _ = execute(.push(route))
+                return [.push(route)]
             }
         case .pushUniqueRoot(let route):
-            if !state.path.contains(route) {
-                _ = execute(.push(route))
+            if state.path.contains(route) {
+                return []
+            } else {
+                return [.push(route)]
             }
         }
     }

@@ -223,6 +223,7 @@ relationship | memberOf | NavigationSplitHost.init(store:sidebar:destination:roo
 relationship | memberOf | NavigationStore.RouteType | NavigationStore |  |
 relationship | memberOf | NavigationStore.addMiddleware(_:debugName:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.binding(case:) | NavigationStore |  |
+relationship | memberOf | NavigationStore.commands(for:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.events | NavigationStore |  |
 relationship | memberOf | NavigationStore.execute(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.executeBatch(_:stopOnFailure:) | NavigationStore |  |
@@ -623,6 +624,7 @@ symbol | swift.method | ModalStore.send(_:) | send(_:) | @MainActor func send(_ 
 symbol | swift.method | ModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalTelemetryEvent<Self.RouteType>) | []
 symbol | swift.method | NavigationStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> NavigationMiddlewareHandle | []
 symbol | swift.method | NavigationStore.binding(case:) | binding(case:) | @MainActor func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> | []
+symbol | swift.method | NavigationStore.commands(for:) | commands(for:) | @MainActor func commands(for intent: NavigationIntent<R>) -> [NavigationCommand<R>] | []
 symbol | swift.method | NavigationStore.execute(_:) | execute(_:) | @discardableResult @MainActor func execute(_ command: NavigationCommand<R>) -> NavigationResult<R> | []
 symbol | swift.method | NavigationStore.executeBatch(_:stopOnFailure:) | executeBatch(_:stopOnFailure:) | @discardableResult @MainActor func executeBatch(_ commands: [NavigationCommand<R>], stopOnFailure: Bool = false) -> NavigationBatchResult<R> | []
 symbol | swift.method | NavigationStore.executeTransaction(_:) | executeTransaction(_:) | @discardableResult @MainActor func executeTransaction(_ commands: [NavigationCommand<R>]) -> NavigationTransactionResult<R> | []
