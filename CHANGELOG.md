@@ -4,6 +4,70 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## 5.0.0 (unreleased)
+
+5.0.0 is the first major release that breaks 4.x source
+compatibility. Every breaking change is intentional and lands
+behind a ! marker in the matching commit. The migration is
+mechanical for most adopters — see
+[`Docs/migration-4.2-to-5.0.md`](Docs/migration-4.2-to-5.0.md)
+for the per-call-site checklist.
+
+The release wires up the four protocols and capability types that
+4.2.0 shipped as observational additive surface
+(`NavigationPathReconciling`, `FlowStateReading`,
+`LifecycleSignals`, `LifecycleAware`) and removes the
+`@_spi(FlowStoreInternals)` peephole that 4.x kept open for
+tests and `FlowHost`.
+
+### Changed
+
+- **`NavigationStoreConfiguration` gains a required
+  `pathReconciler: any NavigationPathReconciling<R>` property**
+  with a `nil` default that resolves to the framework
+  `NavigationPathReconciler<R>()`. Existing call sites that
+  build the configuration via positional arguments must update
+  to the new init signature; keyword-only call sites compile
+  unchanged. `NavigationPathReconciling` is now `Sendable`-required.
+- **`NavigationPathReconciler<R>` is public.** It was internal in
+  4.2 (the protocol was public; the default conformance was
+  hidden). 5.0 promotes it so adopters can compose the framework
+  reduction rules inside their own conformances as a fallback.
+- **`@_spi(FlowStoreInternals)` peephole removed.** `FlowStore.navigationStore`
+  and `FlowStore.modalStore` are plain `internal` properties now.
+  Adopters that imported `@_spi(FlowStoreInternals) [@testable]
+  import InnoRouterSwiftUI` should switch to plain `@testable import`
+  for tests, or to the public ``FlowStateReading`` protocol for
+  read-only access from production code. Mutations should flow
+  through `FlowStore.send(_:)` / `apply(_:)`.
+- **`FlowStateReading<R>` is the canonical read surface for
+  FlowStore-shaped state.** The protocol now exposes `path`,
+  `navigationPath`, `currentModalRoute`,
+  `currentModalPresentation`, and `hasModalTail`. All accessors
+  derive from the public `path` projection so adopting them is a
+  behaviour-preserving swap.
+- **`ChildCoordinator` requires `lifecycleSignals: LifecycleSignals`.**
+  The protocol now inherits from the new `LifecycleAware`
+  capability protocol. Adopters must add the stored property; the
+  protocol cannot supply a default for a stored requirement.
+  `Coordinator.push(child:)` fires both
+  `lifecycleSignals.fireParentCancel()` and the existing
+  `parentDidCancel()` hook, so adopters can choose closure-style
+  or override-style teardown.
+- **`LifecycleAware` capability protocol** is the canonical
+  surface for cross-cutting coordinator lifecycle hooks.
+  `Coordinator`, `FlowCoordinator`, and `TabCoordinator` opt
+  into it case-by-case; `ChildCoordinator` inherits it
+  unconditionally. The shared `LifecycleSignals` value type now
+  documents itself as the active 5.0 wiring rather than
+  "observational 4.2 prep".
+
+### Removed
+
+- The `@_spi(FlowStoreInternals)` declaration is gone. There is
+  no opt-in path to the removed properties — production code
+  must use `FlowStateReading`; tests must use `@testable import`.
+
 ## 4.2.0 (unreleased)
 
 4.2.0 is the routing-surface cleanup minor. It is **additive only**
