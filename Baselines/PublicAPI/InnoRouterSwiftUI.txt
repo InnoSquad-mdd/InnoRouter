@@ -3,6 +3,7 @@ relationship | conformsTo | AnyFlowTelemetrySink | FlowTelemetrySink |  |
 relationship | conformsTo | AnyModalTelemetrySink | ModalTelemetrySink |  |
 relationship | conformsTo | AnyNavigationTelemetrySink | NavigationTelemetrySink |  |
 relationship | conformsTo | FlowStore | FlowStateReading |  |
+relationship | conformsTo | NavigationPathReconciler | NavigationPathReconciling |  |
 relationship | conformsTo | OSLogFlowTelemetrySink | FlowTelemetrySink |  |
 relationship | conformsTo | OSLogModalTelemetrySink | ModalTelemetrySink |  |
 relationship | conformsTo | OSLogNavigationTelemetrySink | NavigationTelemetrySink |  |
@@ -236,6 +237,8 @@ relationship | memberOf | NavigationPathMismatchPolicy.replace | NavigationPathM
 relationship | memberOf | NavigationPathMismatchResolution.batch(_:) | NavigationPathMismatchResolution |  |
 relationship | memberOf | NavigationPathMismatchResolution.ignore | NavigationPathMismatchResolution |  |
 relationship | memberOf | NavigationPathMismatchResolution.single(_:) | NavigationPathMismatchResolution |  |
+relationship | memberOf | NavigationPathReconciler.init() | NavigationPathReconciler |  |
+relationship | memberOf | NavigationPathReconciler.reconcile(from:to:resolveMismatch:execute:executeBatch:) | NavigationPathReconciler |  |
 relationship | memberOf | NavigationSplitHost.body | NavigationSplitHost |  |
 relationship | memberOf | NavigationSplitHost.init(store:sidebar:destination:root:) | NavigationSplitHost |  |
 relationship | memberOf | NavigationStore.RouteType | NavigationStore |  |
@@ -262,7 +265,7 @@ relationship | memberOf | NavigationStore.send(_:) | NavigationStore |  |
 relationship | memberOf | NavigationStore.state | NavigationStore |  |
 relationship | memberOf | NavigationStoreConfiguration.engine | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.eventBufferingPolicy | NavigationStoreConfiguration |  |
-relationship | memberOf | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:) | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:pathReconciler:) | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.logger | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.middlewares | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.onBatchExecuted | NavigationStoreConfiguration |  |
@@ -271,6 +274,7 @@ relationship | memberOf | NavigationStoreConfiguration.onMiddlewareMutation | Na
 relationship | memberOf | NavigationStoreConfiguration.onPathMismatch | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.onTransactionExecuted | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.pathMismatchPolicy | NavigationStoreConfiguration |  |
+relationship | memberOf | NavigationStoreConfiguration.pathReconciler | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.routeStackValidator | NavigationStoreConfiguration |  |
 relationship | memberOf | NavigationStoreConfiguration.telemetrySink | NavigationStoreConfiguration |  |
 relationship | memberOf | OSLogFlowTelemetrySink.RouteType | OSLogFlowTelemetrySink |  |
@@ -599,10 +603,11 @@ symbol | swift.init | NavigationMiddlewareHandle.init() | init() | init() | []
 symbol | swift.init | NavigationMiddlewareMetadata.init(handle:debugName:) | init(handle:debugName:) | init(handle: NavigationMiddlewareHandle, debugName: String? = nil) | []
 symbol | swift.init | NavigationMiddlewareRegistration.init(middleware:debugName:) | init(middleware:debugName:) | init(middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) | []
 symbol | swift.init | NavigationPathMismatchEvent.init(policy:resolution:oldPath:newPath:) | init(policy:resolution:oldPath:newPath:) | init(policy: NavigationPathMismatchEvent<R>.Policy, resolution: NavigationPathMismatchEvent<R>.Resolution, oldPath: [R], newPath: [R]) | []
+symbol | swift.init | NavigationPathReconciler.init() | init() | nonisolated init() | []
 symbol | swift.init | NavigationSplitHost.init(store:sidebar:destination:root:) | init(store:sidebar:destination:root:) | @MainActor init(store: NavigationStore<R>, @ViewBuilder sidebar: @escaping () -> Sidebar, @ViewBuilder destination: @escaping (R) -> DestinationView, @ViewBuilder root: @escaping () -> Root) | []
 symbol | swift.init | NavigationStore.init(initial:configuration:) | init(initial:configuration:) | @MainActor init(initial: RouteStack<R> = .init(), configuration: NavigationStoreConfiguration<R> = .init()) | []
 symbol | swift.init | NavigationStore.init(initialPath:configuration:) | init(initialPath:configuration:) | @MainActor convenience init(initialPath: [R], configuration: NavigationStoreConfiguration<R> = .init()) throws | []
-symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:) | init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:) | init(engine: NavigationEngine<R> = .init(), middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, telemetrySink: AnyNavigationTelemetrySink<R>? = nil, onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? = nil, onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? = nil, onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? = nil, onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? = nil, onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default) | []
+symbol | swift.init | NavigationStoreConfiguration.init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:pathReconciler:) | init(engine:middlewares:routeStackValidator:pathMismatchPolicy:logger:telemetrySink:onChange:onBatchExecuted:onTransactionExecuted:onMiddlewareMutation:onPathMismatch:eventBufferingPolicy:pathReconciler:) | init(engine: NavigationEngine<R> = .init(), middlewares: [NavigationMiddlewareRegistration<R>] = [], routeStackValidator: RouteStackValidator<R> = .permissive, pathMismatchPolicy: NavigationPathMismatchPolicy<R> = .replace, logger: Logger? = nil, telemetrySink: AnyNavigationTelemetrySink<R>? = nil, onChange: (@MainActor (RouteStack<R>, RouteStack<R>) -> Void)? = nil, onBatchExecuted: (@MainActor (NavigationBatchResult<R>) -> Void)? = nil, onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? = nil, onMiddlewareMutation: (@MainActor (MiddlewareMutationEvent<R>) -> Void)? = nil, onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? = nil, eventBufferingPolicy: EventBufferingPolicy = .default, pathReconciler: (any NavigationPathReconciling<R>)? = nil) | []
 symbol | swift.init | OSLogFlowTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogModalTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
 symbol | swift.init | OSLogNavigationTelemetrySink.init(logger:) | init(logger:) | @MainActor init(logger: Logger) | []
@@ -662,6 +667,7 @@ symbol | swift.method | ModalStore.replaceCurrent(_:style:) | replaceCurrent(_:s
 symbol | swift.method | ModalStore.replaceMiddleware(_:with:debugName:) | replaceMiddleware(_:with:debugName:) | @discardableResult @MainActor func replaceMiddleware(_ handle: ModalMiddlewareHandle, with middleware: AnyModalMiddleware<M>, debugName: String? = nil) -> Bool | []
 symbol | swift.method | ModalStore.send(_:) | send(_:) | @MainActor func send(_ intent: ModalIntent<M>) | []
 symbol | swift.method | ModalTelemetrySink.record(_:) | record(_:) | @MainActor func record(_ event: ModalTelemetryEvent<Self.RouteType>) | []
+symbol | swift.method | NavigationPathReconciler.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [R], to newPath: [R], resolveMismatch: @MainActor ([R], [R]) -> NavigationPathMismatchResolution<R>, execute: @MainActor (NavigationCommand<R>) -> Void, executeBatch: @MainActor ([NavigationCommand<R>]) -> Void) | []
 symbol | swift.method | NavigationPathReconciling.reconcile(from:to:resolveMismatch:execute:executeBatch:) | reconcile(from:to:resolveMismatch:execute:executeBatch:) | @MainActor func reconcile(from oldPath: [Self.R], to newPath: [Self.R], resolveMismatch: @MainActor ([Self.R], [Self.R]) -> NavigationPathMismatchResolution<Self.R>, execute: @MainActor (NavigationCommand<Self.R>) -> Void, executeBatch: @MainActor ([NavigationCommand<Self.R>]) -> Void) | []
 symbol | swift.method | NavigationStore.addMiddleware(_:debugName:) | addMiddleware(_:debugName:) | @discardableResult @MainActor func addMiddleware(_ middleware: AnyNavigationMiddleware<R>, debugName: String? = nil) -> NavigationMiddlewareHandle | []
 symbol | swift.method | NavigationStore.binding(case:) | binding(case:) | @MainActor func binding<Value>(case casePath: CasePath<R, Value>) -> Binding<Value?> | []
@@ -813,6 +819,7 @@ symbol | swift.property | NavigationStoreConfiguration.onMiddlewareMutation | on
 symbol | swift.property | NavigationStoreConfiguration.onPathMismatch | onPathMismatch | var onPathMismatch: (@MainActor (NavigationPathMismatchEvent<R>) -> Void)? | []
 symbol | swift.property | NavigationStoreConfiguration.onTransactionExecuted | onTransactionExecuted | var onTransactionExecuted: (@MainActor (NavigationTransactionResult<R>) -> Void)? | []
 symbol | swift.property | NavigationStoreConfiguration.pathMismatchPolicy | pathMismatchPolicy | var pathMismatchPolicy: NavigationPathMismatchPolicy<R> | []
+symbol | swift.property | NavigationStoreConfiguration.pathReconciler | pathReconciler | var pathReconciler: any NavigationPathReconciling<R> | []
 symbol | swift.property | NavigationStoreConfiguration.routeStackValidator | routeStackValidator | var routeStackValidator: RouteStackValidator<R> | []
 symbol | swift.property | NavigationStoreConfiguration.telemetrySink | telemetrySink | var telemetrySink: AnyNavigationTelemetrySink<R>? | []
 symbol | swift.property | OSLogFlowTelemetrySink.logger | logger | @MainActor let logger: Logger | []
@@ -843,7 +850,7 @@ symbol | swift.protocol | FlowStateReading | FlowStateReading | @MainActor proto
 symbol | swift.protocol | FlowStep | FlowStep | protocol FlowStep : CaseIterable, Hashable, Sendable | []
 symbol | swift.protocol | FlowTelemetrySink | FlowTelemetrySink | @MainActor protocol FlowTelemetrySink : Sendable | []
 symbol | swift.protocol | ModalTelemetrySink | ModalTelemetrySink | @MainActor protocol ModalTelemetrySink : Sendable | []
-symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<R> | []
+symbol | swift.protocol | NavigationPathReconciling | NavigationPathReconciling | @MainActor protocol NavigationPathReconciling<R> : Sendable | []
 symbol | swift.protocol | NavigationTelemetrySink | NavigationTelemetrySink | @MainActor protocol NavigationTelemetrySink : Sendable | []
 symbol | swift.protocol | StoreObserver | StoreObserver | @MainActor protocol StoreObserver : AnyObject | []
 symbol | swift.protocol | Tab | Tab | protocol Tab : CaseIterable, Hashable, Identifiable, Sendable | []
@@ -872,6 +879,7 @@ symbol | swift.struct | NavigationMiddlewareHandle | NavigationMiddlewareHandle 
 symbol | swift.struct | NavigationMiddlewareMetadata | NavigationMiddlewareMetadata | struct NavigationMiddlewareMetadata | []
 symbol | swift.struct | NavigationMiddlewareRegistration | NavigationMiddlewareRegistration | struct NavigationMiddlewareRegistration<R> where R : Route | []
 symbol | swift.struct | NavigationPathMismatchEvent | NavigationPathMismatchEvent | struct NavigationPathMismatchEvent<R> where R : Route | []
+symbol | swift.struct | NavigationPathReconciler | NavigationPathReconciler | @MainActor struct NavigationPathReconciler<R> where R : Route | []
 symbol | swift.struct | NavigationSplitHost | NavigationSplitHost | @MainActor struct NavigationSplitHost<R, Sidebar, DestinationView, Root> where R : Route, Sidebar : View, DestinationView : View, Root : View | []
 symbol | swift.struct | NavigationStoreConfiguration | NavigationStoreConfiguration | struct NavigationStoreConfiguration<R> where R : Route | []
 symbol | swift.struct | OSLogFlowTelemetrySink | OSLogFlowTelemetrySink | @MainActor struct OSLogFlowTelemetrySink<R> where R : Route | []

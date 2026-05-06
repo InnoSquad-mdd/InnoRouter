@@ -20,7 +20,10 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
     // because middleware management methods live in
     // `NavigationStore+Middleware.swift`.
     internal let middlewareRegistry: NavigationMiddlewareRegistry<R>
-    private let pathReconciler: NavigationPathReconciler<R>
+    // Reconciler is type-erased to the protocol so callers can
+    // inject their own conformance via
+    // `NavigationStoreConfiguration.pathReconciler`.
+    private let pathReconciler: any NavigationPathReconciling<R>
     private let pathMismatchPolicy: NavigationPathMismatchPolicy<R>
     private let pathMismatchAssertionHandler: @MainActor @Sendable ([R], [R]) -> Void
     private let broadcaster: EventBroadcaster<NavigationEvent<R>>
@@ -112,7 +115,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.telemetrySink = telemetrySink
         self.observationTelemetrySink = observationTelemetrySink
         self.middlewareRegistry = middlewareRegistry
-        self.pathReconciler = NavigationPathReconciler()
+        self.pathReconciler = configuration.pathReconciler
         self.broadcaster = broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil
@@ -171,7 +174,7 @@ public final class NavigationStore<R: Route>: Navigator, NavigationBatchExecutor
         self.telemetrySink = telemetrySink
         self.observationTelemetrySink = observationTelemetrySink
         self.middlewareRegistry = middlewareRegistry
-        self.pathReconciler = NavigationPathReconciler()
+        self.pathReconciler = configuration.pathReconciler
         self.broadcaster = broadcaster
         self.traceLogger = configuration.logger
         self.traceRecorder = nil

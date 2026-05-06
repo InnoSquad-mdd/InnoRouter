@@ -24,7 +24,7 @@ import InnoRouterCore
 ///   `resolveMismatch` closure (which today routes through
 ///   ``NavigationPathMismatchPolicy``).
 @MainActor
-public protocol NavigationPathReconciling<R> {
+public protocol NavigationPathReconciling<R>: Sendable {
     associatedtype R: Route
 
     func reconcile(
@@ -36,9 +36,16 @@ public protocol NavigationPathReconciling<R> {
     )
 }
 
-@MainActor
-struct NavigationPathReconciler<R: Route>: NavigationPathReconciling {
-    func reconcile(
+/// Default implementation of ``NavigationPathReconciling`` used by
+/// ``NavigationStore`` when the caller does not supply a custom
+/// reconciler. Public so apps can compose it as a fallback inside
+/// their own conformances (e.g. domain-specific rules on top of
+/// the framework rules).
+public struct NavigationPathReconciler<R: Route>: NavigationPathReconciling {
+
+    nonisolated public init() {}
+
+    public func reconcile(
         from oldPath: [R],
         to newPath: [R],
         resolveMismatch: @MainActor ([R], [R]) -> NavigationPathMismatchResolution<R>,
