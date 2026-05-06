@@ -4,7 +4,7 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
-## 4.1.0 (unreleased)
+## 4.1.0 - 2026-05-06
 
 4.1.0 is the consolidated pre-adoption cleanup release. It folds
 the original 4.1.0 baseline (DeepLinkInputLimits, structured
@@ -20,7 +20,7 @@ releases.
 
 This is a one-time pre-adoption exception that folds breaking
 changes into a minor bump; additive-only SemVer guarantees resume
-from the 5.0 line onward.
+for later 4.x releases after this tag.
 
 The migration is documented inline in this entry. Adopters who
 ran the pre-OSS `4.0.0` snapshot follow the diffs under
@@ -146,6 +146,20 @@ ran the pre-OSS `4.0.0` snapshot follow the diffs under
   `lifecycleSignals.fireParentCancel()` and the existing
   `parentDidCancel()` hook, so adopters can choose closure-style
   or override-style teardown.
+
+### Fixed
+
+- `FlowDeepLinkPipeline` now preserves typed input-limit rejections
+  when its matcher has stricter `DeepLinkInputLimits` than the
+  pipeline itself. URLs rejected by matcher limits surface as
+  `.rejected(.inputLimitExceeded(...))` instead of falling through to
+  `.unhandled`, so security and telemetry branches can distinguish
+  malformed input from unmatched routes.
+- `Tests/InnoRouterMacrosBehaviorTests/README.md` now describes the
+  Swift 6.3 tuple-subscript coverage gap accurately. The suite has no
+  Swift Testing `.disabled` cases; the remaining unexecutable probes
+  are documented next to the affected `RoutableBehaviorTests` and
+  `CasePathableBehaviorTests` tuple `[case:]` call sites.
 
 ### Refactor
 

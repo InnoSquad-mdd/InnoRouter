@@ -129,6 +129,10 @@ public struct FlowDeepLinkPipeline<R: Route>: Sendable {
             }
         }
 
+        if let violation = matcher.inputLimitViolation(for: url) {
+            return .rejected(reason: .inputLimitExceeded(violation))
+        }
+
         guard let plan = matcher.match(url) else {
             return .unhandled(url: url)
         }

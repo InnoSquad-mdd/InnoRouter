@@ -80,6 +80,34 @@ struct FlowDeepLinkPipelineTests {
         }
     }
 
+    @Test(".rejected when matcher input limits are exceeded")
+    func matcherInputLimitRejection() {
+        let matcher = FlowDeepLinkMatcher<PipelineRoute>(
+            configuration: .init(
+                diagnosticsMode: .disabled,
+                inputLimits: DeepLinkInputLimits(maxQueryItems: 1)
+            )
+        ) {
+            FlowDeepLinkMapping("/home/detail/:id") { params in
+                guard let id = params.firstValue(forName: "id") else { return nil }
+                return FlowPlan(steps: [.push(.home), .push(.detail(id: id))])
+            }
+        }
+        let pipeline = FlowDeepLinkPipeline<PipelineRoute>(
+            allowedSchemes: ["myapp"],
+            matcher: matcher,
+            inputLimits: .unlimited
+        )
+
+        let decision = pipeline.decide(for: URL(string: "myapp://app/home/detail/42?a=1&b=2")!)
+        if case .rejected(.inputLimitExceeded(.queryItemCountExceeded(let actual, let max))) = decision {
+            #expect(actual == 2)
+            #expect(max == 1)
+        } else {
+            Issue.record("Expected matcher .inputLimitExceeded rejection, got \(decision)")
+        }
+    }
+
     @Test(".unhandled when no mapping matches")
     func unmatchedURL() {
         let pipeline = FlowDeepLinkPipeline<PipelineRoute>(

@@ -74,7 +74,7 @@ jobs:
               exit 1
             fi
           elif [[ ! "$TAG" =~ $GA_REGEX ]]; then
-            echo "GA release tags must use bare semantic versioning (for example 4.0.0)." >&2
+            echo "GA release tags must use bare semantic versioning (for example 4.1.0)." >&2
             exit 1
           fi
 

@@ -1,6 +1,6 @@
 # Competitive Analysis and Improvement Roadmap
 
-_Last updated: 2026-05-04 · Maintainer snapshot after the documented 4.1.0 historical cleanup exception_
+_Last updated: 2026-05-06 · Maintainer snapshot for 4.1.0 GA readiness after the documented historical cleanup exception_
 
 This document positions InnoRouter against comparable SwiftUI navigation
 libraries and derives a prioritised improvement backlog from the gaps.
@@ -8,7 +8,7 @@ libraries and derives a prioritised improvement backlog from the gaps.
 - Scope: libraries that own SwiftUI stack/modal navigation state at roughly
   the same level of the stack as InnoRouter.
 - Audience: maintainers and release planners. Not a public marketing doc.
-- Source: April 2026 repo inspection + repo/readme scans of each comparable
+- Source: May 2026 repo inspection + repo/readme scans of each comparable
   library.
 
 ## 1. Position statement
@@ -475,8 +475,8 @@ visionOS-spatial extension** (`ScenePresentation`, `SceneDeclaration`,
 per-platform CI), the P0 / P1 / P3 backlog is **empty** and
 SwiftUI-only is the final positioning stance.
 
-Current investment direction: **carry the 4.0.0 GA contract forward
-with adoption evidence, consumer feedback, and measured macro
+Current investment direction: **carry the 4.1.0 GA adoption baseline
+forward with adoption evidence, consumer feedback, and measured macro
 dependency cost before considering packaging changes**.
 
 - **P2-3 UIKit escape hatch** — declined. SwiftUI-only positioning
@@ -485,7 +485,7 @@ dependency cost before considering packaging changes**.
   swift-navigation for those surfaces alongside InnoRouter for
   stack / modal / flow authority.
 - **Macro dependency cost spike** — keep `InnoRouterMacros` in this
-  package for 4.0.0. Before introducing package traits or a separate
+  package for the 4.x line. Before introducing package traits or a separate
   macro package, compare `swift package show-traits`,
   `swift build --target InnoRouter`, and
   `swift build --target InnoRouterMacros` against the migration cost
@@ -493,7 +493,7 @@ dependency cost before considering packaging changes**.
 
 ## 7. Sources
 
-- InnoRouter repo, 4.0.0 GA release-prep snapshot (2026-04-28).
+- InnoRouter repo, 4.1.0 GA release-readiness snapshot (2026-05-06).
 - [pointfreeco/swift-composable-architecture](https://github.com/pointfreeco/swift-composable-architecture)
 - [pointfreeco/swift-navigation](https://github.com/pointfreeco/swift-navigation)
 - [johnpatrickmorgan/FlowStacks](https://github.com/johnpatrickmorgan/FlowStacks)
