@@ -67,6 +67,7 @@ struct ChildCoordinatorTests {
 
         var onFinish: (@MainActor @Sendable (String) -> Void)?
         var onCancel: (@MainActor @Sendable () -> Void)?
+        var lifecycleSignals: LifecycleSignals = LifecycleSignals()
     }
 
     @Test("push(child:) resumes Task with the finish result")

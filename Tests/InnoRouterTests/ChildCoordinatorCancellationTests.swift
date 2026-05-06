@@ -33,6 +33,7 @@ private final class TrackingChild: ChildCoordinator {
 
     var onFinish: (@MainActor @Sendable (String) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals: LifecycleSignals = LifecycleSignals()
     private(set) var parentDidCancelCount: Int = 0
 
     func parentDidCancel() {
@@ -47,6 +48,7 @@ private final class DefaultChild: ChildCoordinator {
 
     var onFinish: (@MainActor @Sendable (Int) -> Void)?
     var onCancel: (@MainActor @Sendable () -> Void)?
+    var lifecycleSignals: LifecycleSignals = LifecycleSignals()
 }
 
 @Suite("ChildCoordinator Cancellation Tests")

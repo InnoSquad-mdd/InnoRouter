@@ -377,6 +377,7 @@ relationship | memberOf | ThrottleNavigationMiddleware.init(interval:clock:key:)
 relationship | memberOf | ThrottleNavigationMiddleware.init(interval:key:) | ThrottleNavigationMiddleware |  |
 relationship | memberOf | ThrottleNavigationMiddleware.willExecute(_:state:) | ThrottleNavigationMiddleware |  |
 relationship | requirementOf | ChildCoordinator.Result | ChildCoordinator |  |
+relationship | requirementOf | ChildCoordinator.lifecycleSignals | ChildCoordinator |  |
 relationship | requirementOf | ChildCoordinator.onCancel | ChildCoordinator |  |
 relationship | requirementOf | ChildCoordinator.onFinish | ChildCoordinator |  |
 relationship | requirementOf | ChildCoordinator.parentDidCancel() | ChildCoordinator |  |
@@ -724,6 +725,7 @@ symbol | swift.method | View.innoRouterSceneAnchor(_:scenes:attachedTo:instanceI
 symbol | swift.method | View.innoRouterSceneHost(_:scenes:) | innoRouterSceneHost(_:scenes:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>) -> some View where R : Route | []
 symbol | swift.method | View.innoRouterSceneHost(_:scenes:attachedTo:) | innoRouterSceneHost(_:scenes:attachedTo:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R) -> some View where R : Route | []
 symbol | swift.method | View.innoRouterSceneHost(_:scenes:attachedTo:instanceID:) | innoRouterSceneHost(_:scenes:attachedTo:instanceID:) | @MainActor func innoRouterSceneHost<R>(_ store: SceneStore<R>, scenes: SceneRegistry<R>, attachedTo: R, instanceID: UUID) -> some View where R : Route | []
+symbol | swift.property | ChildCoordinator.lifecycleSignals | lifecycleSignals | @MainActor var lifecycleSignals: LifecycleSignals { get set } | []
 symbol | swift.property | ChildCoordinator.onCancel | onCancel | @MainActor var onCancel: (@MainActor () -> Void)? { get set } | []
 symbol | swift.property | ChildCoordinator.onFinish | onFinish | @MainActor var onFinish: (@MainActor (Self.Result) -> Void)? { get set } | []
 symbol | swift.property | ChildCoordinatorTaskTracker.activeCount | activeCount | @MainActor var activeCount: Int { get } | []

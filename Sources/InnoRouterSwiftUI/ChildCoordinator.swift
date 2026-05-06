@@ -10,6 +10,12 @@ import SwiftUI
 /// Child lifetimes are orchestrated at the coordinator layer — the
 /// parent owns the strong reference until the returned `Task` resolves.
 /// See `Docs/design-child-coordinator-handoff.md` for the full contract.
+///
+/// As of 5.0 a child also carries a ``lifecycleSignals`` bag — the
+/// parent push helper fires
+/// ``LifecycleSignals/fireParentCancel()`` alongside the legacy
+/// ``parentDidCancel()`` hook so app code can install teardown
+/// handlers without overriding the protocol method.
 @MainActor
 public protocol ChildCoordinator: AnyObject {
     associatedtype Result: Sendable
@@ -19,6 +25,19 @@ public protocol ChildCoordinator: AnyObject {
 
     /// Called by the child to report cancellation or user-driven dismissal.
     var onCancel: (@MainActor @Sendable () -> Void)? { get set }
+
+    /// Cross-cutting lifecycle hooks shared with every other
+    /// coordinator type. The parent ``Coordinator/push(child:)``
+    /// helper fires ``LifecycleSignals/fireParentCancel()`` on the
+    /// configured handler when the parent task is cancelled, in
+    /// addition to invoking ``parentDidCancel()``.
+    ///
+    /// Adopters that need a one-line teardown hook should reach
+    /// for `lifecycleSignals.onParentCancel` instead of overriding
+    /// `parentDidCancel()` — the protocol method remains for
+    /// compatibility with sites that prefer subclass-style
+    /// overrides.
+    var lifecycleSignals: LifecycleSignals { get set }
 
     /// Called on the main actor when the parent `Task` awaiting
     /// ``Coordinator/push(child:)`` is cancelled (e.g. the parent's
@@ -90,12 +109,17 @@ public extension Coordinator {
             continuation.yield(nil)
             continuation.finish()
         }
-        // Capture parentDidCancel as a pre-bound @Sendable closure so
-        // the task-cancellation handler can hop back to the main
+        // Capture the cancel signal as a pre-bound @Sendable closure
+        // so the task-cancellation handler can hop back to the main
         // actor without crossing isolation with a raw `Child`
-        // reference (which is non-Sendable AnyObject).
+        // reference (which is non-Sendable AnyObject). The closure
+        // fires both signals — the legacy `parentDidCancel()` hook
+        // and the 5.0 `lifecycleSignals.onParentCancel` handler —
+        // so adopters can opt for either style.
         let invokeParentDidCancel: @Sendable @MainActor () -> Void = { [weak child] in
-            child?.parentDidCancel()
+            guard let child else { return }
+            child.parentDidCancel()
+            child.lifecycleSignals.fireParentCancel()
         }
         return Task {
             await withTaskCancellationHandler {
