@@ -19,27 +19,32 @@ if ! command -v rg >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "[lint-source-gates] Checking swiftformat in lint mode when available"
-if command -v swiftformat >/dev/null 2>&1; then
-  if [[ -f .swiftformat ]]; then
-    swiftformat Sources Tests Examples ExamplesSmoke --lint
-  else
-    echo "[lint-source-gates] .swiftformat not found; skipping swiftformat check-only gate"
+require_tool() {
+  local tool="$1"
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "[lint-source-gates] Failed: $tool is required but was not found in PATH"
+    exit 1
   fi
-else
-  echo "[lint-source-gates] swiftformat not found; skipping check-only gate"
-fi
+}
 
-echo "[lint-source-gates] Checking swiftlint in lint mode when available"
-if command -v swiftlint >/dev/null 2>&1; then
-  if [[ -f .swiftlint.yml || -f .swiftlint.yaml ]]; then
-    swiftlint lint --strict
-  else
-    echo "[lint-source-gates] .swiftlint.yml not found; skipping swiftlint check-only gate"
+require_file() {
+  local path="$1"
+  local description="$2"
+  if [[ ! -f "$path" ]]; then
+    echo "[lint-source-gates] Failed: $description is required at $path"
+    exit 1
   fi
-else
-  echo "[lint-source-gates] swiftlint not found; skipping check-only gate"
-fi
+}
+
+echo "[lint-source-gates] Checking swiftformat in lint mode"
+require_tool swiftformat
+require_file .swiftformat "swiftformat configuration"
+swiftformat Sources Tests Examples ExamplesSmoke Package.swift --lint
+
+echo "[lint-source-gates] Checking swiftlint in strict mode"
+require_tool swiftlint
+require_file .swiftlint.yml "swiftlint configuration"
+swiftlint lint --strict --config .swiftlint.yml
 
 echo "[lint-source-gates] Checking non-ASCII letters in source comments (Hangul, etc.)"
 # Public-facing comments and docstrings must be English so the

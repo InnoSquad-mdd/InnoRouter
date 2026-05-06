@@ -16,11 +16,11 @@ import InnoRouterEffects
 
 @Suite("DeepLink Tests")
 struct DeepLinkTests {
-    
+
     @Test("DeepLinkParser parses URL correctly")
     func testParser() {
         let parsed = DeepLinkParser.parse("myapp://example.com/products/123?category=electronics")!
-        
+
         #expect(parsed.scheme == "myapp")
         #expect(parsed.host == "example.com")
         #expect(parsed.path == ["products", "123"])
@@ -107,28 +107,28 @@ struct DeepLinkTests {
 
         #expect(result.parameters["id"] == ["a", "b", "c", "d"])
     }
-    
+
     @Test("DeepLinkPattern matches literal path")
     func testPatternLiteral() {
         let pattern = DeepLinkPattern("/home")
-        
+
         let result = pattern.match("/home")
         #expect(result != nil)
         #expect(result?.parameters.isEmpty == true)
-        
+
         let noMatch = pattern.match("/settings")
         #expect(noMatch == nil)
     }
-    
+
     @Test("DeepLinkPattern matches parameter")
     func testPatternParameter() {
         let pattern = DeepLinkPattern("/products/:id")
-        
+
         let result = pattern.match("/products/123")
         #expect(result != nil)
         #expect(result?.parameters["id"] == ["123"])
     }
-    
+
     @Test("DeepLinkPattern matches wildcard")
     func testPatternWildcard() {
         let pattern = DeepLinkPattern("/api/*")
@@ -144,7 +144,7 @@ struct DeepLinkTests {
         #expect(pattern.match("/api/v1/users") == nil)
         #expect(pattern.match("/api/v1/other") == nil)
     }
-    
+
     @Test("DeepLinkMatcher finds matching route")
     func testMatcher() {
         let matcher = DeepLinkMatcher<TestRoute> {
@@ -155,13 +155,13 @@ struct DeepLinkTests {
             }
             DeepLinkMapping("/settings") { _ in .settings }
         }
-        
+
         let url1 = URL(string: "myapp://app/home")!
         #expect(matcher.match(url1) == .home)
-        
+
         let url2 = URL(string: "myapp://app/detail/456")!
         #expect(matcher.match(url2) == .detail(id: "456"))
-        
+
         let url3 = URL(string: "myapp://app/unknown")!
         #expect(matcher.match(url3) == nil)
     }

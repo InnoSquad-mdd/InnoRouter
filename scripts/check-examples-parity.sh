@@ -16,9 +16,10 @@
 #   fails the gate.
 #
 # - `Package.swift` MUST declare a target for every example file
-#   and every solo smoke. Hand-edits to `Examples/` or
-#   `ExamplesSmoke/` that forget the manifest update get caught
-#   here, before they reach `swift build`.
+#   and every solo smoke. `scripts/principle-gates.sh` MUST build
+#   every human-facing example target. Hand-edits to `Examples/` or
+#   `ExamplesSmoke/` that forget the manifest / gate update get
+#   caught here, before they reach release CI.
 #
 # Exits non-zero on any drift; prints every violation it finds
 # (does not stop on the first one) so a single run reports the
@@ -32,6 +33,7 @@ cd "$REPO_ROOT"
 EXAMPLES_DIR="Examples"
 SMOKE_DIR="ExamplesSmoke"
 MANIFEST="Package.swift"
+PRINCIPLE_GATES="scripts/principle-gates.sh"
 
 # Smoke files that intentionally have no Examples/ counterpart.
 # Keep this list short — the default expectation is one-to-one.
@@ -96,13 +98,22 @@ for file in "${smoke_files[@]}"; do
     report "$SMOKE_DIR/$file has no matching $EXAMPLES_DIR/${base}Example.swift (and is not in SMOKE_ONLY_ALLOWLIST)"
 done
 
-# 3) Manifest must reference every example source and every solo smoke.
+# 3) Manifest must reference every example source and every smoke source.
+#    The main gate must also build every human-facing example target.
 manifest_text="$(cat "$MANIFEST")"
+principle_gates_text="$(cat "$PRINCIPLE_GATES")"
 
 for base in "${example_bases[@]}"; do
     src="${base}Example.swift"
+    target="InnoRouter${base}Example"
     if ! grep -q "\"$src\"" <<<"$manifest_text"; then
         report "$MANIFEST does not reference $EXAMPLES_DIR/$src"
+    fi
+    if ! grep -q "name: \"$target\"" <<<"$manifest_text"; then
+        report "$MANIFEST does not declare target $target for $EXAMPLES_DIR/$src"
+    fi
+    if ! grep -Eq -- "--target[[:space:]]+$target([[:space:]]|$)" <<<"$principle_gates_text"; then
+        report "$PRINCIPLE_GATES does not build $target"
     fi
 done
 

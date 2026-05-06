@@ -34,9 +34,9 @@ import SwiftDiagnostics
 /// }
 /// ```
 public struct RoutableMacro: MemberMacro, ExtensionMacro {
-    
+
     // MARK: - Member Macro
-    
+
     public static func expansion(
         of node: AttributeSyntax,
         providingMembersOf declaration: some DeclGroupSyntax,
@@ -50,9 +50,9 @@ public struct RoutableMacro: MemberMacro, ExtensionMacro {
             context: context
         )
     }
-    
+
     // MARK: - Extension Macro
-    
+
     public static func expansion(
         of node: AttributeSyntax,
         attachedTo declaration: some DeclGroupSyntax,

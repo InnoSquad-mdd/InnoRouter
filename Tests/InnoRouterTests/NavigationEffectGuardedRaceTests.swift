@@ -71,7 +71,7 @@ struct NavigationEffectGuardedRaceTests {
         let store = NavigationStore<RaceRoute>()
         let handler = NavigationEffectHandler(navigator: AnyBatchNavigator(store))
 
-        let result = await handler.executeGuarded(.push(.home)) { command in
+        let result = await handler.executeGuarded(.push(.home)) { _ in
             .cancel(.custom("denied"))
         }
 

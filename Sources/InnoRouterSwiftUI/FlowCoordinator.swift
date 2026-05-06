@@ -143,4 +143,3 @@ public struct FlowCoordinatorView<C: FlowCoordinator, Content: View>: View {
         }
     }
 }
-

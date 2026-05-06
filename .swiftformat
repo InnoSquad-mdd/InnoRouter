@@ -1,0 +1,4 @@
+--swiftversion 6.2
+--linebreaks lf
+--indent 4
+--rules blankLinesAtEndOfScope,consecutiveBlankLines,semicolons,trailingSpace

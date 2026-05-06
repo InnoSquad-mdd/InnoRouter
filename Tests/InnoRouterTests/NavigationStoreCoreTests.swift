@@ -59,66 +59,65 @@ struct NavigationStoreTests {
         }
     }
 
-    
     @Test("Push adds route to path")
     @MainActor
     func testPush() {
         let store = NavigationStore<TestRoute>()
-        
+
         _ = store.execute(.push(.home))
         #expect(store.state.path.count == 1)
         #expect(store.state.path.last == .home)
-        
+
         _ = store.execute(.push(.detail(id: "123")))
         #expect(store.state.path.count == 2)
         #expect(store.state.path.last == .detail(id: "123"))
     }
-    
+
     @Test("Pop removes last route")
     @MainActor
     func testPop() throws {
         let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
-        
+
         let result = store.execute(.pop)
         #expect(result == .success)
         #expect(store.state.path.count == 1)
         #expect(store.state.path.last == .home)
     }
-    
+
     @Test("Pop on empty returns emptyStack")
     @MainActor
     func testPopEmpty() {
         let store = NavigationStore<TestRoute>()
-        
+
         let result = store.execute(.pop)
         #expect(result == .emptyStack)
         #expect(store.state.path.isEmpty)
     }
-    
+
     @Test("PopToRoot clears all routes")
     @MainActor
     func testPopToRoot() throws {
         let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
-        
+
         _ = store.execute(.popToRoot)
         #expect(store.state.path.isEmpty)
     }
-    
+
     @Test("Replace replaces entire stack")
     @MainActor
     func testReplace() throws {
         let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123")])
-        
+
         _ = store.execute(.replace([.settings]))
         #expect(store.state.path.count == 1)
         #expect(store.state.path.last == .settings)
     }
-    
+
     @Test("Pop to specific route")
     @MainActor
     func testPopTo() throws {
         let store = try NavigationStore<TestRoute>(initialPath: [.home, .detail(id: "123"), .settings])
-        
+
         let result = store.execute(.popTo(.detail(id: "123")))
         #expect(result == .success)
         #expect(store.state.path.count == 2)
@@ -137,7 +136,7 @@ struct NavigationStoreTests {
         #expect(result == .success)
         #expect(store.state.path == [.home, .detail(id: "123"), .settings, .detail(id: "123")])
     }
-    
+
     @Test("onChange callback is called")
     @MainActor
     func testOnChange() {
@@ -149,11 +148,11 @@ struct NavigationStoreTests {
                 }
             )
         )
-        
+
         _ = store.execute(.push(.home))
         _ = store.execute(.push(.detail(id: "123")))
         _ = store.execute(.pop)
-        
+
         #expect(changeCount == 3)
     }
 }
