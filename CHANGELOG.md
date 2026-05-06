@@ -4,6 +4,95 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## 4.2.0 (unreleased)
+
+4.2.0 is the routing-surface cleanup minor. It is **additive only**
+under the 4.x SemVer contract — every existing call site keeps
+compiling unchanged. The release pulls together a documentation
+foundation pass, a concurrency / macro test scaffolding pass, and
+several additive API additions that fill the most acute gaps in
+the 4.1 surface.
+
+See [`Docs/migration-4.1-to-4.2.md`](Docs/migration-4.1-to-4.2.md)
+for a one-page summary of what to do (or not do) on upgrade.
+
+### Added
+
+- `Docs/CI-gates.md` — single-page reference for every gate run
+  by `scripts/principle-gates.sh`, with purpose, failure signal,
+  and local repro command per gate.
+- `Docs/StoreSelectionGuide.md` — decision tree plus four worked
+  examples (single push stack, push + independent modal, atomic
+  URL → push + modal, iPad split) for new adopters choosing
+  between `NavigationStore`, `ModalStore`, `FlowStore`, and the
+  experimental `SceneStore`.
+- `Examples/README.md` and `ExamplesSmoke/README.md` documenting
+  Examples ↔ ExamplesSmoke parity rules and the macro-free
+  constraint on smoke fixtures.
+- `Tests/InnoRouterPlatformTests/SceneStoreVisionOSTests.swift` —
+  visionOS-only platform suite pinning the spatial scene public
+  envelope (handle accounting, ScenePresentation case shape,
+  open/dismiss lifecycle).
+- `Tests/InnoRouterMacrosBehaviorTests/MacroPerformanceTests.swift`
+  with 10/50/100-case `@Routable` fixtures — runtime CasePath
+  baseline and a coarse 1,000-iteration budget at N=100.
+- `Tests/InnoRouterTests/Concurrency/StoreRaceStressTests.swift`
+  — TaskGroup race stress for path consistency, event fan-out
+  under burst, and multi-subscriber parity on `NavigationStore`.
+- `NavigationExecutionResult<R>` protocol unifying the shared
+  shape of `NavigationBatchResult` and `NavigationTransactionResult`.
+  `NavigationTransactionResult.isSuccess` is added as a thin alias
+  for `isCommitted` to satisfy the protocol's predicate.
+- `NavigationStore.pathBinding(policy:)` overload — per-call
+  override of `NavigationPathMismatchPolicy` for one binding
+  site without flipping the store-wide configuration.
+- `ModalDismissalReason.middlewareCancelled(reasonDescription:)`
+  case so middleware-driven dismissals are no longer bucketed
+  into `.systemDismiss` for analytics.
+- Stable error codes (`InnoRouterMacro.E001` / `E002` / `E003`)
+  prefixed onto every `@Routable` / `@CasePathable` diagnostic
+  message, so build logs and localized release notes stay
+  searchable across translations.
+- `.changes/` directory holding per-PR changelog fragments;
+  contributors drop `<slug>.<category>.md` files instead of
+  editing this file directly.
+
+### Changed
+
+- `FlowStore.isApplyingInternalMutation` is now backed by a depth
+  counter (`mutationDepth: Int`) and surfaced as a computed
+  `Bool`. Reverse-sync guards keep the same shape, but nested
+  invocations no longer silently restore the flag on the inner
+  `defer`. A release-mode `precondition` on counter underflow
+  catches imbalances loudly. No public surface change.
+- `scripts/principle-gates.sh` gains inline section comments
+  documenting each gate's purpose, failure signal, and local
+  repro command.
+- `RELEASING.md` documents the toolchain pin matrix (minimum
+  Xcode, bundled Swift host, package floor, swift-syntax pin,
+  Apple platform floor) in one table.
+- `.swiftlint.yml` enables `file_length` (warning 1800 / error
+  2200) and `type_body_length` (warning 700 / error 900) as
+  catastrophic-regression guardrails. Thresholds sit just above
+  today's largest fixtures so no current file fails;
+  Phase 5-equivalent store splits will tighten the warning level
+  in a future release.
+- `SceneStore`, `SceneHost`, and the rest of the visionOS spatial
+  scene surface (`SceneAnchor`, `ScenePresentation`,
+  `SceneIntent`, `SceneEvent`, `SceneRegistry`,
+  `SceneDeclaration`) are documented as **experimental** —
+  outside the 4.x SemVer additive guarantee. Apps adopting them
+  should pin to an exact 4.x release until the surface
+  graduates. README "Platform support" / "Choosing the right
+  surface" tables carry a `⚠ experimental` marker.
+
+### Internal
+
+- `Package.swift` excludes `Examples/README.md` and
+  `ExamplesSmoke/README.md` from per-file example targets so
+  `-warnings-as-errors` does not surface SwiftPM's "unhandled
+  file" warning on the new contributor docs.
+
 ## 4.1.0 - 2026-05-04
 
 4.1.0 is a breaking pre-adoption cleanup release. It keeps the
