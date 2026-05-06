@@ -32,20 +32,26 @@ on Apple platforms that means **macOS only**. As a result:
 The release checklist in [`RELEASING.md`](../../RELEASING.md) reminds
 maintainers to confirm the macOS runner before tagging.
 
-## Disabled tests
+## Temporarily unexecutable tuple-subscript probes
 
-Some tests in `RoutableBehaviorTests` are temporarily disabled because
-they trip Swift 6.3 SIL-lowering bugs in generated code. Each disabled
-test carries a `// NOTE: …` comment with:
+The current suite does not contain Swift Testing `.disabled` cases.
+Instead, two tuple-valued `[case:]` probes are intentionally left as
+documented gaps because they trip a Swift 6.3 SIL-lowering bug in
+generated generic-subscript code:
 
-- the exact upstream issue (or a description of the trigger pattern),
-- the conditions under which it is safe to re-enable (typically: a
-  Swift compiler fix landing AND a clean local probe on the CI-pinned
-  Xcode toolchain).
+- `RoutableBehaviorTests.embedExtract_roundtrip_multiLabeled` keeps the
+  tuple extraction coverage through direct `CasePath.extract(_:)` calls;
+  the adjacent `// NOTE:` explains why the equivalent
+  `route[case: ShapeRoute.Cases.rectangle]` probe is not executable yet.
+- `CasePathableBehaviorTests.subscriptCaseMatchesOnlyCorrectCase`
+  covers single-value `[case:]` access and keeps the tuple-valued
+  `event[case: UIEvent.Cases.swiped]` probe documented in a `// NOTE:`.
 
-Re-enabling is a focused PR — do not bundle macro re-enables with
-unrelated work, since the Swift toolchain dependency moves
-independently of the package.
+Re-enabling either probe is a focused PR after the Swift compiler fix
+lands and `swift test --filter InnoRouterMacrosBehaviorTests` passes on
+the CI-pinned Xcode toolchain. Do not bundle that re-enable with
+unrelated work, since the Swift toolchain dependency moves independently
+of the package.
 
 ## Running locally
 

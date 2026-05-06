@@ -155,6 +155,10 @@ public struct FlowDeepLinkMatcher<R: Route>: Sendable {
         guard let url = URL(string: urlString) else { return nil }
         return match(url)
     }
+
+    func inputLimitViolation(for url: URL) -> DeepLinkInputLimitViolation? {
+        inputLimits.violation(for: url)
+    }
 }
 
 /// Result-builder companion to ``FlowDeepLinkMatcher`` for DSL-style

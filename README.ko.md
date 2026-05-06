@@ -112,7 +112,7 @@ _ = compileCheckedStack.path
 ## 4.0.0 OSS 릴리즈 계약
 
 `4.0.0`은 InnoRouter의 첫 OSS 릴리즈이며, public SemVer 계약이 적용되는 첫 버전입니다.
-신규 채택자는 `4.0.0` 이상에서 시작해야 합니다. 이전의 비공개/내부 패키지 스냅샷은
+신규 채택자는 `4.1.0` 이상에서 시작해야 합니다. 이전의 비공개/내부 패키지 스냅샷은
 OSS 호환성 라인의 일부가 아닙니다. 이전 버전을 테스트한 팀은 4.x 문서에 맞춰 public API
 사용을 일회성 source migration으로 검증해야 합니다.
 
@@ -874,7 +874,7 @@ DocC는 모듈별로 빌드되어 GitHub Pages에 게시됩니다.
 게시 구조:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/4.0.0/`
+- `/InnoRouter/4.1.0/`
 - `/InnoRouter/` 루트 포털
 
 ### CI
@@ -891,12 +891,12 @@ CI는 다음을 검증합니다:
 
 CD는 bare semver tag에서만 동작합니다:
 
-- `4.0.0`
+- `4.1.0`
 
 유효하지 않은 tag 예:
 
 - 선행 `v`가 있는 모든 tag
-- `release-4.0.0`
+- `release-4.1.0`
 
 릴리즈 워크플로우 책임:
 

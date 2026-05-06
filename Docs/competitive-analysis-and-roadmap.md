@@ -1,6 +1,6 @@
 # Competitive Analysis and Improvement Roadmap
 
-_Last updated: 2026-05-04 · Maintainer snapshot after the documented 4.1.0 historical cleanup exception_
+_Last updated: 2026-05-06 · Maintainer snapshot for 4.1.0 GA readiness after the documented historical cleanup exception_
 
 This document positions InnoRouter against comparable SwiftUI navigation
 libraries and derives a prioritised improvement backlog from the gaps.
@@ -8,7 +8,7 @@ libraries and derives a prioritised improvement backlog from the gaps.
 - Scope: libraries that own SwiftUI stack/modal navigation state at roughly
   the same level of the stack as InnoRouter.
 - Audience: maintainers and release planners. Not a public marketing doc.
-- Source: April 2026 repo inspection + repo/readme scans of each comparable
+- Source: May 2026 repo inspection + repo/readme scans of each comparable
   library.
 
 ## 1. Position statement

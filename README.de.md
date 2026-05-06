@@ -116,7 +116,7 @@ _ = compileCheckedStack.path
 ## 4.0.0 OSS-Release-Vertrag
 
 `4.0.0` ist InnoRouters erstes OSS-Release und die erste Version, die vom
-öffentlichen SemVer-Vertrag abgedeckt wird. Neue Anwender sollten von `4.0.0`
+öffentlichen SemVer-Vertrag abgedeckt wird. Neue Anwender sollten von `4.1.0`
 oder neuer installieren. Frühere private/interne Paket-Snapshots sind nicht
 Teil der OSS-Kompatibilitätslinie; Teams, die sie getestet haben, sollten die
 öffentliche API-Verwendung gegen die 4.x-Dokumente als einmalige Quellcode-Migration
@@ -909,7 +909,7 @@ DocC wird pro Modul gebaut und auf GitHub Pages veröffentlicht.
 Veröffentlichte Struktur:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/4.0.0/`
+- `/InnoRouter/4.1.0/`
 - `/InnoRouter/` Root-Portal
 
 ### CI
@@ -926,12 +926,12 @@ CI validiert:
 
 CD läuft nur auf reinen Semver-Tags:
 
-- `4.0.0`
+- `4.1.0`
 
 Ungültige Tag-Beispiele:
 
 - jedes Tag mit führendem `v`
-- `release-4.0.0`
+- `release-4.1.0`
 
 Verantwortungen des Release-Workflows:
 
