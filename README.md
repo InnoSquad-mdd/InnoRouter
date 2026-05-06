@@ -214,9 +214,9 @@ evaluated only after measuring `swift package show-traits`,
 |---|---|
 | `InnoRouter` | App code that needs stores, hosts, intents, coordinators, deep links, scenes, or persistence helpers. |
 | `InnoRouterMacros` | Only files that use `@Routable` or `@CasePathable`. |
-| `InnoRouterNavigationEffects` | App-boundary code that executes `NavigationCommand` values outside a SwiftUI view. |
-| `InnoRouterDeepLinkEffects` | App-boundary code that handles or resumes pending deep links. |
-| `InnoRouterEffects` | Compatibility import when both effect modules should be re-exported together. |
+| `InnoRouterEffects` | **Recommended.** App-boundary code that executes `NavigationCommand` values, handles or resumes deep links, or both. As of 4.2.0 this is the canonical entry point for effect adapters. |
+| `InnoRouterNavigationEffects` | Source-compatibility split product — navigation-only execution helpers. New code should import `InnoRouterEffects` instead; this product remains available through the 4.x line and is folded into the umbrella in a future major. |
+| `InnoRouterDeepLinkEffects` | Source-compatibility split product — deep-link execution helpers. New code should import `InnoRouterEffects` instead; this product remains available through the 4.x line and is folded into the umbrella in a future major. |
 | `InnoRouterTesting` | Test targets that want host-less `NavigationTestStore`, `ModalTestStore`, or `FlowTestStore`. |
 
 ## Modules
@@ -225,9 +225,9 @@ evaluated only after measuring `swift package show-traits`,
 - `InnoRouterCore`: route stack, validators, commands, results, batch/transaction executors, middleware
 - `InnoRouterSwiftUI`: stores, stack/split/modal hosts, coordinators, environment intent dispatch
 - `InnoRouterDeepLink`: pattern matching, diagnostics, pipeline planning, pending deep links
-- `InnoRouterNavigationEffects`: synchronous `@MainActor` execution helpers for app boundaries
-- `InnoRouterDeepLinkEffects`: deep-link execution helpers layered on navigation effects
-- `InnoRouterEffects`: compatibility umbrella for both effect modules
+- `InnoRouterEffects`: recommended umbrella for app-boundary execution helpers (re-exports both split products)
+- `InnoRouterNavigationEffects`: source-compatibility split product (navigation-only); prefer `InnoRouterEffects` in new code
+- `InnoRouterDeepLinkEffects`: source-compatibility split product (deep-link); prefer `InnoRouterEffects` in new code
 - `InnoRouterMacros`: `@Routable` and `@CasePathable`
 
 ## Choosing the right surface
@@ -249,7 +249,7 @@ Use the smallest surface that owns the transition authority you need:
 | URL to push-only command plan | `DeepLinkMatcher` + `DeepLinkPipeline` |
 | URL to push-prefix plus modal-tail flow | `FlowDeepLinkMatcher` + `FlowDeepLinkPipeline` |
 | visionOS windows, volumes, immersive spaces | `SceneStore` + `SceneHost` / `SceneAnchor` ⚠ experimental |
-| Reducer, effect, or app-boundary execution | `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` |
+| Reducer, effect, or app-boundary execution | `InnoRouterEffects` (split products `InnoRouterNavigationEffects` / `InnoRouterDeepLinkEffects` remain for source compatibility) |
 | Router assertions without SwiftUI hosts | `InnoRouterTesting` |
 
 `NavigationStore`, `FlowStore`, `ModalStore`, `SceneStore`, effects,
