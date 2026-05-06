@@ -28,7 +28,10 @@ public final class ModalStore<M: Route> {
     private let onCommandIntercepted: (@MainActor @Sendable (ModalCommand<M>, ModalExecutionResult<M>) -> Void)?
     private let queueCancellationPolicy: ModalQueueCancellationPolicy<M>
     private let telemetrySink: ModalStoreTelemetrySink<M>
-    private let middlewareRegistry: ModalMiddlewareRegistry<M>
+    // `middlewareRegistry` is `internal` rather than `private`
+    // because middleware management methods live in
+    // `ModalStore+Middleware.swift`.
+    internal let middlewareRegistry: ModalMiddlewareRegistry<M>
     private let broadcaster: EventBroadcaster<ModalEvent<M>>
     private let traceLogger: Logger?
     private var traceRecorder: InternalExecutionTraceRecorder?
@@ -246,41 +249,8 @@ public final class ModalStore<M: Route> {
 
     // MARK: - Public middleware API
 
-    @discardableResult
-    public func addMiddleware(
-        _ middleware: AnyModalMiddleware<M>,
-        debugName: String? = nil
-    ) -> ModalMiddlewareHandle {
-        middlewareRegistry.add(middleware, debugName: debugName)
-    }
-
-    @discardableResult
-    public func insertMiddleware(
-        _ middleware: AnyModalMiddleware<M>,
-        at index: Int,
-        debugName: String? = nil
-    ) -> ModalMiddlewareHandle {
-        middlewareRegistry.insert(middleware, at: index, debugName: debugName)
-    }
-
-    @discardableResult
-    public func removeMiddleware(_ handle: ModalMiddlewareHandle) -> AnyModalMiddleware<M>? {
-        middlewareRegistry.remove(handle)
-    }
-
-    @discardableResult
-    public func replaceMiddleware(
-        _ handle: ModalMiddlewareHandle,
-        with middleware: AnyModalMiddleware<M>,
-        debugName: String? = nil
-    ) -> Bool {
-        middlewareRegistry.replace(handle, with: middleware, debugName: debugName)
-    }
-
-    @discardableResult
-    public func moveMiddleware(_ handle: ModalMiddlewareHandle, to index: Int) -> Bool {
-        middlewareRegistry.move(handle, to: index)
-    }
+    // Note: middleware CRUD (add/insert/remove/replace/move) lives
+    // in `ModalStore+Middleware.swift`.
 
     // MARK: - Public command API
 
@@ -699,50 +669,8 @@ public final class ModalStore<M: Route> {
         )
     }
 
-    /// A binding that reflects the current presentation when it matches the
-    /// given case and presentation style.
-    ///
-    /// Writing a non-nil value presents the embedded route through the regular command
-    /// pipeline with the supplied style, so middleware and telemetry observe the
-    /// presentation. When the active presentation already matches the same case
-    /// and style, the binding replaces it in place rather than queueing a
-    /// duplicate presentation. Writing `nil` dismisses the current presentation
-    /// only when both the case and style match.
-    public func binding<Value>(
-        case casePath: CasePath<M, Value>,
-        style: ModalPresentationStyle = .sheet
-    ) -> Binding<Value?> {
-        Binding(
-            get: { [weak self] in
-                guard let presentation = self?.currentPresentation,
-                      presentation.style == style else { return nil }
-                return casePath.extract(presentation.route)
-            },
-            set: { [weak self] newValue in
-                guard let self else { return }
-                if let value = newValue {
-                    let route = casePath.embed(value)
-                    if let currentPresentation = self.currentPresentation,
-                       currentPresentation.style == style,
-                       casePath.extract(currentPresentation.route) != nil {
-                        let replacement = ModalPresentation(
-                            id: currentPresentation.id,
-                            route: route,
-                            style: style
-                        )
-                        guard replacement != currentPresentation else { return }
-                        _ = self.execute(.replaceCurrent(replacement))
-                    } else {
-                        self.present(route, style: style)
-                    }
-                } else if let currentPresentation = self.currentPresentation,
-                          currentPresentation.style == style,
-                          casePath.extract(currentPresentation.route) != nil {
-                    self.dismissCurrent(reason: .systemDismiss)
-                }
-            }
-        )
-    }
+    // Note: binding(case:style:) lives in
+    // `ModalStore+Binding.swift`.
 
     private func promoteNextPresentationIfNeeded() {
         guard currentPresentation == nil, !queuedPresentations.isEmpty else { return }
