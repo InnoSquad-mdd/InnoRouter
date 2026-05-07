@@ -96,6 +96,10 @@ private func soloSmokeTarget(
     )
 }
 
+private let privacyManifestResources: [Resource] = [
+    .process("PrivacyInfo.xcprivacy"),
+]
+
 let package = Package(
     name: "InnoRouter",
     platforms: [
@@ -173,6 +177,7 @@ let package = Package(
         // MARK: - Core Runtime Target
         .target(
             name: "InnoRouterCore",
+            resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
 
@@ -180,6 +185,7 @@ let package = Package(
         .target(
             name: "InnoRouterDeepLink",
             dependencies: ["InnoRouterCore"],
+            resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
 
@@ -187,6 +193,7 @@ let package = Package(
         .target(
             name: "InnoRouterSwiftUI",
             dependencies: ["InnoRouterCore"],
+            resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
 
@@ -195,6 +202,7 @@ let package = Package(
             name: "InnoRouter",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI", "InnoRouterDeepLink"],
             path: "Sources/InnoRouterUmbrella",
+            resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
 
@@ -205,6 +213,7 @@ let package = Package(
                 "InnoRouterCore",
             ],
             path: "Sources/InnoRouterNavigationEffects",
+            resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
         .target(
@@ -215,6 +224,7 @@ let package = Package(
                 "InnoRouterNavigationEffects",
             ],
             path: "Sources/InnoRouterDeepLinkEffects",
+            resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
         .target(
@@ -224,6 +234,7 @@ let package = Package(
                 "InnoRouterDeepLinkEffects",
             ],
             path: "Sources/InnoRouterEffects",
+            resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
 
@@ -290,6 +301,7 @@ let package = Package(
         .target(
             name: "InnoRouterMacros",
             dependencies: ["InnoRouterCore", "InnoRouterMacrosPlugin"],
+            resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
 
@@ -301,6 +313,7 @@ let package = Package(
         .target(
             name: "InnoRouterTesting",
             dependencies: ["InnoRouterCore", "InnoRouterSwiftUI"],
+            resources: privacyManifestResources,
             swiftSettings: [.swiftLanguageMode(.v6), .treatAllWarnings(as: .error)]
         ),
 
