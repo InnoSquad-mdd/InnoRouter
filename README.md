@@ -94,7 +94,7 @@ current experimental list.
 
 ```swift skip package-manifest-fragment
 dependencies: [
-    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.1.0")
+    .package(url: "https://github.com/InnoSquadCorp/InnoRouter.git", from: "4.2.0")
 ]
 ```
 
@@ -120,7 +120,7 @@ _ = compileCheckedStack.path
 
 `4.0.0` is InnoRouter's first OSS release and the first version
 covered by the public SemVer contract. New adopters should install
-from `4.1.0` or newer. Earlier private/internal package snapshots are
+from `4.2.0` or newer. Earlier private/internal package snapshots are
 not part of the OSS compatibility line; teams that tested them should
 validate public API usage against the 4.x docs as a one-time source
 migration.
@@ -927,7 +927,7 @@ DocC is built per module and published to GitHub Pages.
 Published structure:
 
 - `/InnoRouter/latest/`
-- `/InnoRouter/4.1.0/`
+- `/InnoRouter/4.2.0/`
 - `/InnoRouter/` root portal
 
 ### CI

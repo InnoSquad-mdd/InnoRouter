@@ -4,6 +4,22 @@ All notable changes to InnoRouter are documented here. This project
 follows [Semantic Versioning](https://semver.org/) — release tags
 are bare semver (no leading `v`).
 
+## 4.2.0 - 2026-05-07
+
+4.2.0 is the privacy manifest release. It keeps the 4.x public API
+surface unchanged while making the package's privacy posture explicit
+for Apple platform adopters and App Store privacy checks.
+
+### Added
+
+- `PrivacyInfo.xcprivacy` manifests ship with every public library
+  target (`InnoRouterCore`, `InnoRouterDeepLink`,
+  `InnoRouterSwiftUI`, `InnoRouter`, the effect products,
+  `InnoRouterMacros`, and `InnoRouterTesting`). The manifests declare
+  no tracking, no collected data types, and no required-reason API
+  access because the package does not collect user data or call
+  required-reason APIs directly.
+
 ## 4.1.0 - 2026-05-06
 
 4.1.0 is the consolidated pre-adoption cleanup release. It folds
